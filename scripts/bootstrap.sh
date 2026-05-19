@@ -28,6 +28,9 @@ INSTRUCTIONS=""
 CLAUDE_MD=""
 COPILOT=""
 AGENTS_MD=""
+VSCODE=""
+HOOKS=""
+CLAUDE_SETTINGS=""
 WORKSPACE="$PWD"
 MODE=""
 GRADUATE=0
@@ -47,6 +50,9 @@ for arg in "$@"; do
     --claude=*)          CLAUDE_MD="${arg#*=}" ;;
     --copilot=*)         COPILOT="${arg#*=}" ;;
     --agents=*)          AGENTS_MD="${arg#*=}" ;;
+    --vscode=*)          VSCODE="${arg#*=}" ;;
+    --hooks=*)           HOOKS="${arg#*=}" ;;
+    --claude-settings=*) CLAUDE_SETTINGS="${arg#*=}" ;;
     --workspace=*)       WORKSPACE="${arg#*=}" ;;
     --source=*)          SOURCE="${arg#*=}" ;;
     --mode=*)            MODE="${arg#*=}" ;;
@@ -202,7 +208,7 @@ write_exclude_block() {
   for e in "${MANIFEST_ENTRIES[@]}"; do
     IFS='|' read -r a p s <<< "$e"
     [[ "$s" == "workspace" ]] || continue
-    [[ "$a" == "created" || "$a" == "unchanged_owned" || "$a" == "overwritten" || "$a" == "merged_hooks_key" || "$a" == "sidecar" ]] || continue
+    [[ "$a" == "created" || "$a" == "unchanged_owned" || "$a" == "overwritten" || "$a" == "merged_hooks_key" || "$a" == "merged_settings" || "$a" == "rendered" || "$a" == "sidecar" ]] || continue
     rel="${p#$WORKSPACE/}"
     if is_tracked "$p"; then
       skipped_tracked+=("$rel")
@@ -348,6 +354,9 @@ case "$PRESET" in
     : "${CLAUDE_MD:=user}"
     : "${COPILOT:=workspace}"
     : "${AGENTS_MD:=workspace}"
+    : "${VSCODE:=workspace}"
+    : "${HOOKS:=workspace}"
+    : "${CLAUDE_SETTINGS:=workspace}"
     ;;
   pod|"")
     : "${ASSERT_IQ:=workspace}"
@@ -355,6 +364,9 @@ case "$PRESET" in
     : "${CLAUDE_MD:=workspace}"
     : "${COPILOT:=workspace}"
     : "${AGENTS_MD:=workspace}"
+    : "${VSCODE:=workspace}"
+    : "${HOOKS:=workspace}"
+    : "${CLAUDE_SETTINGS:=workspace}"
     ;;
   *)
     echo "ERROR: unknown --preset value '$PRESET' (expected: solo, pod)" >&2
@@ -473,6 +485,70 @@ copy_tree() {
   done < <(find "$src_dir" -type f -print0)
 }
 
+merge_json_file() {
+  # Deep-merge $src JSON into $dst JSON. Existing $dst keys win on scalar
+  # conflicts (additive, never clobbers user settings). Requires jq.
+  # If $dst is missing, behaves like copy_file.
+  # Args: label src dst scope
+  local label="$1" src="$2" dst="$3" scope="$4"
+  if [[ ! -e "$src" ]]; then
+    record "$label" "missing-source" "$src"
+    return
+  fi
+  if [[ ! -e "$dst" ]]; then
+    mkdir -p "$(dirname "$dst")"
+    cp "$src" "$dst"
+    manifest_add "created" "$dst" "$scope"
+    record "$label" "copied" "$dst"
+    return
+  fi
+  # Identical?
+  local sh_src sh_dst
+  sh_src="$(sha256_of "$src")"
+  sh_dst="$(sha256_of "$dst")"
+  if [[ -n "$sh_src" && "$sh_src" == "$sh_dst" ]]; then
+    manifest_add "unchanged_owned" "$dst" "$scope"
+    record "$label" "unchanged (pack-owned)" "$dst"
+    return
+  fi
+  if ! command -v jq >/dev/null 2>&1; then
+    # No jq: fall back to sidecar (never silently overwrite a user JSON).
+    local side="$dst.assert-iq-new"
+    cp "$src" "$side"
+    manifest_add "sidecar" "$side" "$scope"
+    record "$label" "sidecar (jq missing) -> .assert-iq-new" "$side"
+    return
+  fi
+  # Deep merge: pack first, user second -> user wins on scalar conflicts.
+  local tmp
+  tmp="$(mktemp)"
+  if jq -s '.[0] * .[1]' "$src" "$dst" > "$tmp" 2>/dev/null; then
+    mv "$tmp" "$dst"
+    manifest_add "merged_settings" "$dst" "$scope"
+    record "$label" "merged (additive, yours wins)" "$dst"
+  else
+    rm -f "$tmp"
+    # Invalid JSON on user side — don't risk corruption, write sidecar.
+    local side="$dst.assert-iq-new"
+    cp "$src" "$side"
+    manifest_add "sidecar" "$side" "$scope"
+    record "$label" "sidecar (existing not valid JSON) -> .assert-iq-new" "$side"
+  fi
+}
+
+render_hooks_json() {
+  # Renders hooks/hooks.template.json with __PACK_ROOT__ -> $1 (workspace root).
+  # Echoes path to the rendered temp file. Caller must rm it.
+  local pack_root="$1"
+  local template="$SOURCE/hooks/hooks.template.json"
+  [[ -f "$template" ]] || { echo ""; return; }
+  local tmp
+  tmp="$(mktemp)"
+  # Use '|' delimiter since filesystem paths normally don't contain it.
+  sed "s|__PACK_ROOT__|$pack_root|g" "$template" > "$tmp"
+  echo "$tmp"
+}
+
 # =============================================================================
 # Per-surface handlers
 # =============================================================================
@@ -548,11 +624,130 @@ process_agents() {
   esac
 }
 
+process_vscode() {
+  # .vscode/settings.json wires VS Code Copilot to read instructions, prompts,
+  # and hooks from the workspace. .vscode/mcp.json wires MCP servers.
+  case "$VSCODE" in
+    workspace)
+      merge_json_file ".vscode/settings.json" \
+        "$SOURCE/.vscode/settings.json" \
+        "$WORKSPACE/.vscode/settings.json" \
+        "workspace"
+      # mcp.json: deep-merge if jq available (servers object union, inputs
+      # array gets clobbered — acceptable since most users won't have mcp.json).
+      if [[ -f "$WORKSPACE/.vscode/mcp.json" ]]; then
+        merge_json_file ".vscode/mcp.json" \
+          "$SOURCE/.vscode/mcp.json" \
+          "$WORKSPACE/.vscode/mcp.json" \
+          "workspace"
+      else
+        copy_file ".vscode/mcp.json" \
+          "$SOURCE/.vscode/mcp.json" \
+          "$WORKSPACE/.vscode/mcp.json" \
+          "workspace"
+      fi
+      ;;
+    user)
+      echo "WARN: .vscode/ has no native user-global slot. Skipping." >&2
+      record ".vscode/" "skipped (no user-global slot)" "-"
+      ;;
+    skip) record ".vscode/" "skipped (user choice)" "-" ;;
+    *) echo "ERROR: invalid --vscode value '$VSCODE'" >&2; exit 2 ;;
+  esac
+}
+
+process_hooks() {
+  # hooks/ in the workspace root is what .vscode/settings.json's
+  # chat.hookFilesLocations points at ("./hooks/hooks.json"). Renders
+  # hooks.json with __PACK_ROOT__ = $WORKSPACE so the scripts resolve
+  # to the workspace copies even when CLAUDE_PLUGIN_ROOT is unset.
+  case "$HOOKS" in
+    workspace)
+      if [[ ! -d "$SOURCE/hooks" ]]; then
+        record "hooks/" "missing-source" "$SOURCE/hooks"
+        return
+      fi
+      # Copy scripts/ and lib/ trees verbatim.
+      if [[ -d "$SOURCE/hooks/scripts" ]]; then
+        copy_tree "hooks/scripts" "$SOURCE/hooks/scripts" "$WORKSPACE/hooks/scripts" "workspace"
+      fi
+      if [[ -d "$SOURCE/hooks/lib" ]]; then
+        copy_tree "hooks/lib" "$SOURCE/hooks/lib" "$WORKSPACE/hooks/lib" "workspace"
+      fi
+      if [[ -d "$SOURCE/hooks/config" ]]; then
+        copy_tree "hooks/config" "$SOURCE/hooks/config" "$WORKSPACE/hooks/config" "workspace"
+      fi
+      # Render hooks.json with __PACK_ROOT__ = workspace.
+      local rendered
+      rendered="$(render_hooks_json "$WORKSPACE")"
+      if [[ -z "$rendered" ]]; then
+        record "hooks/hooks.json" "missing-template" "$SOURCE/hooks/hooks.template.json"
+      else
+        copy_file "hooks/hooks.json" "$rendered" "$WORKSPACE/hooks/hooks.json" "workspace"
+        rm -f "$rendered"
+      fi
+      ;;
+    skip) record "hooks/" "skipped (user choice)" "-" ;;
+    *) echo "ERROR: invalid --hooks value '$HOOKS'" >&2; exit 2 ;;
+  esac
+}
+
+process_claude_settings() {
+  # .claude/settings.json — Claude Code reads the hooks block from here.
+  # VS Code Copilot side disables it via chat.hookFilesLocations to avoid
+  # double-fire. Merge only the .hooks key; preserve everything else the
+  # user may have under .claude/settings.json.
+  case "$CLAUDE_SETTINGS" in
+    workspace)
+      local rendered
+      rendered="$(render_hooks_json "$WORKSPACE")"
+      if [[ -z "$rendered" ]]; then
+        record ".claude/settings.json" "missing-template" "$SOURCE/hooks/hooks.template.json"
+        return
+      fi
+      local dst="$WORKSPACE/.claude/settings.json"
+      mkdir -p "$(dirname "$dst")"
+      if [[ ! -f "$dst" ]]; then
+        cp "$rendered" "$dst"
+        manifest_add "created" "$dst" "workspace"
+        record ".claude/settings.json" "copied" "$dst"
+      elif command -v jq >/dev/null 2>&1; then
+        # Replace only the .hooks key, preserve everything else.
+        local tmp
+        tmp="$(mktemp)"
+        if jq -s '.[0] as $existing | .[1] as $new | $existing + {hooks: $new.hooks}' \
+            "$dst" "$rendered" > "$tmp" 2>/dev/null; then
+          mv "$tmp" "$dst"
+          manifest_add "merged_hooks_key" "$dst" "workspace"
+          record ".claude/settings.json" "merged hooks key" "$dst"
+        else
+          rm -f "$tmp"
+          local side="$dst.assert-iq-new"
+          cp "$rendered" "$side"
+          manifest_add "sidecar" "$side" "workspace"
+          record ".claude/settings.json" "sidecar (merge failed)" "$side"
+        fi
+      else
+        local side="$dst.assert-iq-new"
+        cp "$rendered" "$side"
+        manifest_add "sidecar" "$side" "workspace"
+        record ".claude/settings.json" "sidecar (jq missing)" "$side"
+      fi
+      rm -f "$rendered"
+      ;;
+    skip) record ".claude/settings.json" "skipped (user choice)" "-" ;;
+    *) echo "ERROR: invalid --claude-settings value '$CLAUDE_SETTINGS'" >&2; exit 2 ;;
+  esac
+}
+
 process_assert_iq
 process_instructions
 process_claude
 process_copilot
 process_agents
+process_vscode
+process_hooks
+process_claude_settings
 
 # =============================================================================
 # Finalize: manifest + git-exclude wiring (trial mode only)

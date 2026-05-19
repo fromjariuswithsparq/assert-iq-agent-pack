@@ -17,7 +17,7 @@ Then invokes the appropriate script with explicit flags. Cross-platform
 
 ## What it copies
 
-Five workspace-loaded surfaces that the plugin install delivers to disk
+Eight workspace-loaded surfaces that the plugin install delivers to disk
 but does **not** wire into the tool automatically:
 
 | Surface | What it is |
@@ -27,6 +27,9 @@ but does **not** wire into the tool automatically:
 | `CLAUDE.md` | Always-on QI guidance for Claude Code |
 | `.github/copilot-instructions.md` | Always-on QI guidance for Copilot |
 | `AGENTS.md` | Generic agent-spec pointer (Codex, Cursor, Aider) |
+| `.vscode/settings.json` + `.vscode/mcp.json` | Wires VS Code Copilot to read instructions, prompts, and **hooks** from the workspace; declares the GitHub / ADO / Jira MCP servers. **JSON deep-merged** if the user already has these files (additive; user's values win on scalar conflicts). |
+| `hooks/` (`scripts/`, `lib/`, `config/`, rendered `hooks.json`) | The hook scripts `chat.hookFilesLocations` points at. `hooks.json` is rendered with `__PACK_ROOT__` = workspace root so scripts resolve to the workspace copies. |
+| `.claude/settings.json` | Claude Code reads the `hooks` block from here. Bootstrap merges only the `.hooks` key, preserving everything else. The Copilot side disables this file via `chat.hookFilesLocations` to avoid double-fire. |
 
 ## Install modes (trial vs committed)
 
@@ -147,6 +150,9 @@ disk are untouched.
 | `--claude` / `-Claude` | `workspace`, `user`, `skip` | preset default |
 | `--copilot` / `-Copilot` | `workspace`, `user` (→skip+warn), `skip` | preset default |
 | `--agents` / `-Agents` | `workspace`, `user` (→skip+warn), `skip` | preset default |
+| `--vscode` / `-VSCode` | `workspace`, `user` (→skip+warn), `skip` | `workspace` (both presets) |
+| `--hooks` / `-Hooks` | `workspace`, `skip` | `workspace` (both presets) |
+| `--claude-settings` / `-ClaudeSettings` | `workspace`, `skip` | `workspace` (both presets) |
 | `--workspace` / `-Workspace` | path | `$PWD` |
 | `--source` / `-Source` | path | `$CLAUDE_PLUGIN_ROOT` if set, else script's parent dir |
 
@@ -156,6 +162,12 @@ disk are untouched.
   different content from the pack version, the script falls back to an
   interactive resolver: `[k]eep` / `[o]verwrite` / `[s]idecar (writes
   `.assert-iq-new`) / [d]iff / [K/O/S]all / [a]bort`. Non-TTY runs auto-keep.
+- **JSON deep-merge for settings files.** `.vscode/settings.json`,
+  `.vscode/mcp.json` (when pre-existing), and `.claude/settings.json`
+  use additive deep-merge instead of the keep/overwrite resolver. User's
+  scalar values always win; object keys from both sides are preserved.
+  This means a user's existing settings are never clobbered, and `_all`
+  shortcuts don't apply to these files.
 - **SHA256 fast-path.** If destination content matches the pack content
   byte-for-byte, the file is recorded as `unchanged_owned` and no prompt
   appears.

@@ -4,7 +4,7 @@
 > instructions, modes, and tools that turn GitHub Copilot Chat **and**
 > Claude Code into a QI-aware delivery partner inside the IDE.
 
-**Version**: v0.7.0-rc.2
+**Version**: v0.7.0-rc.3
 **Status**: Internal Sparq asset — Intelligence Studio
 **Owner**: QE Competency Council
 **Repo**: <https://github.com/fromjariuswithsparq/assert-iq-agent-pack>
@@ -90,7 +90,7 @@ fromjariuswithsparq/assert-iq-agent-pack
 
 | Tool | Pinning supported? |
 |---|---|
-| **Claude Code** (`/plugin install`) | Yes — append `@v0.7.0-rc.2`. |
+| **Claude Code** (`/plugin install`) | Yes — append `@v0.7.0-rc.3`. |
 | **VS Code Copilot** (`Chat: Install Plugin From Source`) | **Not in the current build.** The installer accepts only `owner/repo` shorthand or a clone URL; appending `@ref` returns `not a valid plugin source`. Copilot installs from the default branch (`main`). |
 
 `main` only ever fast-forwards to a released tag, so installing from
@@ -128,8 +128,9 @@ activates in workspaces where these files exist:
 | `.assert-iq/governance.md` | Compliance posture \u2014 varies by client / regulatory regime. |
 | `.assert-iq/maturity-profile.md` | Tier rationale \u2014 team-specific. |
 | `.github/copilot-instructions.md` + `.github/instructions/qi-*.instructions.md` | Copilot reads these only from the workspace; their `applyTo` globs scope to repo files. |
-| `CLAUDE.md` / `AGENTS.md` | Claude and other agent runners read these from the repo root. |
-
+| `CLAUDE.md` / `AGENTS.md` | Claude and other agent runners read these from the repo root. || `.vscode/settings.json` + `.vscode/mcp.json` | Wires VS Code Copilot to read instructions, prompts, and **hooks** from the workspace; declares optional GitHub / ADO / Jira MCP servers. JSON deep-merged into any pre-existing settings (additive; your values win on conflicts). |
+| `hooks/` (`scripts/`, `lib/`, `config/`, `hooks.json`) | The hook scripts that fire on `SessionStart` / `PostToolUse` / `Stop`. `hooks.json` is rendered at bootstrap time so the script paths resolve to the workspace copies. |
+| `.claude/settings.json` | Claude Code reads the `hooks` block from here. Bootstrap merges only the `hooks` key, preserving any other settings you have. |
 Recommended adoption path:
 
 1. **Trial mode** — install user-global *or* run `/assert-iq-bootstrap`
@@ -190,7 +191,7 @@ git commit -m "chore: adopt Assert.IQ agent pack"
    ```
 
    > Common mistakes: pasting the full HTTPS URL returns *Repository not
-   > found*; appending `@v0.7.0-rc.2` returns *not a valid plugin source*.
+   > found*; appending `@v0.7.0-rc.3` returns *not a valid plugin source*.
    > The current Copilot build only accepts the bare shorthand and
    > installs from the repo's default branch.
 
@@ -228,10 +229,10 @@ git commit -m "chore: adopt Assert.IQ agent pack"
    supports pinning to a tag with the `@ref` suffix:
 
    ```
-   /plugin install fromjariuswithsparq/assert-iq-agent-pack@v0.7.0-rc.2
+   /plugin install fromjariuswithsparq/assert-iq-agent-pack@v0.7.0-rc.3
    ```
 
-   Drop the `@v0.7.0-rc.2` suffix to install from the default branch.
+   Drop the `@v0.7.0-rc.3` suffix to install from the default branch.
 
 2. After install, bootstrap the workspace the same way as Copilot —
    either talk to `@assert-iq` and let it auto-route, or run:
@@ -261,7 +262,7 @@ restricted org policy, or you want the files vendored into your own
 repo — clone the tag directly and copy the contents:
 
 ```bash
-git clone --depth 1 --branch v0.7.0-rc.2 \
+git clone --depth 1 --branch v0.7.0-rc.3 \
   https://github.com/fromjariuswithsparq/assert-iq-agent-pack.git
 cd assert-iq-agent-pack
 bash install.sh        # macOS / Linux

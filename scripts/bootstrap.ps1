@@ -38,6 +38,15 @@ param(
     [ValidateSet('workspace', 'user', 'skip', '')]
     [string]$Agents = '',
 
+    [ValidateSet('workspace', 'user', 'skip', '')]
+    [string]$VSCode = '',
+
+    [ValidateSet('workspace', 'skip', '')]
+    [string]$Hooks = '',
+
+    [ValidateSet('workspace', 'skip', '')]
+    [string]$ClaudeSettings = '',
+
     [string]$Workspace = (Get-Location).Path,
 
     [string]$Source = '',
@@ -191,7 +200,7 @@ function Write-ExcludeBlock {
     $skippedTracked = New-Object System.Collections.Generic.List[string]
     foreach ($e in $script:ManifestEntries) {
         if ($e.scope -ne 'workspace') { continue }
-        if (@('created','unchanged_owned','overwritten','merged_hooks_key','sidecar') -notcontains $e.action) { continue }
+        if (@('created','unchanged_owned','overwritten','merged_hooks_key','merged_settings','rendered','sidecar') -notcontains $e.action) { continue }
         $rel = $e.path
         if ($e.path.StartsWith($Workspace)) {
             $rel = $e.path.Substring($Workspace.Length).TrimStart('\','/')
@@ -340,19 +349,25 @@ Resolve-Mode
 
 switch ($Preset) {
     'solo' {
-        if (-not $AssertIq)     { $AssertIq     = 'workspace' }
-        if (-not $Instructions) { $Instructions = 'user' }
-        if (-not $Claude)       { $Claude       = 'user' }
-        if (-not $Copilot)      { $Copilot      = 'workspace' }
-        if (-not $Agents)       { $Agents       = 'workspace' }
+        if (-not $AssertIq)        { $AssertIq        = 'workspace' }
+        if (-not $Instructions)    { $Instructions    = 'user' }
+        if (-not $Claude)          { $Claude          = 'user' }
+        if (-not $Copilot)         { $Copilot         = 'workspace' }
+        if (-not $Agents)          { $Agents          = 'workspace' }
+        if (-not $VSCode)          { $VSCode          = 'workspace' }
+        if (-not $Hooks)           { $Hooks           = 'workspace' }
+        if (-not $ClaudeSettings)  { $ClaudeSettings  = 'workspace' }
     }
     default {
         # pod (and unset)
-        if (-not $AssertIq)     { $AssertIq     = 'workspace' }
-        if (-not $Instructions) { $Instructions = 'workspace' }
-        if (-not $Claude)       { $Claude       = 'workspace' }
-        if (-not $Copilot)      { $Copilot      = 'workspace' }
-        if (-not $Agents)       { $Agents       = 'workspace' }
+        if (-not $AssertIq)        { $AssertIq        = 'workspace' }
+        if (-not $Instructions)    { $Instructions    = 'workspace' }
+        if (-not $Claude)          { $Claude          = 'workspace' }
+        if (-not $Copilot)         { $Copilot         = 'workspace' }
+        if (-not $Agents)          { $Agents          = 'workspace' }
+        if (-not $VSCode)          { $VSCode          = 'workspace' }
+        if (-not $Hooks)           { $Hooks           = 'workspace' }
+        if (-not $ClaudeSettings)  { $ClaudeSettings  = 'workspace' }
     }
 }
 
@@ -466,6 +481,82 @@ function Copy-TreeScoped {
     }
 }
 
+function Merge-Hashtables {
+    param($Pack, $User)
+    # Deep merge two PSCustomObjects/hashtables. User wins on scalar conflicts.
+    # Object keys present on both sides recurse. Arrays: user wins (whole-array).
+    if ($null -eq $User) { return $Pack }
+    if ($null -eq $Pack) { return $User }
+    # Coerce both to ordered hashtables for predictable merge.
+    $userIsObj = ($User -is [pscustomobject]) -or ($User -is [hashtable])
+    $packIsObj = ($Pack -is [pscustomobject]) -or ($Pack -is [hashtable])
+    if (-not ($userIsObj -and $packIsObj)) {
+        # Scalar or array conflict — user wins.
+        return $User
+    }
+    $result = [ordered]@{}
+    # Start with all pack keys.
+    foreach ($prop in $Pack.PSObject.Properties) {
+        $result[$prop.Name] = $prop.Value
+    }
+    # Layer user keys on top (recursing on objects).
+    foreach ($prop in $User.PSObject.Properties) {
+        if ($result.Contains($prop.Name)) {
+            $result[$prop.Name] = Merge-Hashtables -Pack $result[$prop.Name] -User $prop.Value
+        } else {
+            $result[$prop.Name] = $prop.Value
+        }
+    }
+    return [pscustomobject]$result
+}
+
+function Merge-JsonFile {
+    param([string]$Label, [string]$Src, [string]$Dst, [string]$Scope)
+
+    if (-not (Test-Path -LiteralPath $Src)) {
+        Record $Label 'missing-source' $Src
+        return
+    }
+    if (-not (Test-Path -LiteralPath $Dst)) {
+        Copy-FileScoped -Label $Label -Src $Src -Dst $Dst -Scope $Scope
+        return
+    }
+    $shSrc = Get-Sha256 $Src
+    $shDst = Get-Sha256 $Dst
+    if ($shSrc -and ($shSrc -eq $shDst)) {
+        Manifest-Add 'unchanged_owned' $Dst $Scope
+        Record $Label 'unchanged (pack-owned)' $Dst
+        return
+    }
+    try {
+        $packJson = Get-Content -LiteralPath $Src -Raw | ConvertFrom-Json
+        $userJson = Get-Content -LiteralPath $Dst -Raw | ConvertFrom-Json
+        $merged   = Merge-Hashtables -Pack $packJson -User $userJson
+        $merged | ConvertTo-Json -Depth 32 | Set-Content -LiteralPath $Dst -Encoding UTF8
+        Manifest-Add 'merged_settings' $Dst $Scope
+        Record $Label 'merged (additive, yours wins)' $Dst
+    } catch {
+        # Parse or write failed — sidecar.
+        $side = "$Dst.assert-iq-new"
+        Copy-Item -LiteralPath $Src -Destination $side -Force
+        Manifest-Add 'sidecar' $side $Scope
+        Record $Label 'sidecar (merge failed) -> .assert-iq-new' $side
+    }
+}
+
+function Render-HooksJson {
+    param([string]$PackRoot)
+    $template = Join-Path $Source 'hooks\hooks.template.json'
+    if (-not (Test-Path -LiteralPath $template)) { return '' }
+    $tmp = [System.IO.Path]::GetTempFileName()
+    # __PACK_ROOT__ in the template is used both as a POSIX path (bash side)
+    # and a Windows path (PowerShell side, single-quoted). Substitute both.
+    $content = Get-Content -LiteralPath $template -Raw
+    $content = $content.Replace('__PACK_ROOT__', $PackRoot)
+    Set-Content -LiteralPath $tmp -Value $content -Encoding UTF8 -NoNewline
+    return $tmp
+}
+
 # =============================================================================
 # Per-surface handlers
 # =============================================================================
@@ -540,11 +631,122 @@ function Process-Agents {
     }
 }
 
+function Process-VSCode {
+    # Wires VS Code Copilot to read instructions/prompts/hooks from the workspace.
+    switch ($VSCode) {
+        'workspace' {
+            Merge-JsonFile '.vscode/settings.json' `
+                (Join-Path $Source '.vscode\settings.json') `
+                (Join-Path $Workspace '.vscode\settings.json') `
+                'workspace'
+            $mcpSrc = Join-Path $Source '.vscode\mcp.json'
+            $mcpDst = Join-Path $Workspace '.vscode\mcp.json'
+            if (Test-Path -LiteralPath $mcpDst) {
+                Merge-JsonFile '.vscode/mcp.json' $mcpSrc $mcpDst 'workspace'
+            } else {
+                Copy-FileScoped '.vscode/mcp.json' $mcpSrc $mcpDst 'workspace'
+            }
+        }
+        'user' {
+            Write-Warning '.vscode/ has no native user-global slot. Skipping.'
+            Record '.vscode/' 'skipped (no user-global slot)' '-'
+        }
+        'skip' { Record '.vscode/' 'skipped (user choice)' '-' }
+        default { throw "Invalid -VSCode: '$VSCode'" }
+    }
+}
+
+function Process-Hooks {
+    # Workspace-root hooks/ is what .vscode/settings.json's chat.hookFilesLocations
+    # points at ("./hooks/hooks.json"). Renders hooks.json with __PACK_ROOT__ =
+    # $Workspace so scripts resolve to the workspace copies.
+    switch ($Hooks) {
+        'workspace' {
+            $hooksSrcDir = Join-Path $Source 'hooks'
+            if (-not (Test-Path -LiteralPath $hooksSrcDir -PathType Container)) {
+                Record 'hooks/' 'missing-source' $hooksSrcDir
+                return
+            }
+            $scriptsSrc = Join-Path $hooksSrcDir 'scripts'
+            if (Test-Path -LiteralPath $scriptsSrc) {
+                Copy-TreeScoped 'hooks/scripts' $scriptsSrc (Join-Path $Workspace 'hooks\scripts') 'workspace'
+            }
+            $libSrc = Join-Path $hooksSrcDir 'lib'
+            if (Test-Path -LiteralPath $libSrc) {
+                Copy-TreeScoped 'hooks/lib' $libSrc (Join-Path $Workspace 'hooks\lib') 'workspace'
+            }
+            $cfgSrc = Join-Path $hooksSrcDir 'config'
+            if (Test-Path -LiteralPath $cfgSrc) {
+                Copy-TreeScoped 'hooks/config' $cfgSrc (Join-Path $Workspace 'hooks\config') 'workspace'
+            }
+            $rendered = Render-HooksJson -PackRoot $Workspace
+            if (-not $rendered) {
+                Record 'hooks/hooks.json' 'missing-template' (Join-Path $hooksSrcDir 'hooks.template.json')
+            } else {
+                Copy-FileScoped 'hooks/hooks.json' $rendered (Join-Path $Workspace 'hooks\hooks.json') 'workspace'
+                Remove-Item -LiteralPath $rendered -Force -ErrorAction SilentlyContinue
+            }
+        }
+        'skip' { Record 'hooks/' 'skipped (user choice)' '-' }
+        default { throw "Invalid -Hooks: '$Hooks'" }
+    }
+}
+
+function Process-ClaudeSettings {
+    # Merge only the .hooks key into .claude/settings.json; preserve everything
+    # else. Copilot side disables this file via chat.hookFilesLocations to
+    # avoid double-fire.
+    switch ($ClaudeSettings) {
+        'workspace' {
+            $rendered = Render-HooksJson -PackRoot $Workspace
+            if (-not $rendered) {
+                Record '.claude/settings.json' 'missing-template' (Join-Path $Source 'hooks\hooks.template.json')
+                return
+            }
+            $dst = Join-Path $Workspace '.claude\settings.json'
+            $parent = Split-Path -Parent $dst
+            if (-not (Test-Path -LiteralPath $parent)) {
+                New-Item -ItemType Directory -Force -Path $parent | Out-Null
+            }
+            if (-not (Test-Path -LiteralPath $dst)) {
+                Copy-Item -LiteralPath $rendered -Destination $dst -Force
+                Manifest-Add 'created' $dst 'workspace'
+                Record '.claude/settings.json' 'copied' $dst
+            } else {
+                try {
+                    $existing = Get-Content -LiteralPath $dst -Raw | ConvertFrom-Json
+                    $new      = Get-Content -LiteralPath $rendered -Raw | ConvertFrom-Json
+                    # Replace only the .hooks key.
+                    $out = [ordered]@{}
+                    foreach ($prop in $existing.PSObject.Properties) {
+                        if ($prop.Name -ne 'hooks') { $out[$prop.Name] = $prop.Value }
+                    }
+                    $out['hooks'] = $new.hooks
+                    [pscustomobject]$out | ConvertTo-Json -Depth 32 | Set-Content -LiteralPath $dst -Encoding UTF8
+                    Manifest-Add 'merged_hooks_key' $dst 'workspace'
+                    Record '.claude/settings.json' 'merged hooks key' $dst
+                } catch {
+                    $side = "$dst.assert-iq-new"
+                    Copy-Item -LiteralPath $rendered -Destination $side -Force
+                    Manifest-Add 'sidecar' $side 'workspace'
+                    Record '.claude/settings.json' 'sidecar (merge failed)' $side
+                }
+            }
+            Remove-Item -LiteralPath $rendered -Force -ErrorAction SilentlyContinue
+        }
+        'skip' { Record '.claude/settings.json' 'skipped (user choice)' '-' }
+        default { throw "Invalid -ClaudeSettings: '$ClaudeSettings'" }
+    }
+}
+
 Process-AssertIq
 Process-Instructions
 Process-Claude
 Process-Copilot
 Process-Agents
+Process-VSCode
+Process-Hooks
+Process-ClaudeSettings
 
 # =============================================================================
 # Finalize: manifest + git-exclude wiring (trial mode only)
