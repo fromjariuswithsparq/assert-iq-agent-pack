@@ -1,0 +1,3 @@
+{"role":"assistant","content":"Suggested follow-up for /tmp/hindsight-smoke/roots-p6/A.instructions.md: the tail -120 pipeline silently discards stack traces."}
+{"role":"assistant","content":"Consider --logger trx in /tmp/hindsight-smoke/roots-p6/A.instructions.md instead."}
+{"role":"assistant","content":"Worth flagging this as a latent flaw in /tmp/hindsight-smoke/roots-p6/A.instructions.md."}

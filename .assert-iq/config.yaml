@@ -1,0 +1,90 @@
+# Assert.IQ Copilot Agent Pack — client configuration
+# Customize these values per client engagement.
+
+client:
+  name: "ClientName"
+  account_id: "ACME-001"
+  embedded_team: "Sparq QE Pod 3"
+
+maturity:
+  tier: "mid"           # early | mid | higher
+  rationale: "Stable QA, weak signal integration, no predictive risk."
+
+tracker:
+  type: "ado"           # ado | jira
+  ado:
+    organization: "https://dev.azure.com/clientname"
+    project: "Platform"
+    work_item_query_id: ""
+  jira:
+    base_url: "https://clientname.atlassian.net"
+    project_key: "PLAT"
+    jql_default: "project = PLAT AND status != Done"
+
+vcs:
+  type: "github"        # github | ado-repos | gitlab | bitbucket
+  default_branch: "main"
+
+test_framework:
+  primary: "playwright"   # playwright | cypress | selenium | restassured | pytest | junit | nunit | xunit | jest | vitest | mocha
+  language: "typescript"  # typescript | javascript | java | csharp | python | kotlin | go
+  test_command: "npm test"
+  coverage_command: "npm run coverage"
+
+manual_test_management:
+  tool: "markdown"      # ado_test_plans | xray | testrail | zephyr | markdown
+  ado_test_plans:
+    test_plan_id: ""
+    test_suite_id: ""
+  xray:
+    project_key: ""
+    import_endpoint: ""
+  testrail:
+    project_id: ""
+    suite_id: ""
+  zephyr:
+    project_key: ""
+  output_path: "./tests/_qi/manual/"
+  charter_path: "./tests/_qi/exploratory/"
+
+routing:
+  automation_threshold: "deterministic"   # how strict the router is on automation eligibility
+  exploratory_trigger_escapes_30d: 1      # any escape on touched component triggers a charter
+  early_maturity_manual_fallback: true    # produces manual fallback even when AC routes to auto
+
+agentic_healing:
+  enabled: true              # ignored if maturity = early
+  retry_bound: 3
+  allowed_scope: "test-only" # test-only | test-plus-fixtures
+  escalate_on_regression: true
+
+flake_analysis:
+  history_days: 30
+  min_runs_for_pattern: 10
+
+bug_reporter:
+  auto_create_threshold: "low"    # low (auto), medium+ (confirm), critical (never auto)
+  search_for_duplicates: true
+
+signals:
+  emit_on_ci: true
+  sink:
+    type: "file"             # file | webhook | telemetry
+    path: "./.assert-iq/runs/"
+    webhook_url: ""
+  schema_path: "./.assert-iq/signal-schema.json"
+
+governance:
+  human_review_required: true
+  block_production_endpoints: true
+  mask_secrets: true
+  escalation_owner: "qe-lead@client.example.com"
+
+mcp:
+  servers:
+    - name: "github"
+      enabled: true
+    - name: "azure-devops"
+      enabled: true        # set false if using Jira
+    - name: "atlassian"
+      enabled: false       # set true if using Jira

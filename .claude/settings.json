@@ -1,0 +1,64 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "bash --noprofile --norc -c 'chmod +x \"$HOME/.agents/hooks/scripts/skill-improve-session-start.sh\" && \"$HOME/.agents/hooks/scripts/skill-improve-session-start.sh\"'",
+        "osx": "bash --noprofile --norc -c 'chmod +x \"$HOME/.agents/hooks/scripts/skill-improve-session-start.sh\" && \"$HOME/.agents/hooks/scripts/skill-improve-session-start.sh\"'",
+        "linux": "bash --noprofile --norc -c 'chmod +x \"$HOME/.agents/hooks/scripts/skill-improve-session-start.sh\" && \"$HOME/.agents/hooks/scripts/skill-improve-session-start.sh\"'",
+        "windows": "powershell -NoProfile -ExecutionPolicy Bypass -File \"%USERPROFILE%\\.agents\\hooks\\scripts\\skill-improve-session-start.ps1\""
+      }
+    ],
+    "PostToolUse": [
+      {
+        "type": "command",
+        "command": "bash --noprofile --norc -c 'cd \"$HOME/.agents/hooks\" && chmod +x ./scripts/track-telemetry.sh && ./scripts/track-telemetry.sh'",
+        "windows": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& { Set-Location (Join-Path $env:USERPROFILE '.agents\\hooks'); & '.\\scripts\\track-telemetry.ps1' }\"",
+        "linux": "bash --noprofile --norc -c 'cd \"$HOME/.agents/hooks\" && chmod +x ./scripts/track-telemetry.sh && ./scripts/track-telemetry.sh'",
+        "osx": "bash --noprofile --norc -c 'cd \"$HOME/.agents/hooks\" && chmod +x ./scripts/track-telemetry.sh && ./scripts/track-telemetry.sh'"
+      },
+      {
+        "type": "command",
+        "command": "bash --noprofile --norc -c 'chmod +x \"$HOME/.agents/hooks/scripts/mda-dotnet-format.sh\" && \"$HOME/.agents/hooks/scripts/mda-dotnet-format.sh\"'",
+        "osx": "bash --noprofile --norc -c 'chmod +x \"$HOME/.agents/hooks/scripts/mda-dotnet-format.sh\" && \"$HOME/.agents/hooks/scripts/mda-dotnet-format.sh\"'",
+        "linux": "bash --noprofile --norc -c 'chmod +x \"$HOME/.agents/hooks/scripts/mda-dotnet-format.sh\" && \"$HOME/.agents/hooks/scripts/mda-dotnet-format.sh\"'",
+        "windows": "powershell -NoProfile -ExecutionPolicy Bypass -File \"%USERPROFILE%\\.agents\\hooks\\scripts\\mda-dotnet-format.ps1\""
+      },
+      {
+        "type": "command",
+        "command": "bash --noprofile --norc -c 'chmod +x \"$HOME/.agents/hooks/scripts/mda-affected-tests.sh\" && \"$HOME/.agents/hooks/scripts/mda-affected-tests.sh\"'",
+        "osx": "bash --noprofile --norc -c 'chmod +x \"$HOME/.agents/hooks/scripts/mda-affected-tests.sh\" && \"$HOME/.agents/hooks/scripts/mda-affected-tests.sh\"'",
+        "linux": "bash --noprofile --norc -c 'chmod +x \"$HOME/.agents/hooks/scripts/mda-affected-tests.sh\" && \"$HOME/.agents/hooks/scripts/mda-affected-tests.sh\"'",
+        "windows": "powershell -NoProfile -ExecutionPolicy Bypass -File \"%USERPROFILE%\\.agents\\hooks\\scripts\\mda-affected-tests.ps1\""
+      },
+      {
+        "type": "command",
+        "command": "bash --noprofile --norc -c 'chmod +x \"$HOME/.agents/hooks/scripts/mda-automationid-lint.sh\" && \"$HOME/.agents/hooks/scripts/mda-automationid-lint.sh\"'",
+        "osx": "bash --noprofile --norc -c 'chmod +x \"$HOME/.agents/hooks/scripts/mda-automationid-lint.sh\" && \"$HOME/.agents/hooks/scripts/mda-automationid-lint.sh\"'",
+        "linux": "bash --noprofile --norc -c 'chmod +x \"$HOME/.agents/hooks/scripts/mda-automationid-lint.sh\" && \"$HOME/.agents/hooks/scripts/mda-automationid-lint.sh\"'",
+        "windows": "powershell -NoProfile -ExecutionPolicy Bypass -File \"%USERPROFILE%\\.agents\\hooks\\scripts\\mda-automationid-lint.ps1\""
+      },
+      {
+        "type": "command",
+        "command": "bash --noprofile --norc -c 'chmod +x \"$HOME/.agents/hooks/scripts/skill-improve-detect.sh\" && \"$HOME/.agents/hooks/scripts/skill-improve-detect.sh\"'",
+        "osx": "bash --noprofile --norc -c 'chmod +x \"$HOME/.agents/hooks/scripts/skill-improve-detect.sh\" && \"$HOME/.agents/hooks/scripts/skill-improve-detect.sh\"'",
+        "linux": "bash --noprofile --norc -c 'chmod +x \"$HOME/.agents/hooks/scripts/skill-improve-detect.sh\" && \"$HOME/.agents/hooks/scripts/skill-improve-detect.sh\"'",
+        "windows": "powershell -NoProfile -ExecutionPolicy Bypass -File \"%USERPROFILE%\\.agents\\hooks\\scripts\\skill-improve-detect.ps1\""
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "bash --noprofile --norc -c 'chmod +x \"$HOME/.agents/hooks/scripts/skill-improve-session-end.sh\" && \"$HOME/.agents/hooks/scripts/skill-improve-session-end.sh\"'",
+        "osx": "bash --noprofile --norc -c 'chmod +x \"$HOME/.agents/hooks/scripts/skill-improve-session-end.sh\" && \"$HOME/.agents/hooks/scripts/skill-improve-session-end.sh\"'",
+        "linux": "bash --noprofile --norc -c 'chmod +x \"$HOME/.agents/hooks/scripts/skill-improve-session-end.sh\" && \"$HOME/.agents/hooks/scripts/skill-improve-session-end.sh\"'",
+        "windows": "powershell -NoProfile -ExecutionPolicy Bypass -File \"%USERPROFILE%\\.agents\\hooks\\scripts\\skill-improve-session-end.ps1\""
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)"
+    ]
+  }
+}

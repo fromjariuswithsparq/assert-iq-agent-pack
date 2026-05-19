@@ -1,0 +1,101 @@
+{
+  "enabled": true,
+  "_comment": "Hindsight Hooks config (Retrospective Refinement of skills, instructions, prompts, and agents). Disable globally by setting enabled=false. Disable per-session by setting env SKILL_IMPROVE_DISABLED=1.",
+  "customization_roots": [
+    "~/.agents/skills",
+    "~/MDA/.github/skills",
+    "~/MDA/.github/instructions",
+    "~/MDAMockService/.github",
+    "~/Library/Application Support/Code/User/prompts"
+  ],
+  "customization_file_patterns": [
+    "SKILL.md",
+    "*.instructions.md",
+    "*.prompt.md",
+    "copilot-instructions.md",
+    "AGENTS.md"
+  ],
+  "correction_signatures": {
+    "_comment": "Weighted regex patterns scanned over assistant text. Each hit contributes its weight to the session score; trigger.min_score gates whether the agent task block is injected. Set SKILL_IMPROVE_TRIGGER_ANY=1 to bypass scoring (any hit fires).",
+    "assistant_text_regex": [
+      { "pattern": "\\bi was wrong\\b",                                        "weight": "strong" },
+      { "pattern": "\\bmy mistake\\b",                                         "weight": "strong" },
+      { "pattern": "\\bcorrection:?\\b",                                       "weight": "strong" },
+      { "pattern": "\\bscratch that\\b",                                       "weight": "strong" },
+      { "pattern": "\\b(strike that|i take that back|disregard that)\\b",      "weight": "strong" },
+      { "pattern": "\\bapologi[sz]e\\b",                                       "weight": "strong" },
+      { "pattern": "\\bi (missed|overlooked)\\b",                              "weight": "strong" },
+      { "pattern": "\\boversight\\b",                                          "weight": "strong" },
+      { "pattern": "\\bi (should have|shouldn't have)\\b",                     "weight": "strong" },
+      { "pattern": "\\bthat's not (right|correct)\\b",                         "weight": "strong" },
+      { "pattern": "\\bactually,?\\b",                                         "weight": "weak"   },
+      { "pattern": "\\bturns out\\b",                                          "weight": "weak"   },
+      { "pattern": "\\bon closer (look|inspection)\\b",                        "weight": "weak"   },
+      { "pattern": "\\blet me (re-?check|re-?read|re-?examine|re-?investigate)\\b", "weight": "weak" },
+      { "pattern": "\\bnever mind\\b",                                         "weight": "weak"   },
+      { "pattern": "\\bsecond thought\\b",                                     "weight": "weak"   },
+      { "pattern": "\\b(wait,?\\s+(no|that's not|but actually)|oh,?\\s+wait)\\b", "weight": "weak" },
+      { "pattern": "\\bhold on\\b",                                            "weight": "weak"   },
+      { "pattern": "\\binstead,?\\s+(i'll|i should|let me)\\b",                "weight": "weak"   },
+      { "pattern": "\\bthat (won't|doesn't|didn't) work\\b",                   "weight": "weak"   }
+    ],
+    "trigger": {
+      "_comment": "Score = sum(weights[hit.weight]). Fires when score >= min_score. Default: one strong hit (2), one behavioral hit (2), or two weak hits (1+1) trigger.",
+      "min_score": 2,
+      "weights": { "strong": 2, "weak": 1, "behavioral": 2 }
+    },
+    "tool_patterns": {
+      "_comment": "Behavioral signals (downgraded relative to text). reread_window_turns: same file re-read within N turns after a different op. self_edit_window_turns: str_replace on agent's own recent output within N turns.",
+      "reread_window_turns": 3,
+      "self_edit_window_turns": 2
+    }
+  },
+  "proactive_insights": {
+    "_comment": "Unsolicited observations the model makes about latent flaws in the user's workflow/code — caught separately from self-corrections because there's no self-error trail. require_file_reference=true only counts hits that co-occur with a path-like token in the same assistant turn. Disable per-shell with SKILL_IMPROVE_INSIGHTS_DISABLED=1.",
+    "enabled": true,
+    "require_file_reference": true,
+    "max_per_session": 3,
+    "proactive_insight_regex": [
+      { "pattern": "\\bconsider\\b",                                           "weight": "strong" },
+      { "pattern": "\\bwould be (safer|better|cleaner|wiser)\\b",              "weight": "strong" },
+      { "pattern": "\\bsuggest(ed|ion)?\\b",                                   "weight": "strong" },
+      { "pattern": "\\bsilently (discard|swallow|drop|ignore)\\b",             "weight": "strong" },
+      { "pattern": "\\brisk that\\b",                                          "weight": "strong" },
+      { "pattern": "\\bcould lose\\b",                                         "weight": "strong" },
+      { "pattern": "\\bworth (noting|flagging|considering)\\b",                "weight": "strong" },
+      { "pattern": "\\bgotcha\\b",                                             "weight": "strong" },
+      { "pattern": "\\b(potential|latent) (flaw|bug|issue|pitfall)\\b",        "weight": "strong" },
+      { "pattern": "\\b(might|may) want to\\b",                                "weight": "weak"   },
+      { "pattern": "\\bfor what it's worth\\b",                                "weight": "weak"   },
+      { "pattern": "\\bone thing to (note|watch|flag)\\b",                     "weight": "weak"   },
+      { "pattern": "\\bheads up\\b",                                           "weight": "weak"   },
+      { "pattern": "\\bfwiw\\b",                                               "weight": "weak"   }
+    ],
+    "trigger": {
+      "_comment": "Higher default than corrections because these phrases are common in normal model speech. min_score=3 means one strong hit alone is NOT enough — needs strong+weak or two strong.",
+      "min_score": 3,
+      "weights": { "strong": 2, "weak": 1 }
+    }
+  },
+  "thresholds": {
+    "diff_max_lines": 10,
+    "min_confidence": "low",
+    "hot_skill_window_days": 7,
+    "hot_skill_edit_limit": 3
+  },
+  "behavior": {
+    "edit_scope": "direct",
+    "_edit_scope_options": "direct | stage | branch-commit",
+    "_silent_on_zero_corrections_note": "true = stay silent on clean sessions (recommended). false = emit a 'no corrections detected' system message every clean session (useful for debugging the hook itself).",
+    "silent_on_zero_corrections": false,
+    "provenance_comment_format": "<!-- self-improve: session {session_id}, {date} -->"
+  },
+  "retention": {
+    "_comment": "Layer 1 + 2 janitor rules. Runs at session end (and at most once per day for the heavier sweeps).",
+    "keep_silent_sessions": false,
+    "keep_correction_sessions_days": 30,
+    "edit_frequency_keep_days": 14,
+    "log_max_lines": 5000,
+    "janitor_min_interval_hours": 24
+  }
+}

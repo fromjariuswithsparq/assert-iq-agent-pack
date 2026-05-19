@@ -1,0 +1,37 @@
+{
+  "servers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${input:github_pat}"
+      }
+    },
+    "azure-devops": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@azure-devops/mcp", "${input:ado_org}"],
+      "env": {
+        "AZURE_DEVOPS_EXT_PAT": "${input:ado_pat}"
+      }
+    },
+    "atlassian": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@atlassian/mcp-remote"],
+      "env": {
+        "ATLASSIAN_BASE_URL": "${input:jira_base_url}",
+        "ATLASSIAN_API_TOKEN": "${input:jira_api_token}",
+        "ATLASSIAN_EMAIL": "${input:jira_email}"
+      }
+    }
+  },
+  "inputs": [
+    { "id": "github_pat", "type": "promptString", "password": true, "description": "GitHub PAT" },
+    { "id": "ado_org", "type": "promptString", "description": "ADO org URL" },
+    { "id": "ado_pat", "type": "promptString", "password": true, "description": "ADO PAT" },
+    { "id": "jira_base_url", "type": "promptString", "description": "Jira base URL" },
+    { "id": "jira_api_token", "type": "promptString", "password": true, "description": "Jira API token" },
+    { "id": "jira_email", "type": "promptString", "description": "Jira account email" }
+  ]
+}

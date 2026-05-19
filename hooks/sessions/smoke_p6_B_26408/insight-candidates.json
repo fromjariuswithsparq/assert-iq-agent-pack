@@ -1,0 +1,14 @@
+{
+  "session_id": "smoke_p6_B_26408",
+  "candidates": [
+    {
+      "id": 1,
+      "kind": "create",
+      "target_file_suggestion": "/tmp/hindsight-smoke/roots-p6/B-new.md",
+      "qi_layer": "protection",
+      "summary": "create new instruction for X",
+      "rationale": "no existing customization fits",
+      "evidence": "consider ... worth flagging"
+    }
+  ]
+}

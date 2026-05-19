@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QI Outcome Signal Payload",
+  "type": "object",
+  "required": ["run_id", "commit_sha", "maturity_tier", "layers"],
+  "properties": {
+    "run_id": { "type": "string" },
+    "commit_sha": { "type": "string" },
+    "branch": { "type": "string" },
+    "pr_id": { "type": ["string", "null"] },
+    "maturity_tier": { "enum": ["early", "mid", "higher"] },
+    "layers": {
+      "type": "object",
+      "required": ["change", "protection", "trust", "outcome", "decision"],
+      "properties": {
+        "change": {
+          "type": "object",
+          "properties": {
+            "files_changed": { "type": "integer" },
+            "services_touched": { "type": "array", "items": { "type": "string" } },
+            "churn_lines": { "type": "integer" },
+            "late_changes": { "type": "integer" }
+          }
+        },
+        "protection": {
+          "type": "object",
+          "properties": {
+            "tests_executed": { "type": "integer" },
+            "coverage_pct": { "type": "number" },
+            "traceability_pct": { "type": "number" }
+          }
+        },
+        "trust": {
+          "type": "object",
+          "properties": {
+            "flaky_count": { "type": "integer" },
+            "blocked_count": { "type": "integer" },
+            "env_uptime_pct": { "type": "number" }
+          }
+        },
+        "outcome": {
+          "type": "object",
+          "properties": {
+            "defects_open": { "type": "integer" },
+            "escapes_30d": { "type": "integer" },
+            "telemetry_alerts": { "type": "integer" }
+          }
+        },
+        "decision": {
+          "type": "object",
+          "properties": {
+            "release_confidence": { "enum": ["green", "amber", "red"] },
+            "mitigation_required": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,4 @@
+---- 2026-05-15T13:57:53Z /Users/PTV6JHD/MDA/src/_hooktest/Sample.xaml
+AutomationId lint — Sample.xaml:
+  L3: <Button> missing AutomationId
+  L6: <Picker> missing AutomationId

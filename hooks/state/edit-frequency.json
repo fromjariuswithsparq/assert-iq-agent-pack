@@ -1,0 +1,4 @@
+{
+  "_comment": "Counts of accepted edits per skill file within the rolling window. Used to flag hot skills for quarantine.",
+  "edits": []
+}

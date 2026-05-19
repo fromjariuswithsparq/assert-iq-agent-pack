@@ -1,0 +1,26 @@
+{
+  "session_id": "smoke_p6_B_26408",
+  "validated_at": "2026-05-18T13:28:17.245462Z",
+  "validated": [],
+  "skipped": [],
+  "needs_human": [
+    {
+      "id": 1,
+      "kind": "create",
+      "target_file_suggestion": "/tmp/hindsight-smoke/roots-p6/B-new.md",
+      "qi_layer": "protection",
+      "summary": "create new instruction for X",
+      "rationale": "no existing customization fits",
+      "evidence": "consider ... worth flagging",
+      "patch_mode": "",
+      "diff_lines": 1,
+      "fingerprint": "1f7f21c5576850136b1aa44529dd541b8699571ad793e6d92045e8c2203e9b70",
+      "legacy_fingerprint": "cbe5cfdf7c2118a9c3d78ef1d684f3afa089201352886449a06a6511cfef74a7",
+      "needs_human_reason": "insight_kind_create"
+    }
+  ],
+  "policy": {
+    "diff_max_lines": 10,
+    "min_confidence": "low"
+  }
+}

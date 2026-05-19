@@ -1,0 +1,10 @@
+{
+  "name": "assert-iq",
+  "description": "Assert.IQ Agent Pack — Quality Intelligence skills, agents, and hooks for VS Code Copilot and Claude Code. Front door is the Assert-IQ agent; switch to Assert-IQ-PLAN when you want plan-first behavior.",
+  "version": "0.6.0",
+  "author": {
+    "name": "Sparq"
+  },
+  "skills": ".github/skills/",
+  "agents": ".github/agents/"
+}
