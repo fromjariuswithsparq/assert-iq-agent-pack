@@ -32,8 +32,10 @@ mkdir -p "$ROOT/.claude/agents"
 # does not propagate any env var that carries the workspace path to hook
 # commands, so the fallback path must be baked in at install time. Claude
 # Code's CLAUDE_PLUGIN_ROOT still takes precedence at runtime.
-# Use '|' as sed delimiter since filesystem paths normally do not contain it.
-ROOT_SED=${ROOT//&/\&}
+# Escape characters with special replacement semantics in sed.
+ROOT_SED=${ROOT//\\/\\\\}
+ROOT_SED=${ROOT_SED//&/\&}
+ROOT_SED=${ROOT_SED//|/\|}
 sed "s|__PACK_ROOT__|$ROOT_SED|g" "$HOOKS_TEMPLATE" > "$HOOKS_SRC"
 say "[ok] rendered hooks/hooks.json (pack root: $ROOT)"
 
@@ -42,9 +44,11 @@ if command -v jq >/dev/null 2>&1; then
     if [ -f "$SETTINGS_DST" ]; then
         # Merge: replace only the .hooks key, preserve everything else.
         tmp="$(mktemp)"
+        trap 'rm -f "$tmp"' EXIT
         jq -s '.[0] as $existing | .[1] as $new | $existing + {hooks: $new.hooks}' \
             "$SETTINGS_DST" "$HOOKS_SRC" > "$tmp"
         mv "$tmp" "$SETTINGS_DST"
+        trap - EXIT
     else
         cp "$HOOKS_SRC" "$SETTINGS_DST"
     fi
@@ -65,8 +69,12 @@ fi
 if ln -s "$SKILLS_SRC_REL" "$SKILLS_DST" 2>/dev/null; then
     say "[ok] linked .claude/skills -> $SKILLS_SRC_REL"
 else
-    cp -R "$ROOT/.github/skills" "$SKILLS_DST"
-    say "[ok] copied .github/skills -> .claude/skills (symlink unsupported; re-run install.sh after skill changes)"
+    if [ -d "$ROOT/.github/skills" ]; then
+        cp -R "$ROOT/.github/skills" "$SKILLS_DST"
+        say "[ok] copied .github/skills -> .claude/skills (symlink unavailable; re-run install.sh after skill changes)"
+    else
+        fail "missing $ROOT/.github/skills; cannot link or copy skills"
+    fi
 fi
 
 say ""
