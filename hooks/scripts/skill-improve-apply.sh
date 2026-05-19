@@ -95,13 +95,23 @@ if sel == "all":
 elif sel == "none":
     pass
 else:
+    invalid_tokens = []
+    seen_any = False
     for part in sel.split(","):
         part = part.strip()
-        if not part: continue
+        if not part:
+            continue
+        seen_any = True
         if part.startswith("i") and part[1:].isdigit():
             accept_ins_ids.add(int(part[1:]))
         elif part.isdigit():
             accept_corr_ids.add(int(part))
+        else:
+            invalid_tokens.append(part)
+    if (not seen_any) or invalid_tokens:
+        bad = ", ".join(invalid_tokens) if invalid_tokens else sel
+        print(f"invalid selection: {bad}. Use 'all', 'none', comma-separated numeric ids, or insight ids prefixed with 'i'.", file=sys.stderr)
+        sys.exit(2)
 
 date = datetime.date.today().isoformat()
 applied = []
