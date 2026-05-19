@@ -4,7 +4,7 @@
 > instructions, modes, and tools that turn GitHub Copilot Chat **and**
 > Claude Code into a QI-aware delivery partner inside the IDE.
 
-**Version**: v0.6.0
+**Version**: v0.7.0-pre.2
 **Status**: Internal Sparq asset — Intelligence Studio
 **Owner**: QE Competency Council
 **Repo**: <https://github.com/fromjariuswithsparq/assert-iq-agent-pack>
@@ -85,7 +85,7 @@ released tag** so your team is not subject to in-flight changes. The
 universal source spec is:
 
 ```
-fromjariuswithsparq/assert-iq-agent-pack@v0.6.0
+fromjariuswithsparq/assert-iq-agent-pack@v0.7.0-pre.2
 ```
 
 Use the latest tag from the
@@ -177,7 +177,7 @@ git commit -m "chore: adopt Assert.IQ agent pack"
 3. Paste the pinned source spec:
 
    ```
-   https://github.com/fromjariuswithsparq/assert-iq-agent-pack@v0.6.0
+   https://github.com/fromjariuswithsparq/assert-iq-agent-pack@v0.7.0-pre.2
    ```
 
 4. Alternatively, declare it in your user or workspace `settings.json`
@@ -186,7 +186,7 @@ git commit -m "chore: adopt Assert.IQ agent pack"
    ```jsonc
    {
      "chat.pluginLocations": {
-       "https://github.com/fromjariuswithsparq/assert-iq-agent-pack@v0.6.0": true
+       "https://github.com/fromjariuswithsparq/assert-iq-agent-pack@v0.7.0-pre.2": true
      }
    }
    ```
@@ -202,10 +202,10 @@ git commit -m "chore: adopt Assert.IQ agent pack"
    source spec:
 
    ```
-   /plugin install fromjariuswithsparq/assert-iq-agent-pack@v0.6.0
+   /plugin install fromjariuswithsparq/assert-iq-agent-pack@v0.7.0-pre.2
    ```
 
-   (Equivalent: add the GitHub URL plus `@v0.6.0` suffix.)
+   (Equivalent: add the GitHub URL plus `@v0.7.0-pre.2` suffix.)
 
 2. After install, run `/assert-iq-bootstrap` once per workspace so the
    three workspace-loaded surfaces (`CLAUDE.md`, `AGENTS.md`,
@@ -213,7 +213,7 @@ git commit -m "chore: adopt Assert.IQ agent pack"
 
 ### Upgrading to a new release
 
-Upgrades are an explicit, intentional act. To move from `v0.6.0` to a
+Upgrades are an explicit, intentional act. To move from `v0.7.0-pre.2` to a
 later tag:
 
 1. Read the release notes on the
@@ -231,7 +231,7 @@ restricted org policy, or you want the files vendored into your own
 repo — clone the tag directly and copy the contents:
 
 ```bash
-git clone --depth 1 --branch v0.6.0 \
+git clone --depth 1 --branch v0.7.0-pre.2 \
   https://github.com/fromjariuswithsparq/assert-iq-agent-pack.git
 cd assert-iq-agent-pack
 bash install.sh        # macOS / Linux
