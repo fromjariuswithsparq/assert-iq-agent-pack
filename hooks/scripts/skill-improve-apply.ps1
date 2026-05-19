@@ -58,10 +58,20 @@ if ($sel -eq 'all') {
 } elseif ($sel -eq 'none') {
     # nothing
 } else {
+    $invalidTokens = @()
+    $seenAny = $false
     foreach ($p in $sel.Split(',')) {
         $p = $p.Trim()
+        if (-not $p) { continue }
+        $seenAny = $true
         if ($p -match '^i(\d+)$') { $acceptInsIds += [int]$Matches[1] }
         elseif ($p -match '^\d+$') { $acceptCorrIds += [int]$p }
+        else { $invalidTokens += $p }
+    }
+    if ((-not $seenAny) -or $invalidTokens.Count -gt 0) {
+        $bad = if ($invalidTokens.Count -gt 0) { ($invalidTokens -join ', ') } else { $sel }
+        Write-Error "invalid selection: $bad. Use 'all', 'none', comma-separated numeric ids, or insight ids prefixed with 'i'."
+        exit 2
     }
 }
 
