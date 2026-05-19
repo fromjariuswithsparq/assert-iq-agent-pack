@@ -33,7 +33,8 @@ mkdir -p "$ROOT/.claude/agents"
 # commands, so the fallback path must be baked in at install time. Claude
 # Code's CLAUDE_PLUGIN_ROOT still takes precedence at runtime.
 # Use '|' as sed delimiter since filesystem paths normally do not contain it.
-sed "s|__PACK_ROOT__|$ROOT|g" "$HOOKS_TEMPLATE" > "$HOOKS_SRC"
+ROOT_SED=${ROOT//&/\&}
+sed "s|__PACK_ROOT__|$ROOT_SED|g" "$HOOKS_TEMPLATE" > "$HOOKS_SRC"
 say "[ok] rendered hooks/hooks.json (pack root: $ROOT)"
 
 # ---- 1. sync hooks block -------------------------------------------------
