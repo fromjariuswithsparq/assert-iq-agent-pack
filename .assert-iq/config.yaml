@@ -1,90 +1,282 @@
-# Assert.IQ Copilot Agent Pack — client configuration
-# Customize these values per client engagement.
+# =============================================================================
+# Assert.IQ — config.yaml  (universal template)
+# =============================================================================
+#
+# HOW TO USE
+# ----------
+# 1. Copy this file into the root of your repo at .assert-iq/config.yaml.
+# 2. Replace every <PLACEHOLDER> with your project's actual value.
+# 3. Delete or comment out sections for tools/features you don't use.
+# 4. Re-run the installer (install.sh / install.ps1) if hook paths changed.
+#
+# All fields are optional unless marked REQUIRED.
+# Uncomment the alternatives shown in # options: comments to switch modes.
+# =============================================================================
 
+
+# -----------------------------------------------------------------------------
+# CLIENT / TEAM  (who owns this config)
+# -----------------------------------------------------------------------------
 client:
-  name: "ClientName"
-  account_id: "ACME-001"
-  embedded_team: "Sparq QE Pod 3"
+  name: "<Your project or product name>"           # e.g. "Acme Payments API"
+  account_id: "<Engagement or project ID>"         # e.g. "ACME-001" — internal reference only
+  embedded_team: "<QE team or pod name>"           # e.g. "Platform QE" | "Sparq Pod 3" | "Solo"
+  #
+  # Optional: free-text context the AI can use when generating artifacts.
+  # Describe your domain, tech stack, compliance requirements, etc.
+  context: |
+    <Optional: 1–3 sentences about your product domain, platform, and any
+    constraints the AI should be aware of — e.g. "B2B SaaS, HIPAA-scoped,
+    React frontend + Java Spring Boot API, deployed on AWS.">
 
+
+# -----------------------------------------------------------------------------
+# MATURITY TIER  — controls which Assert.IQ capabilities are active
+# -----------------------------------------------------------------------------
+# Tier comparison:
+#   early   → foundation only: traceability comments + manual test generation.
+#             Agentic Healing is DISABLED.
+#   mid     → adds automated test generation + risk assessment.
+#             Healing operates in suggest-only mode (no auto-commit).
+#   higher  → full pack: autonomous healing within retry_bound, predictive
+#             risk, full signal pipeline.
+# When in doubt, start at "early" and promote one tier at a time.
+# -----------------------------------------------------------------------------
 maturity:
-  tier: "mid"           # early | mid | higher
-  rationale: "Stable QA, weak signal integration, no predictive risk."
+  tier: "early"         # options: early | mid | higher
+  rationale: "<Why this tier? e.g. 'New team, building baseline coverage first.'>"
 
+
+# -----------------------------------------------------------------------------
+# WORK-ITEM TRACKER  (REQUIRED for traceability comments)
+# -----------------------------------------------------------------------------
+# Every generated test must link to a work item. Set the tracker your team
+# uses and fill in the matching sub-section. Comment out the other.
+# -----------------------------------------------------------------------------
 tracker:
-  type: "ado"           # ado | jira
-  ado:
-    organization: "https://dev.azure.com/clientname"
-    project: "Platform"
-    work_item_query_id: ""
-  jira:
-    base_url: "https://clientname.atlassian.net"
-    project_key: "PLAT"
-    jql_default: "project = PLAT AND status != Done"
+  type: "github"        # options: github | ado | jira | linear | none
 
+  # --- GitHub Issues (default) ----------------------------------------------
+  github:
+    repo: "<owner>/<repo>"             # e.g. "acme/payments-api"
+    default_label: "test"              # label applied to AI-generated test issues
+
+  # --- Azure DevOps ----------------------------------------------------------
+  # ado:
+  #   organization: "https://dev.azure.com/<your-org>"
+  #   project: "<Project name>"
+  #   work_item_query_id: ""           # optional: saved query ID for AC lookup
+
+  # --- Jira ------------------------------------------------------------------
+  # jira:
+  #   base_url: "https://<your-org>.atlassian.net"
+  #   project_key: "<KEY>"             # e.g. "PLAT"
+  #   jql_default: "project = <KEY> AND status != Done"
+
+  # --- Linear ----------------------------------------------------------------
+  # linear:
+  #   team_key: "<TEAM>"               # e.g. "ENG"
+  #   api_key_env: "LINEAR_API_KEY"    # name of the env var holding your key
+
+  # --- None (disable traceability enforcement) --------------------------------
+  # none: {}                           # traceability comments will be omitted
+
+
+# -----------------------------------------------------------------------------
+# VERSION CONTROL
+# -----------------------------------------------------------------------------
 vcs:
-  type: "github"        # github | ado-repos | gitlab | bitbucket
-  default_branch: "main"
+  type: "github"        # options: github | ado-repos | gitlab | bitbucket | gitea
+  default_branch: "main"              # e.g. "main" | "master" | "develop"
+  # pr_base_branch: "main"            # uncomment if PR base differs from default_branch
 
+
+# -----------------------------------------------------------------------------
+# TEST FRAMEWORK  (REQUIRED)
+# -----------------------------------------------------------------------------
+# primary: the framework used for automated tests in this repo.
+# language: the source language for generated test code.
+# test_command: how to run the full test suite locally (used by Agentic Healing).
+# coverage_command: how to produce a coverage report (used by check-test-coverage skill).
+# test_root: path to the test directory (used by skills that scan for tests).
+# -----------------------------------------------------------------------------
 test_framework:
-  primary: "playwright"   # playwright | cypress | selenium | restassured | pytest | junit | nunit | xunit | jest | vitest | mocha
-  language: "typescript"  # typescript | javascript | java | csharp | python | kotlin | go
-  test_command: "npm test"
-  coverage_command: "npm run coverage"
+  primary: "<framework>"  # options: playwright | cypress | selenium | webdriverio |
+                          #          restassured | pytest | unittest | jest | vitest |
+                          #          mocha | jasmine | junit | testng | nunit | xunit |
+                          #          rspec | go-test | cargo-test | phpunit | other
+  language: "<language>"  # options: typescript | javascript | python | java | csharp |
+                          #          kotlin | go | rust | ruby | swift | php | other
+  test_command: "<command to run tests>"       # e.g. "npm test" | "pytest" | "dotnet test" | "go test ./..."
+  coverage_command: "<command to get coverage>" # e.g. "npm run coverage" | "pytest --cov" | "dotnet test /p:CollectCoverage=true"
+  test_root: "./tests"                          # adjust to your repo layout
 
+  # Optional: additional frameworks (e.g. unit + e2e in same repo)
+  # secondary:
+  #   - primary: "jest"
+  #     language: "typescript"
+  #     test_command: "npm run test:unit"
+  #     test_root: "./src"
+
+
+# -----------------------------------------------------------------------------
+# MANUAL TEST MANAGEMENT
+# -----------------------------------------------------------------------------
+# tool: where manual test cases and exploratory charters are stored/managed.
+# output_path: where generated manual test case files are written.
+# charter_path: where generated exploratory charter files are written.
+# -----------------------------------------------------------------------------
 manual_test_management:
-  tool: "markdown"      # ado_test_plans | xray | testrail | zephyr | markdown
-  ado_test_plans:
-    test_plan_id: ""
-    test_suite_id: ""
-  xray:
-    project_key: ""
-    import_endpoint: ""
-  testrail:
-    project_id: ""
-    suite_id: ""
-  zephyr:
-    project_key: ""
+  tool: "markdown"      # options: markdown | ado_test_plans | testrail | xray | zephyr | none
   output_path: "./tests/_qi/manual/"
   charter_path: "./tests/_qi/exploratory/"
 
+  # --- Azure DevOps Test Plans -----------------------------------------------
+  # ado_test_plans:
+  #   test_plan_id: "<plan ID>"
+  #   test_suite_id: "<suite ID>"
+
+  # --- TestRail ---------------------------------------------------------------
+  # testrail:
+  #   base_url: "https://<your-org>.testrail.io"
+  #   project_id: "<project ID>"
+  #   suite_id: "<suite ID>"
+
+  # --- Xray (Jira plugin) ----------------------------------------------------
+  # xray:
+  #   project_key: "<KEY>"
+  #   import_endpoint: "https://<your-org>.atlassian.net/rest/raven/1.0/import/test"
+
+  # --- Zephyr Scale (Jira plugin) --------------------------------------------
+  # zephyr:
+  #   project_key: "<KEY>"
+  #   base_url: "https://api.zephyrscale.smartbear.com/v2"
+
+
+# -----------------------------------------------------------------------------
+# ROUTING  — how skills decide which test artifact to produce
+# -----------------------------------------------------------------------------
 routing:
-  automation_threshold: "deterministic"   # how strict the router is on automation eligibility
-  exploratory_trigger_escapes_30d: 1      # any escape on touched component triggers a charter
-  early_maturity_manual_fallback: true    # produces manual fallback even when AC routes to auto
+  # automation_threshold controls how strictly the router evaluates ACs for
+  # automation eligibility before falling back to manual.
+  #   deterministic → ACs must be fully deterministic (strictest)
+  #   pragmatic     → allows some environment dependency (balanced)
+  #   permissive    → generates automation for most ACs (loosest)
+  automation_threshold: "pragmatic"   # options: deterministic | pragmatic | permissive
 
+  # Number of escaped defects on a touched component in the last N days
+  # that automatically triggers an exploratory charter alongside automation.
+  exploratory_trigger_escapes_30d: 1
+
+  # When maturity = early, always produce a manual test case fallback even
+  # when the AC would route to automation.
+  early_maturity_manual_fallback: true
+
+
+# -----------------------------------------------------------------------------
+# AGENTIC HEALING  (mid and higher tiers only)
+# -----------------------------------------------------------------------------
+# Automatically diagnoses and re-runs failing tests within bounded retries.
+# Ignored entirely when maturity = early.
+# -----------------------------------------------------------------------------
 agentic_healing:
-  enabled: true              # ignored if maturity = early
-  retry_bound: 3
-  allowed_scope: "test-only" # test-only | test-plus-fixtures
-  escalate_on_regression: true
+  enabled: false             # set true when maturity = mid or higher
+  retry_bound: 3             # max attempts before escalating to human
+  # allowed_scope controls what the agent is permitted to modify:
+  #   test-only         → only test files (safest)
+  #   test-plus-fixtures → test files + shared fixtures/helpers
+  allowed_scope: "test-only" # options: test-only | test-plus-fixtures
+  escalate_on_regression: true  # halt and alert if a fix introduces a new failure
 
+
+# -----------------------------------------------------------------------------
+# FLAKE ANALYSIS
+# -----------------------------------------------------------------------------
 flake_analysis:
-  history_days: 30
-  min_runs_for_pattern: 10
+  history_days: 30          # how many days of run history to scan for patterns
+  min_runs_for_pattern: 10  # minimum run count before a test is flake-eligible
 
+
+# -----------------------------------------------------------------------------
+# BUG REPORTER
+# -----------------------------------------------------------------------------
 bug_reporter:
-  auto_create_threshold: "low"    # low (auto), medium+ (confirm), critical (never auto)
-  search_for_duplicates: true
+  # auto_create_threshold: severity level at which bugs are filed without confirmation.
+  #   low      → file automatically for low-severity findings
+  #   medium   → file automatically up to medium; confirm for high+
+  #   critical → always confirm before filing (most conservative)
+  auto_create_threshold: "medium"   # options: low | medium | high | critical
+  search_for_duplicates: true        # check tracker for existing bugs before filing
 
+
+# -----------------------------------------------------------------------------
+# SIGNALS  — QI outcome signal emission
+# -----------------------------------------------------------------------------
+# Signals record test outcomes, risk assessments, and healing events so you
+# can trend quality over time.
+# -----------------------------------------------------------------------------
 signals:
   emit_on_ci: true
   sink:
-    type: "file"             # file | webhook | telemetry
-    path: "./.assert-iq/runs/"
-    webhook_url: ""
+    # type: where signals are written.
+    #   file     → written to a local path (good for local dev + CI artifact upload)
+    #   webhook  → POSTed to a URL (e.g. Datadog, Splunk, custom API)
+    #   stdout   → printed to console only (easiest for getting started)
+    type: "file"             # options: file | webhook | stdout
+    path: "./.assert-iq/runs/"           # used when type = file
+    # webhook_url: "<URL>"               # used when type = webhook
+    # webhook_headers_env: "QI_WEBHOOK_HEADERS"  # env var name holding JSON headers map
   schema_path: "./.assert-iq/signal-schema.json"
 
-governance:
-  human_review_required: true
-  block_production_endpoints: true
-  mask_secrets: true
-  escalation_owner: "qe-lead@client.example.com"
 
+# -----------------------------------------------------------------------------
+# GOVERNANCE
+# -----------------------------------------------------------------------------
+governance:
+  # Require a human to review AI-generated artifacts before merge.
+  # Should be true for all production repos.
+  human_review_required: true
+
+  # Prevent the agent from calling production or staging endpoints during
+  # test generation or healing.
+  block_production_endpoints: true
+
+  # Mask secrets and PII in generated output.
+  mask_secrets: true
+
+  # Who to notify when healing fails, a policy is violated, or a critical
+  # signal is emitted. Use an email address, Slack handle, or team alias.
+  escalation_owner: "<email, Slack handle, or team alias>"   # e.g. "qe-lead@example.com"
+
+  # Optional: compliance posture tag — used by governance.md rules.
+  # compliance: "none"    # options: none | sox | hipaa | pci | iso27001 | fedramp
+
+
+# -----------------------------------------------------------------------------
+# MCP SERVERS  — Model Context Protocol integrations
+# -----------------------------------------------------------------------------
+# Enable the servers that match your toolchain. Disable the rest.
+# Connection details live in .vscode/mcp.json; this block controls which
+# servers the Assert.IQ skills are allowed to call.
+# -----------------------------------------------------------------------------
 mcp:
   servers:
     - name: "github"
-      enabled: true
+      enabled: true               # set false if your VCS is not GitHub
+
     - name: "azure-devops"
-      enabled: true        # set false if using Jira
+      enabled: false              # set true if tracker.type = ado
+
     - name: "atlassian"
-      enabled: false       # set true if using Jira
+      enabled: false              # set true if tracker.type = jira
+
+    - name: "linear"
+      enabled: false              # set true if tracker.type = linear
+
+    - name: "gitlab"
+      enabled: false              # set true if vcs.type = gitlab
+
+    # Add any custom MCP server your team runs:
+    # - name: "<server-name>"
+    #   enabled: false
+    #   endpoint: "<MCP server URL>"
