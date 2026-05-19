@@ -1,12 +1,9 @@
 {
   "enabled": true,
   "_comment": "Hindsight Hooks config (Retrospective Refinement of skills, instructions, prompts, and agents). Disable globally by setting enabled=false. Disable per-session by setting env SKILL_IMPROVE_DISABLED=1.",
+  "_customization_roots_comment": "Absolute paths to folders the hook scans at session start. `~` expands to the user's home directory. Non-existent paths are silently skipped, so it's safe to leave entries that may not exist on every machine. Add a line per project repo: e.g. '~/code/my-app/.github/instructions'.",
   "customization_roots": [
-    "~/.agents/skills",
-    "~/MDA/.github/skills",
-    "~/MDA/.github/instructions",
-    "~/MDAMockService/.github",
-    "~/Library/Application Support/Code/User/prompts"
+    "~/.agents/skills"
   ],
   "customization_file_patterns": [
     "SKILL.md",

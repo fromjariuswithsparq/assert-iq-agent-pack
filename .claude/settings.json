@@ -19,27 +19,6 @@
       },
       {
         "type": "command",
-        "command": "bash --noprofile --norc -c 'R=\"${CLAUDE_PLUGIN_ROOT:-/Users/PTV6JHD/Desktop/assert-iq-agent-pack-v0.5.0}\"; S=\"$R/hooks/scripts/mda-dotnet-format.sh\"; [ -f \"$S\" ] || exit 0; chmod +x \"$S\" && \"$S\"'",
-        "osx": "bash --noprofile --norc -c 'R=\"${CLAUDE_PLUGIN_ROOT:-/Users/PTV6JHD/Desktop/assert-iq-agent-pack-v0.5.0}\"; S=\"$R/hooks/scripts/mda-dotnet-format.sh\"; [ -f \"$S\" ] || exit 0; chmod +x \"$S\" && \"$S\"'",
-        "linux": "bash --noprofile --norc -c 'R=\"${CLAUDE_PLUGIN_ROOT:-/Users/PTV6JHD/Desktop/assert-iq-agent-pack-v0.5.0}\"; S=\"$R/hooks/scripts/mda-dotnet-format.sh\"; [ -f \"$S\" ] || exit 0; chmod +x \"$S\" && \"$S\"'",
-        "windows": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& { $r = if ($env:CLAUDE_PLUGIN_ROOT) { $env:CLAUDE_PLUGIN_ROOT } else { '/Users/PTV6JHD/Desktop/assert-iq-agent-pack-v0.5.0' }; $s = Join-Path $r 'hooks\\scripts\\mda-dotnet-format.ps1'; if (-not (Test-Path $s)) { exit 0 }; & $s }\""
-      },
-      {
-        "type": "command",
-        "command": "bash --noprofile --norc -c 'R=\"${CLAUDE_PLUGIN_ROOT:-/Users/PTV6JHD/Desktop/assert-iq-agent-pack-v0.5.0}\"; S=\"$R/hooks/scripts/mda-affected-tests.sh\"; [ -f \"$S\" ] || exit 0; chmod +x \"$S\" && \"$S\"'",
-        "osx": "bash --noprofile --norc -c 'R=\"${CLAUDE_PLUGIN_ROOT:-/Users/PTV6JHD/Desktop/assert-iq-agent-pack-v0.5.0}\"; S=\"$R/hooks/scripts/mda-affected-tests.sh\"; [ -f \"$S\" ] || exit 0; chmod +x \"$S\" && \"$S\"'",
-        "linux": "bash --noprofile --norc -c 'R=\"${CLAUDE_PLUGIN_ROOT:-/Users/PTV6JHD/Desktop/assert-iq-agent-pack-v0.5.0}\"; S=\"$R/hooks/scripts/mda-affected-tests.sh\"; [ -f \"$S\" ] || exit 0; chmod +x \"$S\" && \"$S\"'",
-        "windows": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& { $r = if ($env:CLAUDE_PLUGIN_ROOT) { $env:CLAUDE_PLUGIN_ROOT } else { '/Users/PTV6JHD/Desktop/assert-iq-agent-pack-v0.5.0' }; $s = Join-Path $r 'hooks\\scripts\\mda-affected-tests.ps1'; if (-not (Test-Path $s)) { exit 0 }; & $s }\""
-      },
-      {
-        "type": "command",
-        "command": "bash --noprofile --norc -c 'R=\"${CLAUDE_PLUGIN_ROOT:-/Users/PTV6JHD/Desktop/assert-iq-agent-pack-v0.5.0}\"; S=\"$R/hooks/scripts/mda-automationid-lint.sh\"; [ -f \"$S\" ] || exit 0; chmod +x \"$S\" && \"$S\"'",
-        "osx": "bash --noprofile --norc -c 'R=\"${CLAUDE_PLUGIN_ROOT:-/Users/PTV6JHD/Desktop/assert-iq-agent-pack-v0.5.0}\"; S=\"$R/hooks/scripts/mda-automationid-lint.sh\"; [ -f \"$S\" ] || exit 0; chmod +x \"$S\" && \"$S\"'",
-        "linux": "bash --noprofile --norc -c 'R=\"${CLAUDE_PLUGIN_ROOT:-/Users/PTV6JHD/Desktop/assert-iq-agent-pack-v0.5.0}\"; S=\"$R/hooks/scripts/mda-automationid-lint.sh\"; [ -f \"$S\" ] || exit 0; chmod +x \"$S\" && \"$S\"'",
-        "windows": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& { $r = if ($env:CLAUDE_PLUGIN_ROOT) { $env:CLAUDE_PLUGIN_ROOT } else { '/Users/PTV6JHD/Desktop/assert-iq-agent-pack-v0.5.0' }; $s = Join-Path $r 'hooks\\scripts\\mda-automationid-lint.ps1'; if (-not (Test-Path $s)) { exit 0 }; & $s }\""
-      },
-      {
-        "type": "command",
         "command": "bash --noprofile --norc -c 'R=\"${CLAUDE_PLUGIN_ROOT:-/Users/PTV6JHD/Desktop/assert-iq-agent-pack-v0.5.0}\"; S=\"$R/hooks/scripts/skill-improve-detect.sh\"; [ -f \"$S\" ] || exit 0; chmod +x \"$S\" && \"$S\"'",
         "osx": "bash --noprofile --norc -c 'R=\"${CLAUDE_PLUGIN_ROOT:-/Users/PTV6JHD/Desktop/assert-iq-agent-pack-v0.5.0}\"; S=\"$R/hooks/scripts/skill-improve-detect.sh\"; [ -f \"$S\" ] || exit 0; chmod +x \"$S\" && \"$S\"'",
         "linux": "bash --noprofile --norc -c 'R=\"${CLAUDE_PLUGIN_ROOT:-/Users/PTV6JHD/Desktop/assert-iq-agent-pack-v0.5.0}\"; S=\"$R/hooks/scripts/skill-improve-detect.sh\"; [ -f \"$S\" ] || exit 0; chmod +x \"$S\" && \"$S\"'",

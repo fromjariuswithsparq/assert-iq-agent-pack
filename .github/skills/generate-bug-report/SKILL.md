@@ -312,7 +312,7 @@ Title: [Component] Error description — deployment/time correlation
 [Level] — [justification] | Priority: [P1-P4]
 
 ## Assignment
-- Area Path: [Current MDA Area]
+- Area Path: [Current Project Area]
 - Iteration Path: [Current iteration]
 
 ## Suggested Action

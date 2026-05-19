@@ -4,9 +4,11 @@
 >
 > Formal technique name: **Retrospective Skill Refinement**.
 
-This hook watches your Copilot chat sessions for signs that the agent **corrected itself** — and at the end of the session, it offers to update the SKILL.md / instructions.md file that *should have* prevented the mistake.
+This hook watches your Claude Code / Copilot chat sessions for signs that the agent **corrected itself** — and at the end of the session, it offers to update the SKILL.md / instructions.md file that *should have* prevented the mistake.
 
 If you just want it to work, do nothing. The defaults are sensible. Read this when you want to tune behavior or troubleshoot.
+
+> **Paths in this guide.** All path references like `<pack-root>/hooks/...` are relative to the pack folder you cloned (e.g. `~/Desktop/assert-iq-agent-pack/hooks/...`). On Windows, swap `/` for `\`. The scripts handle both.
 
 ---
 
@@ -20,9 +22,10 @@ If you just want it to work, do nothing. The defaults are sensible. Read this wh
        │                    │                  │                  │
        ▼                    ▼                  ▼                  ▼
  snapshots which       logs every          scans transcript +   if you say yes,
- skill files exist     tool the agent      tool log for signs   the apply script
- in your configured    used into           the agent had to     edits the SKILL.md
- roots                 tool-log.jsonl      correct itself       in your working tree
+ customization        tool the agent      tool log for signs   the apply script
+ files exist in your   used into           the agent had to     edits the
+ configured roots      tool-log.jsonl      correct itself       customization file
+                                                                in your working tree
 ```
 
 If the agent never corrected itself, **nothing happens** — you won't even notice the hook ran.
@@ -31,7 +34,7 @@ If it did, you'll get a numbered list before the session closes:
 
 ```
 I detected 2 corrections this session. Proposed updates:
-  [1] ~/MDA/.github/instructions/services.instructions.md — Add note about disposing X
+  [1] ~/code/my-app/.github/instructions/services.instructions.md — Add note about disposing X
   [2] ~/.agents/skills/debug-ui-tests/SKILL.md — Fix outdated AutomationId tip
 Apply which? [all / 1,2 / none / diff N]
 ```
@@ -62,7 +65,7 @@ State and session data live in sibling folders, **not here**:
 
 ## 3. Editing `skill-improve.config.json`
 
-The config has **five** top-level sections. Walking through each:
+The config has several top-level sections. Walking through each:
 
 ### 3.1 `enabled`
 
@@ -81,32 +84,36 @@ $env:SKILL_IMPROVE_DISABLED = '1'    # Windows PowerShell
 
 ### 3.2 `customization_roots`
 
+Default:
+
 ```json
 "customization_roots": [
-  "~/.agents/skills",
-  "~/MDA/.github/skills",
-  "~/MDA/.github/instructions",
-  "~/MDAMockService/.github",
-  "~/Library/Application Support/Code/User/prompts"
+  "~/.agents/skills"
 ]
 ```
 
 Folders the hook scans at session start to find candidate customization files (skills, instructions, prompts, agents).
 
-**Add a folder** if you start using another repo with its own `.github/skills/` or `.github/instructions/`:
+`~` expands to your home directory. Non-existent paths are silently skipped, so it's safe to keep entries that may not exist on every machine.
+
+**Add a folder per repo** you work in that has its own `.github/skills/` or `.github/instructions/`:
 
 ```json
 "customization_roots": [
   "~/.agents/skills",
-  "~/MDA/.github/skills",
-  "~/MDA/.github/instructions",
-  "~/MDAMockService/.github",
-  "~/MyNewProject/.github/instructions",     // ← add a line like this
-  "~/Library/Application Support/Code/User/prompts"
+  "~/code/my-app/.github/instructions",
+  "~/code/my-app/.github/skills",
+  "~/code/another-repo/.github"
 ]
 ```
 
-`~` is your home directory. Use forward slashes even on Windows — the scripts handle conversion.
+Use forward slashes even on Windows — the scripts convert as needed.
+
+Common locations worth adding if they apply to you:
+
+- VS Code user prompts (macOS): `~/Library/Application Support/Code/User/prompts`
+- VS Code user prompts (Linux): `~/.config/Code/User/prompts`
+- VS Code user prompts (Windows): `~/AppData/Roaming/Code/User/prompts`
 
 > Legacy key `skill_roots` is still accepted for backward compatibility but `customization_roots` takes precedence.
 
@@ -130,7 +137,7 @@ Filename patterns the hook treats as customization artifacts (skills, instructio
 
 This is the brain — how the hook decides the agent corrected itself.
 
-**Text signals** (`assistant_text_regex`) — case-insensitive regexes applied to assistant messages in the transcript. As of the weighted-trigger upgrade, each entry is a `{pattern, weight}` object where `weight` is `"strong"` (clear self-correction phrases like *"I was wrong"*, *"my mistake"*) or `"weak"` (softer hedges like *"actually"*, *"turns out"*).
+**Text signals** (`assistant_text_regex`) — case-insensitive regexes applied to assistant messages in the transcript. Each entry is a `{pattern, weight}` object where `weight` is `"strong"` (clear self-correction phrases like *"I was wrong"*, *"my mistake"*) or `"weak"` (softer hedges like *"actually"*, *"turns out"*).
 
 To add a new phrase, append an object. Regex syntax — remember to **double-escape backslashes** in JSON:
 
@@ -229,7 +236,11 @@ The janitor runs at the end of every session to keep things from ballooning over
 To force a full janitor sweep right now, delete the marker:
 
 ```bash
-rm ~/.agents/hooks/state/.last-janitor
+# macOS / Linux
+rm <pack-root>/hooks/state/.last-janitor
+
+# Windows PowerShell
+Remove-Item <pack-root>\hooks\state\.last-janitor
 ```
 
 The next session will trigger a full sweep instead of waiting for the interval.
@@ -251,7 +262,7 @@ A few knobs are exposed via env vars for quick one-off tuning without editing th
 
 The correction pipeline (§3.4) catches signals from the model's **own error trail** — "scratch that", "actually", retry-after-error, etc. It misses a different class: when the model **proactively flags a latent flaw in the user's workflow or code** without ever making (or correcting) a mistake. Phrases like *"consider --logger trx because tail -120 discards stack traces"* or *"this would be safer with a try/finally"*. There is no self-error to anchor on — just an outward-facing observation.
 
-Phase 6 adds a parallel detector and its own weighted gate. Insights run independently of corrections: a session can fire on insights only, corrections only, or both.
+The proactive-insights pipeline adds a parallel detector and its own weighted gate. Insights run independently of corrections: a session can fire on insights only, corrections only, or both.
 
 ```json
 "proactive_insights": {
@@ -329,8 +340,8 @@ When something does fire, here's exactly what happens:
 | Same lesson keeps being proposed | Check `../state/dismissed-lessons.json` — the fingerprint should appear there after you reject it |
 | Want to "un-dismiss" a lesson | Remove its fingerprint from `../state/dismissed-lessons.json` |
 | Skill is in quarantine ("hot") | Either wait for the rolling window to clear, or trim old entries out of `../state/edit-frequency.json` |
-| Need to see every edit the hook has ever made | `grep -rn "self-improve: session" ~/MDA ~/.agents/skills ~/Library/Application\ Support/Code/User/prompts` |
-| Disk usage growing | Confirm `retention.keep_silent_sessions` is `false`. Force a sweep with `rm ~/.agents/hooks/state/.last-janitor` then start any chat — the next Stop hook will run the full janitor. |
+| Need to see every edit the hook has ever made | `grep -rn "self-improve: session"` across every directory you have in `customization_roots` |
+| Disk usage growing | Confirm `retention.keep_silent_sessions` is `false`. Force a sweep with `rm <pack-root>/hooks/state/.last-janitor` then start any chat — the next Stop hook will run the full janitor. |
 | Want to keep a specific session forever | Move it out of `../sessions/` (e.g., to `../sessions-archive/`). The janitor only sweeps direct children of `sessions/`. |
 
 ---
@@ -343,23 +354,32 @@ Every edit leaves a provenance comment like:
 <!-- self-improve: session apply-1778984054, 2026-05-16 -->
 ```
 
-To find and revert:
+To find and revert (search any directory in your `customization_roots`):
 
 ```bash
-grep -rn "self-improve: session apply-1778984054" ~/MDA ~/.agents/skills
-# then manually remove the added lines + comment, or
-cat ~/.agents/hooks/sessions/apply-1778984054/decisions.json
+# macOS / Linux
+grep -rn "self-improve: session apply-1778984054" ~/.agents/skills ~/code
+
+# Then either remove the added lines + comment manually, or read the full audit trail:
+cat <pack-root>/hooks/sessions/apply-1778984054/decisions.json
 # decisions.json contains the exact before/after for every applied edit
+```
+
+```powershell
+# Windows PowerShell equivalent
+Get-ChildItem -Recurse ~\.agents\skills, ~\code |
+    Select-String "self-improve: session apply-1778984054"
+Get-Content <pack-root>\hooks\sessions\apply-1778984054\decisions.json
 ```
 
 ---
 
 ## 7. Sanity-check: is everything wired correctly?
 
-From `~/.agents/hooks/`:
+From `<pack-root>/hooks/`:
 
 ```bash
-# Validates JSON files parse cleanly.
+# Validates the JSON files parse cleanly.
 python3 -c "import json; \
   [json.load(open(f)) for f in [ \
     'hooks.json', \
@@ -373,4 +393,6 @@ python3 -c "import json; print(list(json.load(open('hooks.json'))['hooks'].keys(
 # Expected: ['SessionStart', 'PostToolUse', 'Stop']
 ```
 
-If both print cleanly, you're good. Start a chat — the hook will take care of itself.
+> Note: `hooks.json` is generated by `install.sh` / `install.ps1` at the **pack root** with the absolute pack path baked into each command. If `hooks.json` is missing, re-run the installer from the pack root. See the top-level `README.assert-iq.md` for installer details.
+
+If both checks print cleanly, you're good. Start a chat — the hook will take care of itself.
