@@ -294,19 +294,25 @@ safe.
 ## The four layers of the pack
 
 ```
-LAYER          PRIMITIVE                              ROLE
-─────────      ───────────────────────────            ──────────────────────────
-Foundation     copilot-instructions.md                Always-on QI guidance
-               instructions/*.instructions.md         (loaded automatically)
+LAYER          PRIMITIVE                                  ROLE
+─────────      ─────────────────────────────────          ──────────────────────────
+Foundation     .github/copilot-instructions.md            Always-on QI guidance
+               .github/instructions/*.instructions.md     (loaded automatically;
+               CLAUDE.md                                   Claude reads CLAUDE.md)
 
-Skills         prompts/*.prompt.md                    Invokable workflows
-                                                      (called via /skill-name)
+Skills         .github/skills/<name>/SKILL.md             Invokable workflows
+               (mirrored read-only at .claude/skills/)    (called via /skill-name)
 
-Modes          agents/Assert-IQ.agent.md             Default front-door agent
-               agents/Assert-IQ-PLAN.agent.md        Read-only planning sibling
+Modes          .github/agents/Assert-IQ.agent.md          Default front-door agent
+               .github/agents/Assert-IQ-PLAN.agent.md     Read-only planning sibling
+               .claude/agents/assert-iq{,-plan}.md         Claude Code subagents
 
-Tools          .vscode/mcp.json                       External integrations
-                                                      (ADO, Jira, GitHub)
+Tools          .vscode/mcp.json                           External integrations
+                                                          (ADO, Jira, GitHub)
+
+Hooks          hooks/hooks.json + hooks/scripts/          Retrospective skill
+               (wired via .vscode/settings.json and        refinement on session
+               .claude/settings.json)                      end
 ```
 
 ---
@@ -318,16 +324,20 @@ Tools          .vscode/mcp.json                       External integrations
 Copy these directories into the repo root:
 - `MANIFEST.md` (root-level inventory of all files in the pack)
 - `README.assert-iq.md`
+- `CLAUDE.md` + `AGENTS.md`       ← always-on guidance for Claude Code and other `AGENTS.md`-aware tooling
+- `.claude-plugin/`               ← `plugin.json` + `marketplace.json` for plugin-manager installs
 - `.github/copilot-instructions.md`
 - `.github/instructions/`
 - `.github/skills/`               ← each skill is a folder with a `SKILL.md`
-- `.github/agents/`              ← `Assert-IQ.agent.md` + `Assert-IQ-PLAN.agent.md`
+- `.github/agents/`               ← `Assert-IQ.agent.md` + `Assert-IQ-PLAN.agent.md`
+- `.claude/`                      ← `agents/`, `settings.json`; `.claude/skills/` is created as a symlink by the installer
 - `.vscode/mcp.json`
-- `.vscode/settings.json`        ← wires `.github/skills/` into Copilot prompt-file loading
+- `.vscode/settings.json`         ← wires `.github/skills/` into Copilot prompt-file loading and points `chat.hookFilesLocations` at `./hooks/hooks.json`
+- `hooks/`                        ← `scripts/`, `lib/`, `config/`, and the rendered `hooks.json`
 - `.assert-iq/`
 - `tests/_qi/` (if not already present)
 
-> **Note on hidden directories.** `.github/`, `.vscode/`, and `.assert-iq/` are dot-prefixed
+> **Note on hidden directories.** `.github/`, `.vscode/`, `.claude/`, `.claude-plugin/`, and `.assert-iq/` are dot-prefixed
 > and hidden by default in macOS Finder and Windows Explorer. Show hidden files
 > (`Cmd+Shift+.` on macOS; View → Hidden items on Windows) to see them, or open
 > the folder in VS Code which shows all files. The `MANIFEST.md` at the root
@@ -531,7 +541,7 @@ delegating the skill to a less-experienced engineer.
 | Switch tracker (ADO ↔ Jira) | `.assert-iq/config.yaml` → `tracker.type` and `.vscode/mcp.json` |
 | Adjust maturity tier | `.assert-iq/config.yaml` → `maturity.tier` and `.assert-iq/maturity-profile.md` |
 | Change healing retry bound | `.assert-iq/config.yaml` → `agentic_healing.retry_bound` |
-| Add a domain skill (e.g., performance, accessibility) | New file in `.github/prompts/` |
+| Add a domain skill (e.g., performance, accessibility) | New folder under `.github/skills/<name>/` with a `SKILL.md` |
 | Adjust client-specific code patterns | `.github/instructions/qi-test-design.instructions.md` |
 | Change telemetry sink | `.assert-iq/config.yaml` → `signals.sink` |
 
@@ -547,7 +557,9 @@ delegating the skill to a less-experienced engineer.
    them in the same folder. Reference them from `SKILL.md` by relative path.
 3. If the skill needs new instructions, add a corresponding
    `.instructions.md` file in `.github/instructions/` with an `applyTo` glob.
-4. Update this README's skill registry and the root `MANIFEST.md`.
+4. Update this README's skill registry and the root `MANIFEST.md`. Because
+   `.claude/skills/` is a symlink to `.github/skills/`, Claude Code picks
+   the new skill up automatically — no second copy needed.
 
 ---
 
@@ -569,12 +581,13 @@ expectation is genuinely outdated, fix the test directly or use
 
 **Risk assessment scores feel off.**
 Adjust the weighting heuristics in
-`.github/prompts/risk-assess-pr.prompt.md`. Each layer is independently
+`.github/skills/risk-assess-pr/SKILL.md`. Each layer is independently
 tunable.
 
 **The router sends too many ACs to manual.**
 Tighten `routing.automation_threshold` in `config.yaml`, or adjust the
-classification heuristics in `generate-tests-from-ac.prompt.md`.
+classification heuristics in
+`.github/skills/generate-tests-from-ac/SKILL.md`.
 
 **Skill outputs feel generic.**
 The pack relies on instructions files for project-specific shape. Update
@@ -604,7 +617,11 @@ or `qi-traceability.instructions.md` with examples drawn from your codebase.
 | 0.2.0 | Renamed to Agent Pack. Added 9 lifecycle skills. |
 | 0.3.0 | Added 8 high-leverage skills. README, governance template, maturity-profile template. 22 skills total. |
 | 0.4.0 | Skills refactored to `.github/skills/<name>/SKILL.md` directory structure. Added `MANIFEST.md`, `.vscode/settings.json`. README updated. |
-| **0.5.0** | **Dual-target support: works with both GitHub Copilot Chat and Claude Code from the same pack folder. Added `CLAUDE.md`, `AGENTS.md`, `.claude/agents/qi-advisor.md`, `.claude/settings.json`, `.claude/skills/` symlink, `install.sh` / `install.ps1`. Added "When this applies" prose to all five instruction files. Hooks integrated (`.github/hooks/`).** |
+| 0.5.0 | Dual-target support: works with both GitHub Copilot Chat and Claude Code from the same pack folder. Added `CLAUDE.md`, `AGENTS.md`, `.claude/agents/`, `.claude/settings.json`, `.claude/skills/` symlink, `install.sh` / `install.ps1`. Added "When this applies" prose to all five instruction files. Hooks integrated under `hooks/`. |
+| 0.6.x | Bootstrap rewrite: `scripts/bootstrap.sh` / `.ps1` with `trial` / `committed` / `ask` modes, `solo` / `pod` presets, interactive conflict resolver, `.git/info/exclude` for trial mode (codebase `.gitignore` untouched), and `--graduate` to flip trial → committed. `.assert-iq/.install-manifest.json` written on every install. |
+| 0.7.0-rc.1 | Claude plugin format: `.claude-plugin/plugin.json`, `hooks/hooks.json` with portable `${CLAUDE_PLUGIN_ROOT}` paths. Single install path for both VS Code Copilot and Claude Code. |
+| 0.7.0-rc.2 | Added `.claude-plugin/marketplace.json` so VS Code Copilot's `Chat: Install Plugin From Source` accepts the repo. README install instructions clarified (no `@ref` pinning on the Copilot side). |
+| **0.7.0-rc.3** | **Bootstrap surfaces three more workspace artifacts: `.vscode/` (settings + mcp), `hooks/` (scripts + rendered `hooks.json`), and `.claude/settings.json`. Additive JSON deep-merge for settings files — user's scalar values win on conflicts, object keys union from both sides — so pre-existing user config is never clobbered. Hook scripts now actually fire after a plugin install.** |
 
 Tag releases. Keep a CHANGELOG in `.assert-iq/CHANGELOG.md`.
 

@@ -76,8 +76,8 @@ the repo root.
 
 The plugin install delivers **every file in the pack to disk**, but VS
 Code and Copilot only auto-load some of them from the plugin install
-dir. Five surfaces have to live in the **workspace** (or a user-global
-slot) to be picked up:
+directory. Eight surfaces have to live in the **workspace** (or a
+user-global slot) to be picked up:
 
 - `.github/copilot-instructions.md` — the always-on QI house rules
 - `.github/instructions/qi-*.instructions.md` — the five `applyTo`
@@ -90,12 +90,25 @@ slot) to be picked up:
   `.assert-iq/maturity-profile.md` and `.assert-iq/governance.md` on
   every quality/release question and silently falls back to defaults
   if they're missing.
+- `.vscode/settings.json` + `.vscode/mcp.json` — wires Copilot to
+  read instructions and prompts from `.github/`, and points
+  `chat.hookFilesLocations` at `./hooks/hooks.json`. JSON
+  deep-merged into any pre-existing files (additive — your scalar
+  values win on conflicts; object keys union from both sides).
+- `hooks/` (`scripts/`, `lib/`, `config/`, `hooks.json`) — the hook
+  scripts themselves. `hooks.json` is rendered at bootstrap time so
+  the script paths resolve to the workspace copies.
+- `.claude/settings.json` — Claude Code reads its `hooks` block from
+  here. Bootstrap merges only the `hooks` key, preserving anything
+  else you have.
 
 **Run `/assert-iq-bootstrap` once per new workspace.** The skill walks
 you through where each surface should live (workspace / user-global /
 skip), supports `solo` and `pod` presets, and copies the templates
-from the plugin install dir into the right places. Cross-platform
-(macOS, Linux, Windows). Always skip-if-exists — safe to re-run.
+from the plugin install directory into the right places. Cross-platform
+(macOS, Linux, Windows). Pre-existing files are preserved (SHA256
+compare + interactive resolver); JSON settings files are deep-merged.
+Safe to re-run.
 
 ---
 

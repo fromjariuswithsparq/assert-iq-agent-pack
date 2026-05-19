@@ -71,8 +71,8 @@ runs — if you want them gone permanently, also delete `hooks/hooks.json`.
 
 The Claude plugin install delivers **every file in the pack to disk**,
 but Claude Code only auto-loads some of them from the plugin install
-dir. Three surfaces have to live in the **workspace** (or a user-global
-slot) to be picked up:
+directory. Several surfaces have to live in the **workspace** (or a
+user-global slot) to be picked up:
 
 - `CLAUDE.md` — the always-on QI guidance (and the `@`-imports it
   pulls in from `.github/instructions/qi-*.instructions.md`)
@@ -82,12 +82,21 @@ slot) to be picked up:
   `.assert-iq/maturity-profile.md` and `.assert-iq/governance.md` on
   every quality/release question and silently falls back to defaults
   if they're missing.
+- `.claude/settings.json` — Claude reads its `hooks` block here.
+  Bootstrap merges only the `hooks` key, preserving anything else you
+  already have in the file.
+- `hooks/` (`scripts/`, `lib/`, `config/`, `hooks.json`) — the hook
+  scripts themselves. `hooks.json` is rendered at bootstrap time so
+  the script paths resolve to the workspace copies (not the plugin
+  install dir).
 
 **Run `/assert-iq-bootstrap` once per new workspace.** The skill walks
 you through where each surface should live (workspace / user-global /
 skip), supports `solo` and `pod` presets, and copies the templates
-from the plugin install dir into the right places. Cross-platform
-(macOS, Linux, Windows). Always skip-if-exists — safe to re-run.
+from the plugin install directory into the right places. Cross-platform
+(macOS, Linux, Windows). Pre-existing files are preserved (SHA256
+compare + interactive resolver); JSON settings files are deep-merged
+additively so your existing config is never clobbered. Safe to re-run.
 
 ---
 
