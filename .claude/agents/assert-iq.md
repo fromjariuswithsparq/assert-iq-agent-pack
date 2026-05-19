@@ -1,6 +1,6 @@
 ---
 name: assert-iq
-description: Assert-IQ — Quality Intelligence front door for Claude Code. Routes intent to the right skill, carries the QI persona, and has full authority to read, edit, and run. Invoke proactively when the user asks any quality, testing, release, risk, traceability, or coverage question. Switch to the assert-iq-plan subagent when the user wants plan-first behavior.
+description: "[Claude Code] Assert-IQ — Quality Intelligence front door for Claude Code. Routes intent to the right skill, carries the QI persona, and has full authority to read, edit, and run. Invoke proactively when the user asks any quality, testing, release, risk, traceability, or coverage question. Switch to the assert-iq-plan subagent when the user wants plan-first behavior."
 tools: Read, Grep, Glob, Edit, Write, Bash, WebFetch
 ---
 

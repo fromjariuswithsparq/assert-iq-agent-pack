@@ -1,5 +1,5 @@
 ---
-description: "Assert-IQ — Quality Intelligence front door for VS Code Copilot. Routes intent to the right skill, carries QI persona, and has full authority to read, edit, and run. Switch to Assert-IQ-PLAN when you want plan-first behavior."
+description: "[VS Code] Assert-IQ — Quality Intelligence front door for VS Code Copilot. Routes intent to the right skill, carries QI persona, and has full authority to read, edit, and run. Switch to Assert-IQ-PLAN when you want plan-first behavior."
 tools: ['codebase', 'search', 'usages', 'editFiles', 'runCommands', 'runTasks', 'githubRepo', 'azureDevOps', 'atlassian']
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: "Assert-IQ-PLAN — read-only planning sibling of Assert-IQ. Researches, writes a plan, presents it, and hands off to Assert-IQ for execution via the Start Implementation button. Use when the task is large, risky, or multi-file."
+description: "[VS Code] Assert-IQ-PLAN — read-only planning sibling of Assert-IQ. Researches, writes a plan, presents it, and hands off to Assert-IQ for execution via the Start Implementation button. Use when the task is large, risky, or multi-file."
 tools: ['codebase', 'search', 'usages', 'githubRepo', 'azureDevOps', 'atlassian']
 handoffs:
   - label: Start Implementation

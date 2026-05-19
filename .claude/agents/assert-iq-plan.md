@@ -1,6 +1,6 @@
 ---
 name: assert-iq-plan
-description: Assert-IQ-PLAN — read-only planning sibling of the assert-iq subagent. Researches, writes and outlines multi-step a plan, presents it, and waits for the user to approve before handing back to assert-iq for execution. Invoke when the task is large, risky, or multi-file, or when the user asks for a plan first.
+description: "[Claude Code] Assert-IQ-PLAN — read-only planning sibling of the assert-iq subagent. Researches, writes and outlines multi-step a plan, presents it, and waits for the user to approve before handing back to assert-iq for execution. Invoke when the task is large, risky, or multi-file, or when the user asks for a plan first."
 argument-hint: Outline the goal or problem to research
 model: Claude Sonnet 4.6
 target: vscode
