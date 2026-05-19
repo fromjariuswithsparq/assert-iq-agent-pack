@@ -4,7 +4,7 @@
 > instructions, modes, and tools that turn GitHub Copilot Chat **and**
 > Claude Code into a QI-aware delivery partner inside the IDE.
 
-**Version**: v0.7.0-pre.2
+**Version**: v0.7.0-rc.2
 **Status**: Internal Sparq asset — Intelligence Studio
 **Owner**: QE Competency Council
 **Repo**: <https://github.com/fromjariuswithsparq/assert-iq-agent-pack>
@@ -78,21 +78,30 @@ The pack ships in the **Claude plugin format**
 `${CLAUDE_PLUGIN_ROOT}` paths), so a single install path works for both
 VS Code Copilot and Claude Code.
 
-### Pin to a released tag — always
+### Source spec
 
-`main` is the floating development branch. **Pin every install to a
-released tag** so your team is not subject to in-flight changes. The
-universal source spec is:
+The install source is the GitHub repo, referenced as `owner/repo`:
 
 ```
-fromjariuswithsparq/assert-iq-agent-pack@v0.7.0-pre.2
+fromjariuswithsparq/assert-iq-agent-pack
 ```
+
+**Pinning to a tag:**
+
+| Tool | Pinning supported? |
+|---|---|
+| **Claude Code** (`/plugin install`) | Yes — append `@v0.7.0-rc.2`. |
+| **VS Code Copilot** (`Chat: Install Plugin From Source`) | **Not in the current build.** The installer accepts only `owner/repo` shorthand or a clone URL; appending `@ref` returns `not a valid plugin source`. Copilot installs from the default branch (`main`). |
+
+`main` only ever fast-forwards to a released tag, so installing from
+`main` is equivalent to installing the latest release. If you need a
+frozen version for VS Code Copilot, vendor the pack via the
+[drop-in path](#drop-in-no-plugin-manager) instead.
 
 Use the latest tag from the
 [Releases page](https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases).
-`v0.x` releases are marked **pre-release** — the pack is stable, but the
-file layout and frontmatter may evolve before `v1.0.0`, so pinning is
-required, not optional.
+`v0.x` releases are marked **pre-release** — the pack is stable, but
+the file layout and frontmatter may evolve before `v1.0.0`.
 
 ### Choose your install scope
 
@@ -174,54 +183,75 @@ git commit -m "chore: adopt Assert.IQ agent pack"
 
 1. Open the Command Palette (`⇧⌘P` / `Ctrl+Shift+P`).
 2. Run **`Chat: Install Plugin From Source`**.
-3. Paste the pinned source spec:
+3. Paste the `owner/repo` shorthand — **no `@ref`, no `https://` prefix**:
 
    ```
-   https://github.com/fromjariuswithsparq/assert-iq-agent-pack@v0.7.0-pre.2
+   fromjariuswithsparq/assert-iq-agent-pack
    ```
 
-4. Alternatively, declare it in your user or workspace `settings.json`
-   so the whole team gets the same pinned version:
+   > Common mistakes: pasting the full HTTPS URL returns *Repository not
+   > found*; appending `@v0.7.0-rc.2` returns *not a valid plugin source*.
+   > The current Copilot build only accepts the bare shorthand and
+   > installs from the repo's default branch.
 
-   ```jsonc
-   {
-     "chat.pluginLocations": {
-       "https://github.com/fromjariuswithsparq/assert-iq-agent-pack@v0.7.0-pre.2": true
-     }
-   }
-   ```
+4. Pick **`assert-iq`** from the plugin list and confirm. Copilot clones
+   the repo, registers the two agents (`Assert-IQ`, `Assert-IQ-PLAN`)
+   and the 22 skills.
 
-5. After install, run `/assert-iq-bootstrap` once per workspace so the
-   five workspace-loaded surfaces (`.github/copilot-instructions.md`,
-   `.github/instructions/qi-*.instructions.md`, `CLAUDE.md`,
-   `AGENTS.md`, `.assert-iq/`) end up where Copilot looks for them.
+5. Reload the window so Copilot picks up the new agents and skills:
+   `⇧⌘P` → **`Developer: Reload Window`**.
+
+6. **Bootstrap the workspace.** Open the target repo in VS Code, open
+   Copilot Chat, and either:
+
+   - Just talk to the front-door agent — it auto-detects missing
+     `.assert-iq/maturity-profile.md` and suggests the bootstrap:
+     ```
+     @Assert-IQ help me onboard this repo
+     ```
+   - Or run the slash command directly:
+     ```
+     /assert-iq-bootstrap
+     ```
+
+   The skill drives `scripts/bootstrap.sh` (or `.ps1` on Windows) for
+   you, asks trial-vs-committed and preset (`pod` / `solo`), and prints
+   a summary. You never need to know where Copilot put the plugin —
+   `$CLAUDE_PLUGIN_ROOT` is resolved automatically.
+
+7. Reload the window one more time so the workspace-loaded
+   instruction files take effect.
 
 ### Claude Code (plugin install)
 
-1. In Claude Code, run the plugin install slash command with the pinned
-   source spec:
+1. In Claude Code, run the plugin install slash command. Claude Code
+   supports pinning to a tag with the `@ref` suffix:
 
    ```
-   /plugin install fromjariuswithsparq/assert-iq-agent-pack@v0.7.0-pre.2
+   /plugin install fromjariuswithsparq/assert-iq-agent-pack@v0.7.0-rc.2
    ```
 
-   (Equivalent: add the GitHub URL plus `@v0.7.0-pre.2` suffix.)
+   Drop the `@v0.7.0-rc.2` suffix to install from the default branch.
 
-2. After install, run `/assert-iq-bootstrap` once per workspace so the
-   three workspace-loaded surfaces (`CLAUDE.md`, `AGENTS.md`,
-   `.assert-iq/`) end up where Claude Code looks for them.
+2. After install, bootstrap the workspace the same way as Copilot —
+   either talk to `@assert-iq` and let it auto-route, or run:
+
+   ```
+   /assert-iq-bootstrap
+   ```
 
 ### Upgrading to a new release
 
-Upgrades are an explicit, intentional act. To move from `v0.7.0-pre.2` to a
-later tag:
+Upgrades are an explicit, intentional act. To move to a later tag:
 
 1. Read the release notes on the
    [Releases page](https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases).
-2. Uninstall the current pinned version (see
+2. Uninstall the current version (see
    [.github/README.md](.github/README.md#uninstalling-the-pack) or
    [.claude/README.md](.claude/README.md#uninstalling-the-pack)).
-3. Reinstall with the new pinned tag — same command, new version.
+3. Reinstall — same command. On Claude Code, bump the `@vX.Y.Z` suffix.
+   On VS Code Copilot, just reinstall from `owner/repo` (the latest
+   release will be on `main`).
 4. Re-run `/assert-iq-bootstrap` to refresh workspace surfaces.
 
 ### Drop-in (no plugin manager)
@@ -231,7 +261,7 @@ restricted org policy, or you want the files vendored into your own
 repo — clone the tag directly and copy the contents:
 
 ```bash
-git clone --depth 1 --branch v0.7.0-pre.2 \
+git clone --depth 1 --branch v0.7.0-rc.2 \
   https://github.com/fromjariuswithsparq/assert-iq-agent-pack.git
 cd assert-iq-agent-pack
 bash install.sh        # macOS / Linux
