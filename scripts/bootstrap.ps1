@@ -679,6 +679,21 @@ function Process-Hooks {
             if (Test-Path -LiteralPath $cfgSrc) {
                 Copy-TreeScoped 'hooks/config' $cfgSrc (Join-Path $Workspace 'hooks\config') 'workspace'
             }
+            # Runtime dirs: state/ + logs/ ship seed JSON and append-only logs
+            # the scripts read/write. sessions/ is created empty; per-session
+            # subdirs are written at SessionStart.
+            $stateSrc = Join-Path $hooksSrcDir 'state'
+            if (Test-Path -LiteralPath $stateSrc) {
+                Copy-TreeScoped 'hooks/state' $stateSrc (Join-Path $Workspace 'hooks\state') 'workspace'
+            }
+            $logsSrc = Join-Path $hooksSrcDir 'logs'
+            if (Test-Path -LiteralPath $logsSrc) {
+                Copy-TreeScoped 'hooks/logs' $logsSrc (Join-Path $Workspace 'hooks\logs') 'workspace'
+            }
+            $sessionsDst = Join-Path $Workspace 'hooks\sessions'
+            New-Item -ItemType Directory -Path $sessionsDst -Force | Out-Null
+            Manifest-Add 'created' $sessionsDst 'workspace'
+            Record 'hooks/sessions/' 'created' $sessionsDst
             $rendered = Render-HooksJson -PackRoot $Workspace
             if (-not $rendered) {
                 Record 'hooks/hooks.json' 'missing-template' (Join-Path $hooksSrcDir 'hooks.template.json')

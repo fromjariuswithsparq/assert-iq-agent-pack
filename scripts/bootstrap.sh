@@ -677,6 +677,18 @@ process_hooks() {
       if [[ -d "$SOURCE/hooks/config" ]]; then
         copy_tree "hooks/config" "$SOURCE/hooks/config" "$WORKSPACE/hooks/config" "workspace"
       fi
+      # Runtime dirs: state/ + logs/ hold seed JSON and append-only logs that
+      # the hook scripts read and write. sessions/ is created empty; per-session
+      # subdirs are written at SessionStart.
+      if [[ -d "$SOURCE/hooks/state" ]]; then
+        copy_tree "hooks/state" "$SOURCE/hooks/state" "$WORKSPACE/hooks/state" "workspace"
+      fi
+      if [[ -d "$SOURCE/hooks/logs" ]]; then
+        copy_tree "hooks/logs" "$SOURCE/hooks/logs" "$WORKSPACE/hooks/logs" "workspace"
+      fi
+      mkdir -p "$WORKSPACE/hooks/sessions"
+      manifest_add "created" "$WORKSPACE/hooks/sessions" "workspace"
+      record "hooks/sessions/" "created" "$WORKSPACE/hooks/sessions"
       # Render hooks.json with __PACK_ROOT__ = workspace.
       local rendered
       rendered="$(render_hooks_json "$WORKSPACE")"
