@@ -89,6 +89,17 @@ inside each file.
 - **Per-client config** — `.assert-iq/config.yaml`,
   `.assert-iq/governance.md`, `.assert-iq/maturity-profile.md`,
   `.assert-iq/signal-schema.json`.
+- **Workspace bootstrap** — `scripts/bootstrap.sh` /
+  `scripts/bootstrap.ps1`, invoked by the `/assert-iq-bootstrap` skill.
+  Three install modes:
+  - `--mode=committed` — files visible to git (team adoption).
+  - `--mode=trial` — files added to `.git/info/exclude` (local-only;
+    the codebase `.gitignore` is **never** touched). User graduates
+    later with `scripts/bootstrap.sh --graduate`.
+  - `--mode=ask` (default in TTY) — interactive prompt.
+  Pre-existing user files are preserved via SHA256 compare + interactive
+  conflict resolver. Every install records
+  `.assert-iq/.install-manifest.json` (version, mode, paths).
 
 ## Companion files
 

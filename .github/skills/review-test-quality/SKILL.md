@@ -1,8 +1,101 @@
-
 ---
 name: review-test-quality
+mode: agent
 description: "Review existing tests for design quality — independence, determinism, brittle patterns, missing trace."
 ---
+
+<!-- markdownlint-disable MD033 -->
+<!--
+HOW TO CUSTOMIZE THIS SKILL
+===========================
+
+This skill is a universal template. It works out of the box for **any
+language, framework, platform, or team** — it reads whatever test
+code you point it at; it does not impose a runner or paradigm.
+
+**How placeholders work**: the agent reads this file, then reads
+`.assert-iq/config.yaml` to find the corresponding key (cited next to
+each point). If a key is absent, the agent infers from repo signals
+or asks.
+
+1. **Test glob(s)** — inherits `test_framework.test_globs`
+   (e.g. `["tests/**/*.py", "**/*_test.go", "**/*.spec.ts"]`).
+   When the user passes a scope (file / dir / branch / PR /
+   suite name), it takes precedence.
+
+2. **Framework hints** — inherits `test_framework.primary`
+   (`pytest | jest | vitest | junit | testng | xunit | nunit |
+   mstest | go_testing | rspec | minitest | cargo | swift_test |
+   xctest | phpunit | pest | mocha | jasmine | cypress |
+   playwright | webdriverio | espresso | xcuitest | detox |
+   karate | rest_assured | postman | k6 | gatling | custom`).
+   Drives the **Framework-aware anti-patterns** table; if `custom`
+   or unknown, the skill falls back to universal principles and
+   states so in the report.
+
+3. **Quality dimensions** — the 8 dimensions (Independence,
+   Determinism, Single responsibility, Behavior-focused, Oracle
+   quality, Setup/teardown, Naming, Traceability) are universal
+   QI defaults. Extend / replace per team via
+   `.assert-iq/config.yaml > test_review.dimensions_extras`
+   (array of `{ id, name, what_to_look_for, severity_examples }`).
+
+4. **Severity policy** — BLOCKER / HIGH / MEDIUM / LOW are
+   universal. Override the escalation rule via
+   `.assert-iq/config.yaml > test_review.escalation`:
+   - `systemic_3plus`     — same MEDIUM in ≥3 tests → HIGH (default)
+   - `systemic_5plus`     — lenient; needs ≥5 occurrences
+   - `regulated`          — any Independence / Determinism finding
+     on a critical-path test escalates to BLOCKER
+
+5. **Scope sampling** — the 1–5 / 6–50 / 50+ ladder is the
+   universal default. Override via
+   `.assert-iq/config.yaml > test_review.sampling`:
+   ```yaml
+   test_review:
+     sampling:
+       full_review_max: 5
+       per_test_critical_max: 50
+       systemic_sampling_size: 15
+   ```
+
+6. **Mock-boundary policy** — the mock-boundary table represents
+   widely accepted defaults. Override the strictness via
+   `.assert-iq/config.yaml > test_review.mock_policy`:
+   - `pragmatic`   — default; flags only clear violations
+   - `strict`      — any mock of an internal collaborator flagged
+   - `loose`       — only mocks of private methods flagged
+
+7. **Traceability marker** — inherits `traceability.marker_style`
+   (`xml_doc | yaml | inline | jsdoc | decorator | attribute |
+   custom_regex | auto`). Drives the Traceability dimension; on
+   `none`, that dimension is skipped and noted.
+
+8. **Report sink** — set
+   `.assert-iq/config.yaml > test_review.report_path` (default
+   `./test-quality-review.md`). Multi-file scope appends to the
+   same report unless `test_review.split_per_file: true`.
+
+9. **Hand-off skill names** — the skill references three
+   downstream skills. Override via
+   `.assert-iq/config.yaml > test_review.handoff_skills`:
+   - `coverage`     — default `check-test-coverage`
+   - `flake`        — default `analyze-flaky-test`
+   - `generate`     — default `generate-automated-unit-test`
+
+10. **Auto-rewrite policy** — hard default is **review-only,
+    never rewrite**. Override per team via
+    `.assert-iq/config.yaml > test_review.allow_auto_fix`:
+    - `never`        — default; review only
+    - `suggest`      — propose diffs but never apply
+    - `apply_low`    — may apply LOW-severity mechanical fixes
+      (naming, formatting); BLOCKER/HIGH/MEDIUM always human-only
+
+11. **Platform notes** — framework- and platform-agnostic.
+    Applies to unit / integration / contract / UI / mobile /
+    load / API / browser / native / WebAssembly / firmware test
+    suites alike.
+-->
 
 # Review test quality
 
@@ -280,3 +373,26 @@ Root cause is the shared connection — one structural fix resolves 75% of findi
   - 50+ tests (suite) → sampling + pattern identification + systemic analysis
   
 - **No false precision.** Severity classification (BLOCKER/HIGH/MEDIUM/LOW) is the right granularity. Don't assign numeric scores to individual tests.
+
+## Output
+
+- A `test-quality-review.md` (or `test_review.report_path`)
+  containing the Summary, Strengths, Findings by severity,
+  Systemic Patterns, and Remediation Priority sections from the
+  template above.
+- A short chat summary: counts by severity, top concern, top 1–2
+  remediation steps, and the highest-leverage systemic finding
+  (if any).
+- **No silent rewrites.** Per `test_review.allow_auto_fix`, the
+  skill never modifies test code unless explicitly authorized,
+  and never modifies production code.
+
+## Signals emitted
+
+When the QI signal sink is wired, this skill emits a
+`test.reviewed` signal per run conforming to
+`.assert-iq/signal-schema.json`, carrying: `scope_descriptor`,
+`tests_reviewed`, `sampling_strategy`, `blocker_count`,
+`high_count`, `medium_count`, `low_count`,
+`dimensions_evaluated`, `systemic_patterns_count`,
+`framework`, and `escalation_policy`.

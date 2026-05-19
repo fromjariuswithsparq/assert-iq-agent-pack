@@ -14,6 +14,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_TEMPLATE="$ROOT/hooks/hooks.template.json"
 HOOKS_SRC="$ROOT/hooks/hooks.json"
 SETTINGS_DST="$ROOT/.claude/settings.json"
 SKILLS_SRC_REL="../.github/skills"
@@ -22,9 +23,18 @@ SKILLS_DST="$ROOT/.claude/skills"
 say() { printf '%s\n' "$*"; }
 fail() { printf 'install.sh: %s\n' "$*" >&2; exit 1; }
 
-[ -f "$HOOKS_SRC" ] || fail "missing $HOOKS_SRC"
+[ -f "$HOOKS_TEMPLATE" ] || fail "missing $HOOKS_TEMPLATE"
 
 mkdir -p "$ROOT/.claude/agents"
+
+# ---- 0. render hooks.json from template ----------------------------------
+# Substitute __PACK_ROOT__ with this absolute pack path. VS Code Copilot
+# does not propagate any env var that carries the workspace path to hook
+# commands, so the fallback path must be baked in at install time. Claude
+# Code's CLAUDE_PLUGIN_ROOT still takes precedence at runtime.
+# Use '|' as sed delimiter since filesystem paths normally do not contain it.
+sed "s|__PACK_ROOT__|$ROOT|g" "$HOOKS_TEMPLATE" > "$HOOKS_SRC"
+say "[ok] rendered hooks/hooks.json (pack root: $ROOT)"
 
 # ---- 1. sync hooks block -------------------------------------------------
 if command -v jq >/dev/null 2>&1; then

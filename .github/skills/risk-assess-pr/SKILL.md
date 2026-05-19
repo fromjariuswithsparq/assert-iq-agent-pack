@@ -1,6 +1,117 @@
+---
 name: risk-assess-pr
+mode: agent
 description: "Score a pull request across the QI four-layer signal model and post a structured risk comment."
 ---
+
+<!-- markdownlint-disable MD033 -->
+<!--
+HOW TO CUSTOMIZE THIS SKILL
+===========================
+
+This skill is a universal template. It works out of the box for **any
+VCS host, tracker, CI system, language, framework, or team** — it
+scores PRs against the QI four-layer model; it does not impose a
+stack.
+
+**How placeholders work**: the agent reads this file, then reads
+`.assert-iq/config.yaml` to find the corresponding key (cited next to
+each point). If a key is absent, the layer scores as **UNGRADED**
+per the integrity rule — the skill never fabricates positive signal.
+
+1. **VCS host** — inherits `vcs.host` (`github | azure_devops |
+   gitlab | bitbucket | gitea | gerrit | phabricator | radicle |
+   none`). Used to fetch the PR diff and post the risk comment.
+   When `none`, the user pastes the diff and the comment is
+   returned to chat only.
+
+2. **Tracker** — inherits `tracker.system` (any of 15 systems
+   including `none`). Used by the Outcome layer to look up escape
+   defects on touched components.
+
+3. **Diff source priority** — set
+   `.assert-iq/config.yaml > risk_assessment.diff_source_order`
+   (default `["mcp", "git", "user_paste"]`). The skill walks this
+   list and uses the first source that responds; if all fail, it
+   asks for the file list explicitly.
+
+4. **Complexity ceilings** — the Low / Medium / High ladder (50 /
+   500 lines) is a universal default. Override per team via
+   `.assert-iq/config.yaml > risk_assessment.complexity`:
+   ```yaml
+   risk_assessment:
+     complexity:
+       low_max_lines: 50
+       medium_max_lines: 500
+       low_max_files: 1
+       medium_max_services: 2
+   ```
+
+5. **Test discovery** — the Protection layer locates tests via
+   five heuristics in order. Override the globs and patterns via
+   `.assert-iq/config.yaml > risk_assessment.test_discovery`:
+   ```yaml
+   risk_assessment:
+     test_discovery:
+       traceability_first: true   # honour traceability.marker_style
+       test_file_patterns:
+         - "*Test*.*"
+         - "*Tests.*"
+         - "*Spec.*"
+         - "*_test.*"
+         - "*.spec.*"
+       test_dirs: ["test", "tests", "__tests__", "spec"]
+   ```
+
+6. **Trust thresholds** — default 5% flake / 14-day block window
+   are universal. Override via
+   `.assert-iq/config.yaml > risk_assessment.trust_thresholds`:
+   ```yaml
+   risk_assessment:
+     trust_thresholds:
+       flake_pct_weak: 5
+       block_lookback_days: 14
+   ```
+   The flake source itself inherits `flake_analysis.results_store`.
+
+7. **Outcome window** — default 30 days. Override via
+   `.assert-iq/config.yaml > risk_assessment.outcome_lookback_days`.
+
+8. **Late-change materiality table** — the three tiers
+   (cosmetic / behavior change / shared-config) are universal
+   defaults. Extend per team via
+   `.assert-iq/config.yaml > risk_assessment.late_change_extras`
+   (e.g. flag any change to `**/security/**` as critical).
+
+9. **Decision-band policy** — the GREEN / AMBER / RED matrix is
+   universal. Override via
+   `.assert-iq/config.yaml > risk_assessment.decision_policy`:
+   - `strict`      — default; AMBER on any WEAK or UNGRADED
+   - `pragmatic`   — GREEN allowed with 1 UNGRADED *non-Outcome* layer
+   - `regulated`   — RED on any UNGRADED layer for regulated paths
+     (paths from `risk_assessment.regulated_paths`)
+
+10. **Comment posting** — set
+    `.assert-iq/config.yaml > risk_assessment.post_comment`:
+    - `true`   — post to the PR (when `vcs.host != none`)
+    - `false`  — return the comment in chat only
+    The comment **never** blocks the PR — assessment is advisory
+    (see Governance).
+
+11. **Report sink** — set
+    `.assert-iq/config.yaml > risk_assessment.report_path`
+    (default `./pr-risk-<pr-id>.md`) for an artifact copy of the
+    comment.
+
+12. **PII / sensitive-data redaction** — inherits
+    `bug_reporter.redaction_rules`. Used when summarising escape
+    defects in the Outcome layer; verbatim quoting is forbidden.
+
+13. **Platform notes** — deployment-model-agnostic. Works for
+    monolith / microservices / serverless / mobile / firmware /
+    ML model / data-pipeline PRs alike. The four layers map onto
+    any change topology.
+-->
 
 # PR risk assessment
 
@@ -273,3 +384,28 @@ Classification: **Medium** — standard assessment.
 **Recommended next action**: Team lead: hold merge until ADO restored and tests added for
                               settle() and evaluate(). QA lead: coverage review before release window.
 ```
+
+---
+
+## Output
+
+- A PR comment (when `vcs.host != none` and
+  `risk_assessment.post_comment: true`) using the template above.
+- A `pr-risk-<pr-id>.md` artifact (per `risk_assessment.report_path`)
+  with the same content for audit retention.
+- A short chat summary: verdict, layer states, primary driver,
+  recommended next action.
+- **Never blocks the PR.** The skill posts the signal; the
+  decision to merge stays with the human reviewer.
+
+## Signals emitted
+
+When the QI signal sink is wired, this skill emits a `pr.risk_assessed`
+signal per run conforming to `.assert-iq/signal-schema.json`, carrying:
+`pr_ref`, `verdict` (GREEN | AMBER | RED),
+`layer_states` (change / protection / trust / outcome, each one of
+`STRONG | WEAK | UNGRADED`), `complexity_class` (low / medium / high),
+`lines_added`, `lines_removed`, `services_touched`,
+`late_change_materiality`, `uncovered_functions_count`,
+`escapes_in_window`, `flake_pct`, `decision_policy`, and
+`tracker_ref`.

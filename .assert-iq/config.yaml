@@ -56,6 +56,15 @@ maturity:
 tracker:
   type: "github"        # options: github | ado | jira | linear | none
 
+  # priority_field: where business criticality lives on a work item.
+  # Used by check-test-coverage to weight risk by workflow importance.
+  # Examples by tracker:
+  #   github → label prefix (e.g. labels starting with "priority/")
+  #   ado    → "Microsoft.VSTS.Common.Priority"
+  #   jira   → "priority"
+  #   linear → "priority"
+  # priority_field: "<field name or label prefix>"
+
   # --- GitHub Issues (default) ----------------------------------------------
   github:
     repo: "<owner>/<repo>"             # e.g. "acme/payments-api"
@@ -87,8 +96,114 @@ tracker:
 # -----------------------------------------------------------------------------
 vcs:
   type: "github"        # options: github | ado-repos | gitlab | bitbucket | gitea
-  default_branch: "main"              # e.g. "main" | "master" | "develop"
+  host: "github"        # alias used by new-pull-request skill; mirror of `type`
+                        # (github | azure_devops | gitlab | bitbucket | gitea |
+                        #  gerrit | phabricator | radicle | none)
+  default_branch: "main"              # e.g. "main" | "master" | "develop" | "trunk"
   # pr_base_branch: "main"            # uncomment if PR base differs from default_branch
+
+  # branch_workitem_regex: how the agent extracts a work-item ID from a
+  # branch name when the user hasn't supplied one.
+  branch_workitem_regex: "(AB#\\d+|[A-Z]+-\\d+|#\\d+|GH-\\d+|ENG-\\d+)"
+
+  # pr_template_path: explicit override; leave empty to auto-detect at
+  # .github/pull_request_template.md, .azuredevops/pull_request_template.md,
+  # .gitlab/merge_request_templates/*.md, docs/pull_request_template.md.
+  pr_template_path: ""
+
+  # credential_patterns_extras: regexes appended to the universal credential
+  # scan (AWS / Azure / GCP / GitHub PAT / GitLab PAT / Slack / PEM).
+  credential_patterns_extras: []
+
+
+# -----------------------------------------------------------------------------
+# PULL REQUEST  — used by the new-pull-request skill
+# -----------------------------------------------------------------------------
+pr:
+  # draft_when_acs_incomplete: how the skill handles incomplete-AC branches.
+  #   ask | always_draft | never_draft
+  draft_when_acs_incomplete: "ask"
+
+  # use_risk_assess_pr: reuse the risk-assess-pr band when available.
+  use_risk_assess_pr: true
+
+  # risk_thresholds: line-count and path heuristics that bump the risk band.
+  risk_thresholds:
+    lines_amber: 200
+    lines_red: 500
+    sensitive_paths:
+      - "**/auth/**"
+      - "**/payment*/**"
+      - "**/billing/**"
+      - "**/export*/**"
+      - "**/migrations/**"
+      - "**/*.terraform"
+      - "**/Dockerfile*"
+
+  # auto_reviewers / auto_labels: applied at PR open time (host-dependent).
+  auto_reviewers: []
+  auto_labels: []
+
+
+# -----------------------------------------------------------------------------
+# TRACEABILITY  — how production code points back to work items
+# -----------------------------------------------------------------------------
+# marker_style: the comment / doc syntax your codebase uses to tie a unit of
+# production code to a tracker work item. Used by check-test-coverage,
+# generate-traceability-matrix, and any skill that surfaces untraceable code.
+# Defaults to a generic single-line comment. Pick the idiom that matches your
+# primary language; mixed-language repos can override per-file via the
+# instruction files in .github/instructions/.
+# -----------------------------------------------------------------------------
+traceability:
+  marker_style: "generic"   # options:
+                            #   generic    → // qi-trace: <WORK-ITEM>
+                            #   csharp_xml → /// <qi-trace work-item="AB#1234" />
+                            #   javadoc    → /** @qi-trace AB#1234 */
+                            #   jsdoc      → /** @qi-trace JIRA-1234 */
+                            #   python_doc → """:qi-trace: JIRA-1234"""
+                            #   python_decorator → @qi_trace("JIRA-1234")
+                            #   go_comment → // qi-trace: GH-1234
+                            #   rust_doc   → /// qi-trace: LIN-1234
+                            #   ruby       → # qi-trace: SHORTCUT-1234
+                            #   swift_doc  → /// - qi-trace: PROJ-1234
+
+  # Optional: regex the agent uses to detect markers across the codebase.
+  # Leave blank to use the built-in detector for marker_style.
+  # detector_regex: "qi-trace[:\\s]+([A-Z]+-?\\d+|AB#\\d+|GH-\\d+)"
+
+  # --- Matrix generation (generate-traceability-matrix skill) ----------------
+  # code_globs / test_globs: where to scan. Use "auto" to let the agent infer
+  # from repo language signals.
+  code_globs: "auto"
+  # code_globs:
+  #   - "**/*.{js,jsx,ts,tsx}"
+  #   - "**/*.py"
+  #   - "**/*.{cs,xaml}"
+  code_excludes:
+    - "**/node_modules/**"
+    - "**/dist/**"
+    - "**/build/**"
+    - "**/.venv/**"
+    - "**/vendor/**"
+    - "**/generated/**"
+  test_globs:
+    - "tests/**"
+    - "**/*Test.*"
+    - "**/*.test.*"
+    - "**/*.spec.*"
+    - "**/*Tests.cs"
+
+  # rules_path: markdown file documenting which code MUST carry a marker.
+  rules_path: ".github/instructions/qi-traceability.instructions.md"
+
+  # Matrix outputs.
+  output_formats: ["markdown"]   # markdown | csv | html | json | sarif | excel | confluence_table | notion_table
+  output_path: "./traceability-matrix.md"
+
+  # compliance_lock: audit-grade matrix at release time.
+  #   none | release_freeze | regulatory
+  compliance_lock: "none"
 
 
 # -----------------------------------------------------------------------------
@@ -117,6 +232,139 @@ test_framework:
   #     language: "typescript"
   #     test_command: "npm run test:unit"
   #     test_root: "./src"
+
+  # ---------------------------------------------------------------------------
+  # API test generation (used by generate-automated-api-test)
+  # ---------------------------------------------------------------------------
+  # api: which API test framework to generate against.
+  #   options: restassured | karate | supertest | jest-fetch | playwright-apirequest |
+  #            pytest-httpx | pytest-requests | tavern | schemathesis | dredd |
+  #            xunit-httpclient | restsharp | refit | rspec-request | newman |
+  #            bruno | hurl | pact | grpcurl | apollo-graphql | other
+  api: "<api-framework>"
+
+  # api_contract: where the contract lives.
+  #   options: openapi | asyncapi | graphql_sdl | protobuf | pact | code_inferred
+  api_contract: "openapi"
+  # api_contract_path: "./openapi.yaml"   # or URL
+
+  # api_auth: auth model the generated negative scenarios will target.
+  #   options: none | basic | bearer_jwt | oauth2_client_credentials |
+  #            oauth2_authorization_code | oidc | api_key_header | api_key_query |
+  #            aws_sigv4 | azure_managed_identity | mtls | hmac_signed
+  api_auth: "bearer_jwt"
+
+  # api_environments: allowed environment targets. PRODUCTION IS NEVER ALLOWED.
+  api_environments:
+    - "local"
+    - "dev"
+    # - "qa"
+    # - "staging"
+    # - "ephemeral_pr"
+
+  # api_error_envelope: shape of the project's error responses.
+  #   options: rfc7807 | json_api | google_api_error | custom
+  api_error_envelope: "rfc7807"
+  # api_error_schema_path: "./schemas/error.schema.json"   # required when custom
+
+  # data_factory: reuse for input seeding.
+  #   options: factory_bot | faker | factory_boy | bogus | autofixture |
+  #            mimesis | polyfactory | model_factory | none
+  data_factory: "none"
+
+  # api_mocking: downstream-dependency strategy in tests.
+  #   options: live_only | wiremock | mockoon | prism | msw | nock |
+  #            responses | requests_mock | vcr_cassettes | contract_only
+  api_mocking: "live_only"
+
+  # api_perf_assertions: smoke-level response-time assertions inside functional tests.
+  #   options: none | soft | hard
+  api_perf_assertions: "none"
+  # api_response_time_ceiling_ms: 1500   # required when hard
+
+  # ---------------------------------------------------------------------------
+  # UI test generation (used by generate-automated-ui-test)
+  # ---------------------------------------------------------------------------
+  # ui_structure: structural pattern the generated tests follow.
+  #   options: page_object | screenplay | component_object | app_actions |
+  #            inline | auto
+  ui_structure: "auto"
+
+  # ui_environments: allowed environment targets. PRODUCTION IS NEVER ALLOWED.
+  ui_environments:
+    - "local"
+    - "dev"
+    # - "qa"
+    # - "staging"
+    # - "ephemeral_pr"
+
+  # ui_auth_strategy: how authenticated journeys log in.
+  #   options: ui_login | api_login_then_set_cookie | storage_state |
+  #            sso_bypass_token | none
+  ui_auth_strategy: "api_login_then_set_cookie"
+
+  # ui_scenarios_per_ac: default scenario coverage per acceptance criterion.
+  # Default policy: happy + negative + boundary.
+  ui_scenarios_per_ac:
+    happy: 1
+    negative: 1
+    boundary: 1
+
+  # ui_visual_regression: opt-in visual baseline assertions.
+  #   options: none | playwright_snapshot | percy | applitools | chromatic |
+  #            loki | resemblejs
+  ui_visual_regression: "none"
+
+  # ui_a11y_checks: opt-in accessibility assertions per visited page.
+  #   options: none | axe | pa11y | lighthouse | framework_native
+  ui_a11y_checks: "none"
+
+  # ---------------------------------------------------------------------------
+  # Unit test generation (used by generate-automated-unit-test)
+  # ---------------------------------------------------------------------------
+  # unit: which unit test framework to generate against.
+  #   options: xunit | nunit | mstest | junit5 | testng | pytest | unittest |
+  #            jest | vitest | mocha | jasmine | rspec | minitest | go-test |
+  #            cargo-test | nextest | xctest | kotest | phpunit | pest |
+  #            catch2 | googletest | bats | shunit2 | other
+  unit: "<unit-framework>"
+
+  # unit_mocking: mocking library the agent reuses (never introduces new).
+  #   options: moq | nsubstitute | fakeiteasy | mockito | mockk |
+  #            unittest_mock | pytest_mock | jest_mocks | sinon |
+  #            vitest_mocks | testify_mock | gomock | mockall |
+  #            rspec_mocks | phpunit_mocks | gmock | none
+  unit_mocking: "none"
+
+  # unit_layout: where generated tests are placed.
+  #   options: colocated | mirrored_tree | tests_dir | module_internal | auto
+  unit_layout: "auto"
+
+  # unit_naming: test-name idiom.
+  #   options: should_xxx_when_yyy | MethodName_Scenario_ExpectedBehavior |
+  #            given_xxx_when_yyy_then_zzz | snake_case_describes_behavior |
+  #            it_xxx | auto
+  unit_naming: "auto"
+
+  # unit_parameterization: how multi-case tests are grouped.
+  #   options: inline_data | table_driven | pytest_parametrize |
+  #            rspec_shared_examples | none
+  unit_parameterization: "none"
+
+  # unit_property_based: opt-in property-based test library.
+  #   options: none | fscheck | jqwik | hypothesis | fast-check |
+  #            proptest | quickcheck
+  unit_property_based: "none"
+
+  # unit_coverage_hint: generation hint (measurement is check-test-coverage).
+  #   options: branch | statement | mutation | none
+  unit_coverage_hint: "branch"
+
+  # unit_determinism_overrides: narrow exceptions to the "no real IO / clock /
+  # randomness in unit tests" rule. Leave empty in most repos.
+  # unit_determinism_overrides:
+  #   - "tempfile.TemporaryDirectory"   # python: allowed because hermetic
+  #   - "System.IO.Path.GetTempPath"    # .NET: same rationale
 
 
 # -----------------------------------------------------------------------------
@@ -154,6 +402,171 @@ manual_test_management:
 
 
 # -----------------------------------------------------------------------------
+# MANUAL CASES  — used by the generate-manual-test-case skill
+# -----------------------------------------------------------------------------
+# Knobs for scripted manual test case generation.
+# -----------------------------------------------------------------------------
+manual_cases:
+  # risk_tier_model: how the agent derives the risk tier for an AC / work item.
+  #   options: priority_severity | wsjf | rice | custom
+  risk_tier_model: "priority_severity"
+  # risk_tier_path: "./qi/risk-model.md"   # required when custom
+
+  # max_cases_per_ac: proliferation guardrail. When an AC would produce more,
+  # consolidate boundary cases into a multi-input case.
+  max_cases_per_ac: 8
+
+  # routing_categories_extras: optional team-specific routing categories
+  # beyond the universal subjective | uat | accessibility-cognitive |
+  # novel-area | one-time | automation-noted taxonomy.
+  routing_categories_extras: []
+  #   - "compliance-audit"
+  #   - "cross-cultural-review"
+  #   - "pricing-validation"
+
+  # app_url_template: pattern used when an environment URL is unknown.
+  # The agent writes [APP_URL]/path placeholders unless this is set.
+  app_url_template: "[APP_URL]"
+  # app_url_template: "https://{env}.example.com"
+  # app_url_template: "http://localhost:{port}"
+
+  # update_work_item_default: how the skill handles the work-item-comment
+  # delivery offer.
+  #   options: ask | always | never
+  update_work_item_default: "ask"
+
+
+# -----------------------------------------------------------------------------
+# TEST PLAN  — used by the generate-test-plan skill
+# -----------------------------------------------------------------------------
+# Drives one-page operating test plans, calibrated to scope and risk.
+# -----------------------------------------------------------------------------
+test_plan:
+  # output_path: where markdown plans are written.
+  output_path: "./tests/_qi/plans/"
+
+  # complexity_ceilings: line targets per complexity tier.
+  complexity_ceilings:
+    trivial: 30
+    feature: 80
+    release: 150
+    program: 250
+
+  # approach_defaults: starting auto/manual/exploratory % by project type.
+  # The agent uses these unless the scope clearly demands otherwise.
+  approach_defaults:
+    api:         { auto: 70, manual: 10, exploratory: 20 }
+    ui:          { auto: 30, manual: 40, exploratory: 30 }
+    data:        { auto: 60, manual: 20, exploratory: 20 }
+    integration: { auto: 40, manual: 20, exploratory: 40 }
+    security:    { auto: 50, manual: 15, exploratory: 35 }
+    # mobile: { auto: 40, manual: 30, exploratory: 30 }
+    # embedded: { auto: 35, manual: 35, exploratory: 30 }
+    # ml: { auto: 40, manual: 20, exploratory: 40 }
+    # infra: { auto: 60, manual: 20, exploratory: 20 }
+
+  # environments: real env names the plan should reference.
+  environments: ["local", "dev", "staging", "pre-prod", "prod"]
+
+  # exit_criteria_policy: how strictly the agent enforces measurability.
+  #   strict_measurable | prefer_measurable
+  exit_criteria_policy: "strict_measurable"
+
+
+# -----------------------------------------------------------------------------
+# TEST DATA  — used by the generate-test-data skill
+# -----------------------------------------------------------------------------
+# Drives deterministic, isolated, PII-safe test-data generation. The agent
+# uses whatever pattern your repo already has; do not introduce a new one
+# without confirmation.
+# -----------------------------------------------------------------------------
+test_data:
+  # pattern: data-construction idiom the agent will use.
+  #   factory_bot | factoryboy | model_bakery | pytest_fixtures |
+  #   faker_js | fishery | test_data_bot |
+  #   autofixture | bogus | nbuilder |
+  #   instancio | easy_random | datafaker |
+  #   mother_object | builder_pattern |
+  #   fixture_files | db_migrations |
+  #   factory_go | gofakeit | rust_fake | quickcheck_arbitrary |
+  #   none | auto
+  pattern: "auto"
+
+  # locale: faker locale (en_US, en_GB, de_DE, ja_JP, ar_SA, ...).
+  locale: "en_US"
+
+  # seed: master determinism seed. Every randomised generator must accept it.
+  seed: 42
+
+  # safe_domains: override RFC-reserved test value conventions (rare).
+  # safe_domains:
+  #   email_suffix: "@example.com"
+  #   phone_prefix: "555-01"
+  #   credit_card_test_bin: "411111"
+
+  # persistence: storage layer that backs the data — drives teardown idiom.
+  #   postgres | mysql | sqlite | mssql | oracle |
+  #   mongodb | dynamodb | cosmos | cassandra |
+  #   redis | elasticsearch | in_memory | none
+  persistence: "none"
+
+  # teardown: cleanup strategy.
+  #   transaction_rollback | truncate_tables | delete_by_id |
+  #   ephemeral_container | snapshot_restore | none | auto
+  teardown: "auto"
+
+  # compliant_data_source: path / pipeline name that produces
+  # masked/anonymised data when a scenario truly requires production-like
+  # records. Leave empty to refuse such scenarios.
+  compliant_data_source: ""
+
+  # volume_profile: default dataset size.
+  #   single | pagination_small | pagination_large | bulk | custom
+  volume_profile: "single"
+
+  # output_path: where factories/fixtures/seeds are written.
+  #   inline | ./tests/factories/ | ./tests/fixtures/ | ./db/seeds/ | auto
+  output_path: "auto"
+
+
+# -----------------------------------------------------------------------------
+# EXPLORATORY CHARTER  — used by the generate-exploratory-charter skill
+# -----------------------------------------------------------------------------
+# Session-Based Test Management (SBTM) defaults. A charter is a mission, not
+# a script — these knobs steer the agent without dictating the tester's moves.
+# -----------------------------------------------------------------------------
+exploratory_charter:
+  # Time-box in minutes. SBTM convention: 60–120. Longer sessions degrade focus.
+  timebox_minutes: 60
+
+  # tester_skill_default: depth of guidance baked into the charter.
+  #   options: novice | intermediate | expert
+  tester_skill_default: "intermediate"
+
+  # heuristics: which risk-model / heuristics library the agent draws ideas from.
+  #   options: satisfice_heuristics | touring | riskstorming | pacmad |
+  #            heuristic_test_strategy_model | custom
+  heuristics: "satisfice_heuristics"
+  # heuristics_path: "./qi/heuristics.md"   # required when custom
+
+  # domain_mnemonics: coverage cues the charter surfaces (4–8 per session).
+  #   options: SFDIPOT | CRUSSPIC_STMPL | FCC_CUTS_VIDS | accessibility |
+  #            i18n_l10n | data_privacy | none
+  domain_mnemonics:
+    - "SFDIPOT"
+    # - "CRUSSPIC_STMPL"
+    # - "accessibility"
+
+  # report_format: how the post-session debrief is captured.
+  #   options: sbtm | freeform | tracker_native
+  report_format: "sbtm"
+
+  # recharter_after_days: used in follow-up recommendation when an area
+  # remains high-risk after the session.
+  recharter_after_days: 30
+
+
+# -----------------------------------------------------------------------------
 # ROUTING  — how skills decide which test artifact to produce
 # -----------------------------------------------------------------------------
 routing:
@@ -172,6 +585,32 @@ routing:
   # when the AC would route to automation.
   early_maturity_manual_fallback: true
 
+  # tie_break_policy: how the router resolves ties between candidate routes.
+  #   prefer_automation              (default; QI rigor)
+  #   prefer_exploratory_when_novel  (favour discovery in novel areas)
+  #   prefer_manual_when_subjective  (favour scripted manual for soft criteria)
+  tie_break_policy: "prefer_automation"
+
+  # classification_overrides: extend or override the universal taxonomy.
+  # Each entry maps an AC keyword / regex → forced route.
+  classification_overrides: []
+  #   - match: "screen reader narrative"
+  #     route: "manual"
+  #   - match: "regex:.*compliance.*audit.*"
+  #     route: "manual"
+
+  # artifact_naming: how dispatched artifacts are named.
+  #   default: "AC{n}-{slug}"
+  artifact_naming: "AC{n}-{slug}"
+
+  # dispatch: parallel (default) or sequential. Use sequential when MCP is
+  # rate-limited or the repo is small enough that ordering matters.
+  dispatch: "parallel"   # parallel | sequential
+
+  # report_path: optional path to persist the routing report alongside chat.
+  # Leave empty to skip on-disk persistence.
+  report_path: ""
+
 
 # -----------------------------------------------------------------------------
 # AGENTIC HEALING  (mid and higher tiers only)
@@ -187,6 +626,7 @@ agentic_healing:
   #   test-plus-fixtures → test files + shared fixtures/helpers
   allowed_scope: "test-only" # options: test-only | test-plus-fixtures
   escalate_on_regression: true  # halt and alert if a fix introduces a new failure
+  report_path: "./healing-report.md"  # human-readable iteration log
 
 
 # -----------------------------------------------------------------------------
@@ -195,6 +635,502 @@ agentic_healing:
 flake_analysis:
   history_days: 30          # how many days of run history to scan for patterns
   min_runs_for_pattern: 10  # minimum run count before a test is flake-eligible
+  report_path: "./flake-analysis-report.md"
+
+  # results_store: where historical run data lives.
+  #   ci_native   → use the host CI's checks/test-results API
+  #   junit_glob  → file glob over JUnit / TRX / xUnit XML artifacts
+  #   datadog     → Datadog CI Visibility
+  #   launchable  → Launchable
+  #   buildpulse  → BuildPulse
+  #   allure      → Allure TestOps
+  #   reportportal→ ReportPortal
+  #   trunk       → Trunk Flaky Tests
+  #   elasticsearch / clickhouse / bigquery / snowflake → self-hosted warehouse
+  # results_store: "ci_native"
+  # results_store_config:
+  #   junit_glob: "./test-results/**/*.xml"
+  #   # datadog_query: "@test.status:fail service:my-svc"
+
+  # flake_threshold: what counts as flaky in your team's vocabulary.
+  # Defaults: pass rate strictly between 5% and 95% on the same commit SHA,
+  # OR ≥2 alternating pass/fail transitions inside the history window.
+  # flake_threshold:
+  #   pass_rate_low: 0.05
+  #   pass_rate_high: 0.95
+  #   min_transitions: 2
+
+  # correlation_dimensions: axes the analyzer slices flake metrics by.
+  # correlation_dimensions:
+  #   - branch
+  #   - environment
+  #   - runner
+  #   - time_of_day
+  #   - day_of_week
+  #   - shard
+  #   # team-specific: region | browser | device_profile | feature_flag | tenant
+
+  # preferred_mitigations: idioms the agent recommends for each pattern.
+  # preferred_mitigations:
+  #   timing: "Playwright expect.toPass | Awaitility | pytest-retry"
+  #   external_dependency: "Polly | resilience4j | tenacity"
+  #   data: "per-test factory regeneration | transaction rollback"
+
+  # quarantine_workflow: structured quarantine policy.
+  # Quarantine is containment, NEVER a fix. Always requires expiry + owner.
+  # quarantine_workflow:
+  #   marker: "@Flaky"           # how the test is tagged
+  #   tracker_label: "qe/flaky"   # label applied on the tracker work item
+  #   expiry_days: 14            # max time a test may remain quarantined
+
+
+# -----------------------------------------------------------------------------
+# ESCAPE ANALYSIS  — post-incident learning over escaped defects
+# -----------------------------------------------------------------------------
+escape_analysis:
+  report_path: "./escaped-defect-report.md"
+
+  # Pattern detection — is this a one-off or part of a recurring escape
+  # cluster on the same component?
+  pattern_lookup:
+    lookback_days: 90
+    pattern_threshold: 3     # ≥ N escapes on the same component within lookback = "pattern"
+    # tracker_query: "<JQL | WIQL | GitHub search | GitLab search string>"
+    # Examples:
+    #   Jira:    "project = MYAPP AND issuetype = Bug AND labels = escape AND component = ${COMPONENT}"
+    #   ADO:     "SELECT [System.Id] FROM WorkItems WHERE [System.WorkItemType] = 'Bug' AND [System.Tags] CONTAINS 'escape'"
+    #   GitHub:  "repo:OWNER/REPO is:issue label:escape label:component-${COMPONENT}"
+
+
+# -----------------------------------------------------------------------------
+# PR RISK ASSESSMENT  — used by the risk-assess-pr skill
+# -----------------------------------------------------------------------------
+# Scores a PR against the QI four-layer model (Change / Protection / Trust /
+# Outcome) and posts a structured risk comment. Advisory — never blocks the PR.
+# -----------------------------------------------------------------------------
+risk_assessment:
+  # diff_source_order: where to fetch the PR diff from, in priority order.
+  diff_source_order: ["mcp", "git", "user_paste"]
+
+  # complexity: thresholds that classify a PR as low / medium / high.
+  complexity:
+    low_max_lines: 50
+    medium_max_lines: 500
+    low_max_files: 1
+    medium_max_services: 2
+
+  # test_discovery: how the Protection layer locates tests for changed code.
+  test_discovery:
+    traceability_first: true
+    test_file_patterns:
+      - "*Test*.*"
+      - "*Tests.*"
+      - "*Spec.*"
+      - "*_test.*"
+      - "*.spec.*"
+    test_dirs: ["test", "tests", "__tests__", "spec"]
+
+  # trust_thresholds: when does the Trust layer go WEAK.
+  trust_thresholds:
+    flake_pct_weak: 5
+    block_lookback_days: 14
+
+  # outcome_lookback_days: rolling window for the Outcome layer.
+  outcome_lookback_days: 30
+
+  # late_change_extras: paths that are always treated as critical late-changes.
+  late_change_extras: []
+  #   - "**/security/**"
+  #   - "**/auth/**"
+  #   - "**/billing/**"
+
+  # decision_policy: how strictly UNGRADED layers affect the verdict.
+  #   strict | pragmatic | regulated
+  decision_policy: "strict"
+
+  # regulated_paths: globs that activate the `regulated` policy lane.
+  regulated_paths: []
+  #   - "**/payments/**"
+  #   - "**/phi/**"
+
+  # post_comment: post the risk comment to the PR on the configured VCS host.
+  post_comment: true
+
+  # report_path: artifact copy of the comment for audit retention.
+  report_path: "./pr-risk.md"
+
+
+# -----------------------------------------------------------------------------
+# MERGE GATE  — pre-merge quality verdict (MERGE / HOLD / DISCUSS)
+# -----------------------------------------------------------------------------
+# Advisory. Branch protection on your VCS host gates merges — this section
+# tunes the advisory verdict, not the gate itself.
+# -----------------------------------------------------------------------------
+merge_gate:
+  report_path: "./merge-readiness-card.md"
+
+  # required_checks: status-check names that must be green for a MERGE verdict.
+  # Defaults to whatever branch protection requires (queried at runtime).
+  # Override here when you want stricter advisory gating than branch protection.
+  # required_checks:
+  #   - "build"
+  #   - "unit-tests"
+  #   - "lint"
+
+  # Coverage thresholds on the protection layer.
+  coverage:
+    line_min: 80              # % coverage on changed lines for a MERGE verdict
+    risk_weighted_min: 90     # % coverage on changed lines flagged high-risk
+
+  # traceability_rule: how the agent verifies changed code resolves to a work item.
+  #   commit_message → every commit must mention a tracker ID
+  #   pr_body        → PR description must link ≥1 work item
+  #   code_comment   → modified functions must carry a /// traceability comment
+  #   any            → accept any of the above (default)
+  #   off            → skip the check (not recommended for mid / higher tiers)
+  traceability_rule: "any"    # options: commit_message | pr_body | code_comment | any | off
+
+  # skip_markers: annotations / patterns that count as a skipped or quarantined test.
+  # Defaults below cover the common frameworks; extend for your stack.
+  skip_markers:
+    - "[Skip]"
+    - "[Ignore]"
+    - "@Disabled"
+    - "@Ignore"
+    - "@pytest.mark.skip"
+    - "@pytest.mark.xfail"
+    - ".skip("
+    - "xit("
+    - "xdescribe("
+    - "t.Skip("
+    - "// +build ignore"
+    - ".fixme("
+
+  # verdict_rules: tune what flips MERGE → DISCUSS → HOLD.
+  # Universal principle: red = HOLD, amber = DISCUSS, all green = MERGE.
+  verdict_rules:
+    new_skip_introduced: "amber"     # options: green | amber | red
+    coverage_below_line_min: "red"
+    coverage_below_risk_weighted_min: "red"
+    open_escape_on_component: "amber"
+    blocker_review_comment_unresolved: "red"
+
+
+# -----------------------------------------------------------------------------
+# RELEASE CONFIDENCE  — used by the release-confidence skill
+# -----------------------------------------------------------------------------
+# Aggregates the QI four-layer model (Change / Protection / Trust / Outcome)
+# into a GO / GO-WITH-MITIGATION / HOLD verdict for a release candidate.
+# -----------------------------------------------------------------------------
+release:
+  # identifier_source: how the release candidate is named.
+  #   tag | branch | build | commit | manual
+  identifier_source: "tag"
+
+  # service_criticality: free-form map of service / module → criticality.
+  # The agent uses this to weight intra-layer aggregation (worst-critical
+  # path rule).
+  service_criticality: {}
+  #   payments: "critical"
+  #   billing: "critical"
+  #   auth: "high"
+  #   notifications: "low"
+  #   admin: "low"
+
+  # irreversible_paths: globs that mark changes as hard-to-revert (drives
+  # the Change-layer reversibility score and rollback-plan red flag).
+  irreversible_paths:
+    - "**/migrations/**"
+    - "**/schema/**"
+    - "**/*.proto"           # public API contracts
+    - "**/openapi.{yml,yaml,json}"
+
+  # outcome_sources: where Outcome-layer telemetry / incident data lives.
+  # Set to ["none"] to run without an Outcome layer (partial-signal mode).
+  outcome_sources: ["none"]
+  #   - "datadog"
+  #   - "pagerduty"
+  #   - "sentry"
+
+  # score_thresholds: override universal QI defaults.
+  score_thresholds:
+    protection: { high_pct: 80, medium_pct: 60 }
+    trust:      { high_flake_pct: 2, medium_flake_pct: 5 }
+
+  # red_flags_extras: append team-specific red flags.
+  red_flags_extras: []
+  #   - id: "dependency_cve_open"
+  #     signal: "Open CVE on a touched dependency"
+  #     impact: "Trust → Low"
+
+  # verdict_policy: how strictly verdicts are computed.
+  #   strict | pragmatic | enterprise
+  verdict_policy: "strict"
+
+  # report_path: where to write the release confidence report.
+  report_path: "./release-confidence.md"
+
+  # compliance_lock: audit-grade report at release time.
+  #   none | release_freeze | regulatory
+  compliance_lock: "none"
+
+
+# -----------------------------------------------------------------------------
+# COVERAGE ANALYSIS  — used by the check-test-coverage skill
+# -----------------------------------------------------------------------------
+# Risk-weighted coverage analysis. Reads whatever report your
+# test_framework.coverage_command already produces; does not impose a tool.
+# -----------------------------------------------------------------------------
+coverage_analysis:
+  report_path: "./coverage-report.md"   # human-readable analysis output
+
+  # scope_default: default analysis scope when none is passed at invocation.
+  #   diff           → only changed lines vs the baseline ref (default, fastest)
+  #   full           → entire repo
+  #   module:<path>  → a single module / package / project directory
+  #   package:<name> → a named package (resolved per-language)
+  scope_default: "diff"
+
+  # report_format: format of the coverage artifact emitted by coverage_command.
+  # Leave commented to let the skill auto-detect from a single canonical path.
+  #   cobertura | lcov | jacoco | clover | opencover | coverage.py |
+  #   go-cover  | sonar-generic | json-summary
+  # report_format: "cobertura"
+  # report_artifact: "./coverage/cobertura.xml"   # path or glob
+
+  # host: optional hosted coverage service (if coverage lives off-disk).
+  # Set "none" to require a local artifact. The skill prefers MCP → CLI →
+  # manual paste fallback when fetching from a host.
+  #   none | codecov | coveralls | sonarqube | sonarcloud | codeclimate |
+  #   azure_devops | github_actions_artifact | gitlab_coverage
+  host: "none"
+
+  # Lookback windows feeding the risk weighting.
+  escape_lookback_days: 90    # window for "recent escapes on this component"
+  churn_lookback_days: 90     # window for "high churn on this file"
+
+  # risk_weights: how the three risk signals are blended into a single
+  # risk score per file. Weights must be non-negative; the skill normalizes
+  # to sum=1.0 before applying. Defaults below mirror the QI baseline:
+  # business criticality and escape history dominate; churn modulates.
+  risk_weights:
+    business_criticality: 0.4
+    escape_history: 0.4
+    churn: 0.2
+
+  # Optional: classification thresholds for "high" risk (used to rank gaps
+  # in the procedure step 4 ordering). Override per team.
+  # high_risk_score: 0.7
+  # high_churn_commits: 10        # commits in churn_lookback_days
+  # high_escape_count: 2          # escapes in escape_lookback_days
+
+
+# -----------------------------------------------------------------------------
+# AC REVIEW  — used by the review-acceptance-criteria skill
+# -----------------------------------------------------------------------------
+# Reviews acceptance criteria for testability before any generation skill
+# runs. Tracker-, format-, and domain-agnostic.
+# -----------------------------------------------------------------------------
+ac_review:
+  # preferred_format: the AC format the team writes in (rewrites use this).
+  #   gwt | numbered | bullets | bdd_table | imperative | user_story | freeform
+  preferred_format: "gwt"
+
+  # criteria_extras: extend the SMART-T baseline with team-specific checks.
+  criteria_extras: []
+  #   - id: "atomic"
+  #     name: "Atomic"
+  #     description: "One AC = one behaviour."
+  #     severity_default: "Major"
+
+  # gating_policy: how strictly Critical / Major issues block downstream.
+  #   strict | pragmatic | regulated
+  gating_policy: "strict"
+
+  # failure_modes_extras: domain failure modes to flag in addition to defaults.
+  failure_modes_extras: []
+  #   - id: "consent_model_unstated"
+  #     severity: "Major"
+
+  # nfr_checklist: which non-functional dimensions to scan for missing ACs.
+  nfr_checklist:
+    - "performance"
+    - "accessibility"
+    - "security"
+    - "privacy"
+    - "reliability"
+    - "i18n"
+    - "observability"
+
+  # domain_gap_checks: extra domain-specific prompts the agent runs.
+  domain_gap_checks: []
+  #   - "Are rounding / currency / FX rules specified?"        # finance
+  #   - "Is PHI handling specified per HIPAA?"                 # healthcare
+  #   - "Is OTA rollback / recovery specified?"                # iot
+
+  # report_path: where to write the review report.
+  report_path: "./ac-review.md"
+
+  # handoff_skills: downstream skill names this review hands off to.
+  handoff_skills:
+    route: "generate-tests-from-ac"
+    automated: "generate-automated-unit-test"
+    manual: "generate-manual-test-case"
+
+  # tracker_writeback: how (if at all) the review surfaces back to the work item.
+  #   none | comment | attach_artifact
+  tracker_writeback: "none"
+
+
+# -----------------------------------------------------------------------------
+# TEST REVIEW  — used by the review-test-quality skill
+# -----------------------------------------------------------------------------
+# Reviews existing tests for design quality (independence, determinism,
+# oracle quality, brittle patterns). Framework- and language-agnostic.
+# -----------------------------------------------------------------------------
+test_review:
+  # report_path: where to write the review report.
+  report_path: "./test-quality-review.md"
+
+  # split_per_file: write one report per file vs one combined report.
+  split_per_file: false
+
+  # dimensions_extras: extend the 8 universal QI dimensions.
+  dimensions_extras: []
+  #   - id: "async_correctness"
+  #     name: "Async correctness"
+  #     what_to_look_for: "Unawaited promises, missing async/await on assertions"
+
+  # escalation: when same MEDIUM finding repeats, when does it become HIGH?
+  #   systemic_3plus | systemic_5plus | regulated
+  escalation: "systemic_3plus"
+
+  # sampling: thresholds for full vs sampled review.
+  sampling:
+    full_review_max: 5
+    per_test_critical_max: 50
+    systemic_sampling_size: 15
+
+  # mock_policy: how strict is the mock-boundary table.
+  #   pragmatic | strict | loose
+  mock_policy: "pragmatic"
+
+  # handoff_skills: downstream skill names this review hands off to.
+  handoff_skills:
+    coverage: "check-test-coverage"
+    flake: "analyze-flaky-test"
+    generate: "generate-automated-unit-test"
+
+  # allow_auto_fix: hard default is never rewrite. Per-team override.
+  #   never | suggest | apply_low
+  allow_auto_fix: "never"
+
+
+# -----------------------------------------------------------------------------
+# CODE REVIEW  — used by the code-review skill
+# -----------------------------------------------------------------------------
+# Nine-category structured code review. VCS-host-, language-, and
+# platform-agnostic. Reads vcs.type and vcs.default_branch for PR context.
+# -----------------------------------------------------------------------------
+code_review:
+  report_path: "./code-review-report.md"   # written only when the report is asked to disk
+
+  # disabled_categories: skip these categories. Critical findings still
+  # surface (see Handling Partial-Scope and Suppression Requests).
+  # Allowed values: readability | kiss | dry | yagni | documentation |
+  #                 error_handling | performance | security | code_smells
+  disabled_categories: []
+
+  # severity_floor: suppress findings below this severity in the output.
+  # Useful for pr_comment format where only actionable items belong.
+  #   ok       → show everything (default)
+  #   warning  → hide 🟢 OK rows
+  #   critical → only 🔴 Critical findings
+  severity_floor: "ok"
+
+  # default_output_format: shape of the rendered report when none is
+  # requested at invocation.
+  #   markdown      → full 9-section report (default)
+  #   json          → machine-readable per the JSON schema in the skill
+  #   pr_comment    → condensed PR-comment form (no 🟢 OK rows)
+  #   quick_summary → summary table + top priorities only
+  default_output_format: "markdown"
+
+  # test_code_calibration: when the analyzed file looks like test code,
+  # apply the Test Code Calibration adjustments (verbose test names OK,
+  # Assert.Throws OK, etc.). Set false to review tests with prod rules.
+  test_code_calibration: true
+
+  # test_file_globs: how the skill recognises test files. The defaults
+  # cover the most common conventions across ecosystems.
+  test_file_globs:
+    - "**/*Test.*"
+    - "**/*Tests.*"
+    - "**/*_test.*"
+    - "**/*.test.*"
+    - "**/*.spec.*"
+    - "**/tests/**"
+    - "**/__tests__/**"
+    - "**/spec/**"
+
+  # recommend_tooling: append the language-appropriate Tooling section
+  # when any 🔴 Critical or 🟡 Warning findings are present.
+  recommend_tooling: true
+
+  # tooling_overrides: add or override the per-language tool list the
+  # skill recommends. Keys are language identifiers as detected by the
+  # skill (csharp | python | javascript | typescript | java | go | rust |
+  # kotlin | swift | ruby | other).
+  # tooling_overrides:
+  #   python: ["ruff", "mypy --strict", "bandit", "pyright"]
+  #   csharp: ["Roslyn Analyzers", "SonarAnalyzer.CSharp", "dotnet-format"]
+
+
+# -----------------------------------------------------------------------------
+# UI DEBUG  — used by the debug-ui-tests skill
+# -----------------------------------------------------------------------------
+# Diagnoses UI test failures and classifies them as flaky / brittle / broken /
+# regression. Framework-, language-, platform-, and CI-host-agnostic.
+# Reuses flake_analysis.results_store for run history.
+# -----------------------------------------------------------------------------
+ui_debug:
+  report_path: "./ui-debug-report.md"
+
+  # history_window: number of recent runs to pull for pattern analysis.
+  history_window: 5
+
+  # artifact_sources: where the skill looks for screenshots, video, traces,
+  # DOM snapshots, and device logs. Add or replace as your runner emits.
+  artifact_sources:
+    - "./test-results/**"             # Playwright default
+    - "./playwright-report/**"        # Playwright HTML report
+    - "./cypress/screenshots/**"      # Cypress screenshots
+    - "./cypress/videos/**"           # Cypress videos
+    - "./build/reports/androidTests/**"  # Espresso / Android instrumentation
+    - "./build/reports/tests/**"      # Gradle test reports
+    - "./test_output/**"              # generic
+    # - "./allure-results/**"
+    # - "./reports/**"
+
+  # selector_policy: ranking the skill applies when proposing selector fixes.
+  #   test_id_first   → prefer data-testid / data-cy / accessibility-id /
+  #                     automation-id (default; most stable)
+  #   role_first      → prefer ARIA-role / accessibility identifier selectors
+  #   text_allowed    → allow text-based selectors when reliably stable
+  #   xpath_last_resort → use XPath only when no other anchor exists
+  selector_policy: "test_id_first"
+
+  # wait_policy: how the skill replaces unstable timing.
+  #   framework_auto      → rely on built-in retry/auto-wait (Playwright, Cypress)
+  #   explicit_conditions → require explicit wait_for_* / ExpectedConditions
+  #   forbid_sleeps       → flag any hard sleep / Thread.sleep / cy.wait(<ms>) /
+  #                         time.sleep as a Critical finding
+  wait_policy: "framework_auto"
+  forbid_sleeps: true
+
+  # production_code_off_limits: hard rule. Regardless of maturity tier,
+  # this skill never patches production code. Leave true.
+  production_code_off_limits: true
 
 
 # -----------------------------------------------------------------------------
@@ -205,8 +1141,54 @@ bug_reporter:
   #   low      → file automatically for low-severity findings
   #   medium   → file automatically up to medium; confirm for high+
   #   critical → always confirm before filing (most conservative)
+  # Note: Critical and security-class bugs ALWAYS require human confirmation
+  # regardless of this setting.
   auto_create_threshold: "medium"   # options: low | medium | high | critical
   search_for_duplicates: true        # check tracker for existing bugs before filing
+  duplicate_lookback_days: 90        # how far back the duplicate search reaches
+
+  # severity_scheme: how this team labels severity.
+  #   options: s1_s4_with_p1_p4 | sev1_sev5 | p0_p4 | custom
+  severity_scheme: "s1_s4_with_p1_p4"
+  # severity_custom:
+  #   - "blocker"
+  #   - "major"
+  #   - "minor"
+  #   - "trivial"
+
+  # component_taxonomy: how the bug body identifies the owning component.
+  #   options: area_path | component_field | codeowners | freeform
+  component_taxonomy: "freeform"
+
+  # telemetry_sources: observability platforms the agent recognizes when
+  # filing bugs from alerts. Used to pick the right query/link idiom.
+  telemetry_sources: []
+  #   - "application_insights"
+  #   - "datadog"
+  #   - "new_relic"
+  #   - "splunk"
+  #   - "grafana"
+  #   - "sentry"
+  #   - "rollbar"
+  #   - "honeycomb"
+
+  # regression_label: tag/label applied when a closed bug is re-opened as new.
+  regression_label: "regression"
+
+  # incident_system: separate from issue tracker, if your team uses one.
+  #   options: none | pagerduty | opsgenie | incident_io | firehydrant | statuspage
+  incident_system: "none"
+
+  # draft_path: where formatted drafts are written when no tracker API is
+  # available or tracker.system = markdown_only.
+  draft_path: "./bug-drafts/"
+
+  # pii_redaction_extras: classes beyond the default table to redact for
+  # this team's compliance posture (HIPAA, PCI, GDPR, FedRAMP, SOX).
+  pii_redaction_extras: []
+  #   - "medical_record_numbers"
+  #   - "patient_names"
+  #   - "case_numbers"
 
 
 # -----------------------------------------------------------------------------

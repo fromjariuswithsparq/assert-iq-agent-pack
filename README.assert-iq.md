@@ -4,9 +4,10 @@
 > instructions, modes, and tools that turn GitHub Copilot Chat **and**
 > Claude Code into a QI-aware delivery partner inside the IDE.
 
-**Version**: v0.5.0
+**Version**: v0.6.0
 **Status**: Internal Sparq asset — Intelligence Studio
 **Owner**: QE Competency Council
+**Repo**: <https://github.com/fromjariuswithsparq/assert-iq-agent-pack>
 
 ---
 
@@ -67,6 +68,195 @@ have), and (2) creates `.claude/skills` as a symlink to `../.github/skills`
 re-run the installer after editing skills).
 
 Copilot requires no extra wiring — it reads `.github/*` natively.
+
+---
+
+## Installation
+
+The pack ships in the **Claude plugin format**
+(`.claude-plugin/plugin.json` + `hooks/hooks.json` with portable
+`${CLAUDE_PLUGIN_ROOT}` paths), so a single install path works for both
+VS Code Copilot and Claude Code.
+
+### Pin to a released tag — always
+
+`main` is the floating development branch. **Pin every install to a
+released tag** so your team is not subject to in-flight changes. The
+universal source spec is:
+
+```
+fromjariuswithsparq/assert-iq-agent-pack@v0.6.0
+```
+
+Use the latest tag from the
+[Releases page](https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases).
+`v0.x` releases are marked **pre-release** — the pack is stable, but the
+file layout and frontmatter may evolve before `v1.0.0`, so pinning is
+required, not optional.
+
+### Choose your install scope
+
+Decide this before running the install command. You can move between scopes
+later — re-running the install is always safe.
+
+| Scope | Where it lives | When to use it |
+|---|---|---|
+| **User-global** | Your machine only (Copilot User `settings.json`; `~/.claude/plugins/` for Claude Code). | Trial mode, personal use, or any repo where you don't (yet) want to commit pack files. The plugin's **capability layer** loads on every workspace you open. |
+| **Workspace** | The repo itself (`.vscode/settings.json` for Copilot; a committed `.claude-plugin/marketplace.json` for Claude Code). | When the team is ready to standardise the pinned version. Everyone who clones the repo gets the same plugin without manual install. |
+
+**Important — what travels with the install, and what doesn't:**
+
+The plugin install ships the **capability layer** globally regardless of
+scope: 22 skills, the `Assert-IQ` / `Assert-IQ-PLAN` (Copilot) and
+`@assert-iq` / `@assert-iq-plan` (Claude) subagents, and the hooks.
+
+The **QI discipline layer** is intentionally **per-repo** and only
+activates in workspaces where these files exist:
+
+| Surface | Why it's per-repo |
+|---|---|
+| `.assert-iq/config.yaml` | Maturity tier, tracker, framework, signal sink \u2014 varies by repo. |
+| `.assert-iq/governance.md` | Compliance posture \u2014 varies by client / regulatory regime. |
+| `.assert-iq/maturity-profile.md` | Tier rationale \u2014 team-specific. |
+| `.github/copilot-instructions.md` + `.github/instructions/qi-*.instructions.md` | Copilot reads these only from the workspace; their `applyTo` globs scope to repo files. |
+| `CLAUDE.md` / `AGENTS.md` | Claude and other agent runners read these from the repo root. |
+
+Recommended adoption path:
+
+1. **Trial mode** — install user-global *or* run `/assert-iq-bootstrap`
+   with `--mode=trial`. Files land in the workspace but are added to
+   `.git/info/exclude` (the codebase `.gitignore` is **not** touched).
+   Other contributors see nothing; you get the full QI experience locally.
+2. **Per-repo onboarding** — when the team is ready, run
+   `scripts/bootstrap.sh --graduate` (or `-Graduate` on Windows). That
+   removes the local-ignore block, flips the manifest to
+   `mode: committed`, and the pack files become visible to git. Then
+   `git add` + commit them.
+
+### Trial vs Committed install (`/assert-iq-bootstrap`)
+
+Three install modes, all driven by the bootstrap script
+(`scripts/bootstrap.sh` / `scripts/bootstrap.ps1`):
+
+| Mode | What happens | Reverse with |
+|---|---|---|
+| `--mode=trial` | Files land in workspace; their paths added to `.git/info/exclude` (local-only). `.gitignore` untouched. | `--graduate` |
+| `--mode=committed` | Files land in workspace and are visible to git. | (just delete files manually if needed) |
+| `--mode=ask` (default in TTY) | Prompts interactively. Non-TTY falls back to `committed`. | — |
+
+**Pre-existing files are preserved.** The script SHA256-compares each
+file. If the destination matches the pack version, it's silently
+recorded as `unchanged_owned`. If the user has a different file at that
+path, the script falls back to an interactive resolver:
+`[k]eep` / `[o]verwrite` / `[s]idecar (writes .assert-iq-new)` /
+`[d]iff` / `[K/O/S]all` / `[a]bort`. Non-TTY runs auto-keep.
+
+Every install writes `.assert-iq/.install-manifest.json` recording
+`{version, installed_at, mode, paths[]}`. Trial mode uses this manifest
+to know which paths to add to `.git/info/exclude` (and which to remove
+on `--graduate`).
+
+**Graduating from trial → committed:**
+
+```bash
+# macOS / Linux
+scripts/bootstrap.sh --graduate
+
+# Windows
+pwsh -File scripts/bootstrap.ps1 -Graduate
+
+# Then commit the pack files when ready:
+git add .assert-iq .claude .github CLAUDE.md AGENTS.md
+git commit -m "chore: adopt Assert.IQ agent pack"
+```
+
+### VS Code Copilot (plugin install)
+
+1. Open the Command Palette (`⇧⌘P` / `Ctrl+Shift+P`).
+2. Run **`Chat: Install Plugin From Source`**.
+3. Paste the pinned source spec:
+
+   ```
+   https://github.com/fromjariuswithsparq/assert-iq-agent-pack@v0.6.0
+   ```
+
+4. Alternatively, declare it in your user or workspace `settings.json`
+   so the whole team gets the same pinned version:
+
+   ```jsonc
+   {
+     "chat.pluginLocations": {
+       "https://github.com/fromjariuswithsparq/assert-iq-agent-pack@v0.6.0": true
+     }
+   }
+   ```
+
+5. After install, run `/assert-iq-bootstrap` once per workspace so the
+   five workspace-loaded surfaces (`.github/copilot-instructions.md`,
+   `.github/instructions/qi-*.instructions.md`, `CLAUDE.md`,
+   `AGENTS.md`, `.assert-iq/`) end up where Copilot looks for them.
+
+### Claude Code (plugin install)
+
+1. In Claude Code, run the plugin install slash command with the pinned
+   source spec:
+
+   ```
+   /plugin install fromjariuswithsparq/assert-iq-agent-pack@v0.6.0
+   ```
+
+   (Equivalent: add the GitHub URL plus `@v0.6.0` suffix.)
+
+2. After install, run `/assert-iq-bootstrap` once per workspace so the
+   three workspace-loaded surfaces (`CLAUDE.md`, `AGENTS.md`,
+   `.assert-iq/`) end up where Claude Code looks for them.
+
+### Upgrading to a new release
+
+Upgrades are an explicit, intentional act. To move from `v0.6.0` to a
+later tag:
+
+1. Read the release notes on the
+   [Releases page](https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases).
+2. Uninstall the current pinned version (see
+   [.github/README.md](.github/README.md#uninstalling-the-pack) or
+   [.claude/README.md](.claude/README.md#uninstalling-the-pack)).
+3. Reinstall with the new pinned tag — same command, new version.
+4. Re-run `/assert-iq-bootstrap` to refresh workspace surfaces.
+
+### Drop-in (no plugin manager)
+
+If you can't use the plugin install path — air-gapped environment,
+restricted org policy, or you want the files vendored into your own
+repo — clone the tag directly and copy the contents:
+
+```bash
+git clone --depth 1 --branch v0.6.0 \
+  https://github.com/fromjariuswithsparq/assert-iq-agent-pack.git
+cd assert-iq-agent-pack
+bash install.sh        # macOS / Linux
+.\install.ps1          # Windows PowerShell
+```
+
+The drop-in path expects the files to live at the **root of the target
+repo** (`.github/`, `.claude/`, `.assert-iq/`, etc.). The installer
+still handles hooks wiring and the `.claude/skills` symlink.
+
+### Platform notes (`.claude/skills` symlink)
+
+The installer creates `.claude/skills` as a **directory symlink** pointing
+at `../.github/skills/`, so Copilot and Claude share one canonical copy of
+the 22 skills. Behavior varies by platform:
+
+| Platform | What happens | What you need to do |
+|---|---|---|
+| **macOS / Linux** | Symlink created normally. | Nothing — edits to either path reflect instantly. |
+| **Windows + Developer Mode (or admin shell)** | Symlink created normally. | Enable Developer Mode once: `Settings → Privacy & security → For developers → Developer Mode On`. Then run `install.ps1`. |
+| **Windows without Developer Mode / admin** | Installer **falls back to copying** `.github/skills/` → `.claude/skills/` and logs the fallback. | **Re-run `install.ps1` after editing any skill** so Claude sees the change. There is real drift risk here — prefer Developer Mode. |
+| **CI runners, Docker `COPY`, manual zip downloads** | Symlinks may not be preserved — you may get a broken link or a copy. | Prefer the GitHub-generated source tarball (preserves symlinks), or run `install.sh` / `install.ps1` after checkout to repair the link. |
+
+The installer is idempotent on every platform — re-running it is always
+safe.
 
 ---
 

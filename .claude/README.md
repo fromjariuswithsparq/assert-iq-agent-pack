@@ -13,7 +13,7 @@ hook settings.
 |---|---|
 | `agents/assert-iq.md` | The **default Assert.IQ subagent** — Quality Intelligence front door with full tools. Routes to the right skill and executes. Invoke with `@assert-iq`. |
 | `agents/assert-iq-plan.md` | The **planning sibling** of `assert-iq`. Read-only — researches, writes a plan, and waits for your approval before handing off. Invoke with `@assert-iq-plan` when the task is large or risky. |
-| `skills/` | Step-by-step playbooks Claude can run when you ask. This is a **symlink** to `.github/skills/`, so Copilot and Claude share the exact same set. Examples: `/generate-bug-report`, `/code-review`. |
+| `skills/` | Step-by-step playbooks Claude can run when you ask. This is a **symlink** to `.github/skills/`, so Copilot and Claude share the exact same set. Examples: `/generate-bug-report`, `/code-review`. On **Windows without Developer Mode**, the installer falls back to copying the folder — in that case, re-run `install.ps1` after editing any skill. See [README.assert-iq.md → Platform notes](../README.assert-iq.md#platform-notes-claudeskills-symlink) for the full matrix. |
 | `settings.json` | Claude Code's settings file. The pack installer fills in the hooks section here (small background scripts that fire when Claude does things, like saving a file). |
 
 The instructions ("house rules") that Copilot reads from

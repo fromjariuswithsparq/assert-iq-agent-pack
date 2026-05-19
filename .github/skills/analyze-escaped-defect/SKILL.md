@@ -4,28 +4,122 @@ mode: agent
 description: "Post-incident analysis — which signal layer should have caught it, and how do we prevent next time."
 ---
 
+<!-- markdownlint-disable MD033 -->
+<!--
+HOW TO CUSTOMIZE THIS SKILL
+===========================
+
+This skill is a universal template. It works out of the box for **any
+language, framework, platform, tracker, or team** — the four-layer signal
+model and post-incident discipline are universal; only the integration
+points change. You'll get sharper, faster reports if you fill in the
+per-repo specifics below.
+
+**How placeholders work**: `{{NAME}}` strings are **documentation
+placeholders, not runtime variables** — nothing substitutes them
+automatically. The agent reads this file, then reads
+`.assert-iq/config.yaml` to find the corresponding key (cited next to
+each placeholder). If the key is absent, the agent infers from repo
+signals or asks you. Wire the values once in `.assert-iq/config.yaml`
+and they flow into every skill that references them — no per-skill
+editing required.
+
+1. **Tracker** — `{{TRACKER_NAME}}` is your work-item system. Examples:
+   - Azure DevOps (work item IDs like `AB#1234` or `#1234`)
+   - Jira (keys like `PROJ-1234`)
+   - GitHub Issues (`#1234`, `owner/repo#1234`)
+   - GitLab Issues (`#1234`, `group/project#1234`)
+   - Linear (`ENG-1234`)
+   - Asana, Shortcut, ClickUp, Trello, monday.com — use whatever ID format
+     your team links from commits and PRs
+   Set this in `.assert-iq/config.yaml > tracker.system`.
+
+2. **Tracker fetch path** — `{{TRACKER_MCP}}` is the mechanism the agent
+   uses to pull the defect record. Options in priority order:
+   - MCP server wired in `.assert-iq/config.yaml > mcp.<system>` (preferred
+     when available — ADO, Jira, GitHub, GitLab, Linear all have MCPs).
+   - CLI fallback (`gh issue view`, `glab issue view`, `az boards work-item
+     show`, `jira issue view`).
+   - Manual paste — the user provides the defect description and timeline
+     inline. The skill still works; it just can't auto-fetch history.
+
+3. **Incident / telemetry source** — `{{INCIDENT_SOURCE}}` is where the
+   bug was first observed in production. Examples:
+   - APM / observability: Datadog, New Relic, Dynatrace, Application
+     Insights, Honeycomb, Sentry, Rollbar, Splunk
+   - Customer-support tooling: Zendesk, Intercom, Salesforce Service Cloud
+   - On-call paging: PagerDuty, Opsgenie, VictorOps
+   - Internal dogfood / bug reports
+   Specify the URL or query the analyst should consult.
+
+4. **Test backlog destination** — `{{TEST_BACKLOG_LOCATION}}` is where new
+   regression-test work items land. Defaults to the same tracker as the
+   defect, under whatever epic / label your team uses for QE work (e.g.
+   `qe/regression`, `area-path/Quality`, `team:platform-qe`). Wired via
+   `.assert-iq/config.yaml > bug_reporter.auto_create_threshold` and
+   `tracker.regression_area_path`.
+
+5. **Test artifact targets** — when a regression test is recommended, the
+   skill calls into the appropriate generator (`generate-automated-unit-
+   test`, `generate-automated-api-test`, `generate-automated-ui-test`, or
+   the manual-test / exploratory-charter skills). Those skills are
+   independently customizable to your framework / language — see their
+   own HOW TO CUSTOMIZE blocks.
+
+6. **Component / pattern lookup** — to detect whether an escape is part of
+   a pattern, the skill queries recent escapes on the same component or
+   root cause. Configure the lookup in
+   `.assert-iq/config.yaml > escape_pattern_lookup`:
+   - `tracker_query` — saved query / JQL / WIQL / GitHub search string
+   - `lookback_days` (default `90`)
+   - `pattern_threshold` (default `3` escapes on the same component
+     within the lookback window triggers a "pattern" classification).
+
+7. **Report sink** — by default the report is written to
+   `escaped-defect-report.md` at the repo root. Override the path in
+   `.assert-iq/config.yaml > escape_analysis.report_path`. (Structured
+   QI signal emission is separate — see the `signals` section in
+   `.assert-iq/config.yaml`.)
+
+8. **Privacy / blameless framing** — this skill is *systemic learning*,
+   not performance review. The governance section below is non-negotiable
+   regardless of tier. Do not weaken it.
+-->
+
 # Analyze escaped defect
 
 A defect escaped to production. This skill drives QI maturity by asking
 the only question that matters: which signal layer should have caught it,
 and what changes so the next one doesn't?
 
-This is a learning skill, not a blame skill.
+This is a **learning skill, not a blame skill**.
+
+The skill is **tracker-, framework-, language-, and platform-agnostic** —
+it works with whatever work-item system, test stack, and observability
+pipeline your team already uses (see `{{TRACKER_NAME}}`,
+`{{INCIDENT_SOURCE}}`, and `{{TEST_BACKLOG_LOCATION}}` in the
+customization block above).
 
 ## Inputs
 
-- Escaped defect ID (ADO or Jira). Fetch via MCP.
-- Optional: the production incident or customer report that surfaced it.
+- **Escaped defect ID** in your tracker's native format
+  (`{{TRACKER_NAME}}`) — required. Fetch via `{{TRACKER_MCP}}` if wired,
+  otherwise via CLI or manual paste.
+- **Incident / observation reference** (optional) — link or query into
+  `{{INCIDENT_SOURCE}}` (APM, support ticket, on-call page, dogfood
+  report) that surfaced the bug.
+- **Affected component or surface area** (optional but recommended) —
+  enables the pattern lookup in step 5.
 
 ## Procedure
 
-1. Pull the defect. Establish the timeline:
+1. **Pull the defect** and establish the timeline:
    - When was the bug introduced (commit, PR, work item)
    - When was it released
    - When was it observed
    - When was it fixed
 
-2. Identify which signal layer should have caught it:
+2. **Identify which signal layer should have caught it**:
 
    - **Change layer** — was the introducing change small, low-risk on paper,
      and snuck through? Or was it high-risk and inadequately scrutinized?
@@ -35,38 +129,67 @@ This is a learning skill, not a blame skill.
    - **Trust layer** — was there a covering test that was flaky, blocked,
      or skipped at the time of release?
    - **Outcome layer** — were there earlier signals (telemetry, support
-     tickets, dogfood reports) that were missed or under-weighted?
+     tickets, dogfood reports) in `{{INCIDENT_SOURCE}}` that were missed
+     or under-weighted?
 
-3. For each layer, identify the *specific* gap. Avoid generic statements
-   like "more testing." Be precise.
+3. **For each layer, identify the *specific* gap.** Avoid generic
+   statements like "more testing." Be precise — name the file, the test,
+   the metric, the dashboard, the review step.
 
-4. Recommend changes — at most one per layer, ranked by leverage:
+4. **Recommend changes** — at most one per layer, ranked by leverage:
    - **Regression test** — the specific test (automated, manual, or
-     exploratory) that would have caught it. Generate the test artifact.
+     exploratory) that would have caught it. Generate the test artifact
+     by invoking the appropriate generator skill for your framework.
    - **Signal addition** — a metric or signal that would have surfaced
-     earlier. Specify where it lives and who owns it.
+     earlier. Specify where it lives (`{{INCIDENT_SOURCE}}` dashboard,
+     log query, alert rule) and who owns it.
    - **Process change** — only when a process gap is the real cause
-     (e.g., AC review missing). Be sparing here.
-   - **Infrastructure / environment** — only when the gap is environmental.
+     (e.g., AC review missing, risk band not set). Be sparing here.
+   - **Infrastructure / environment** — only when the gap is environmental
+     (CI runner config, test data, secrets management, etc.).
 
-5. Identify whether this is a one-off or part of a pattern. Pull recent
-   escapes on the same component / by the same root cause. If a pattern,
-   recommend a focused remediation across all related work.
+5. **Identify whether this is a one-off or part of a pattern.** Run the
+   pattern-lookup query configured in
+   `.assert-iq/config.yaml > escape_pattern_lookup` (lookback default
+   `90` days, threshold default `3` on the same component). If a pattern
+   is detected, recommend focused remediation across all related work,
+   not just this defect.
 
-6. Output an escaped-defect analysis report:
-   - Timeline
-   - Layer-by-layer gap analysis
-   - Recommended changes (ranked)
-   - Pattern assessment
+6. **Output an escaped-defect analysis report** containing:
+   - Timeline (introduced \u2192 released \u2192 observed \u2192 fixed)
+   - Layer-by-layer gap analysis (Change / Protection / Trust / Outcome)
+   - Recommended changes (ranked by leverage, one per layer max)
+   - Pattern assessment (one-off vs. systemic, with linked prior escapes)
    - Owners and timeline for each recommendation
+   - Traceability reference back to the defect ID in `{{TRACKER_NAME}}`
 
 ## Governance
 
-- This skill is post-incident learning. It is not a performance review of
-  the engineer who introduced the change. Frame findings as systemic.
-- Do not recommend "more testing" generically. Every recommendation must
-  name the specific signal, test, or process change.
+- This skill is **post-incident learning**. It is **not** a performance
+  review of the engineer who introduced the change. Frame findings as
+  systemic. This rule is non-negotiable regardless of maturity tier.
+- Do **not** recommend "more testing" generically. Every recommendation
+  must name the specific signal, test, dashboard, or process change.
 - Surface findings that implicate process or culture (not just code) when
-  the evidence warrants — this is where QI maturity advances.
-- Add the recommended regression test to the team's test backlog via the
-  tracker MCP if `bug_reporter.auto_create_threshold` permits.
+  the evidence warrants \u2014 this is where QI maturity advances.
+- Add the recommended regression test to the team's test backlog via
+  `{{TRACKER_NAME}}` (into `{{TEST_BACKLOG_LOCATION}}`) if
+  `bug_reporter.auto_create_threshold` permits. Otherwise present the
+  draft work item for human review.
+- Preserve any existing traceability comments on tests or code touched
+  by the recommendations (`AB#`, Jira key, etc.).
+
+## Output
+
+An `escaped-defect-report.md` artifact (or the path configured in
+`.assert-iq/config.yaml > escape_analysis.report_path`) with the
+sections listed in step 6, plus any generated regression-test files
+produced by the downstream test-generator skill.
+
+## Signals emitted
+
+When the QI signal sink is wired, this skill emits an `escape.analysis`
+signal per run conforming to `.assert-iq/signal-schema.json`, carrying:
+`defect_id`, `tracker_system`, `introduced_commit`, `released_at`,
+`observed_at`, `fixed_at`, `responsible_layer`, `gap_summary`,
+`recommendations[]`, `pattern_detected`, and `related_defect_ids[]`.

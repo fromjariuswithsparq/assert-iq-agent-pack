@@ -1,7 +1,118 @@
+---
+name: generate-bug-report
+mode: agent
+description: "Convert a failure into a tracker-ready defect — duplicate-checked, severity-justified, PII-stripped."
+---
+
+<!-- markdownlint-disable MD033 -->
+<!--
+HOW TO CUSTOMIZE THIS SKILL
+===========================
+
+This skill is a universal template. It works out of the box for **any
+tracker, severity scheme, team, language, or compliance posture** —
+it writes defects in whatever issue tracker your repo already uses; it
+does not impose one. You'll get sharper, faster results if you fill in
+the per-repo specifics below.
+
+**How placeholders work**: `{{NAME}}` strings are **documentation
+placeholders, not runtime variables** — nothing substitutes them
+automatically. The agent reads this file, then reads
+`.assert-iq/config.yaml` to find the corresponding key (cited next to
+each point). If the key is absent, the agent infers from repo signals
+or asks you. Wire the values once in `.assert-iq/config.yaml` and they
+flow into every skill that references them — no per-skill editing
+required.
+
+1. **Tracker** — set `.assert-iq/config.yaml > tracker.system`. The
+   skill ships with format templates for:
+   - `azure_devops` (ADO Work Items, `AB#1234`)
+   - `jira` (`PROJ-123`)
+   - `github_issues` (`#123` or `owner/repo#123`)
+   - `gitlab_issues` (`#123` or `group/project#123`)
+   - `linear` (`ENG-123`)
+   - `bitbucket_issues`
+   - `shortcut` (`sc-123`)
+   - `pivotal_tracker`
+   - `redmine`
+   - `trello` (card URL)
+   - `notion` (database row)
+   - `markdown_only` — output a `.md` file for repos with no tracker
+   The agent uses the right field names and link syntax for the
+   configured tracker; the ADO + Jira templates below are illustrative
+   defaults — the skill will adapt them.
+
+2. **Auto-create threshold** — set
+   `.assert-iq/config.yaml > bug_reporter.auto_create_threshold`:
+   `low` | `medium` (default) | `high` | `critical`. Findings at or
+   below the threshold are filed via API / MCP; findings above are
+   presented as drafts requiring human confirmation. Critical and
+   security-class bugs **always** require confirmation regardless of
+   threshold.
+
+3. **Duplicate-check window** — set
+   `.assert-iq/config.yaml > bug_reporter.duplicate_lookback_days`
+   (default `30`). Controls how far back the duplicate search reaches.
+
+4. **Severity scheme** — the default is
+   `critical | high | medium | low`. Override via
+   `.assert-iq/config.yaml > bug_reporter.severity_scheme`:
+   - `sev1_sev5` (Sev 1 / Sev 2 / Sev 3 / Sev 4 / Sev 5)
+   - `p0_p4` (single dimension combining severity and priority)
+   - `s1_s4_with_p1_p4` (separate severity + priority, default)
+   - `custom` — define your own labels in
+     `bug_reporter.severity_custom`.
+
+5. **Component identification** — set
+   `.assert-iq/config.yaml > bug_reporter.component_taxonomy`:
+   - `area_path` (ADO classic)
+   - `component_field` (Jira, Linear, GitHub labels)
+   - `codeowners` — infer from `.github/CODEOWNERS` /
+     `.gitlab/CODEOWNERS`
+   - `freeform` — text component name in the body
+
+6. **PII / data-protection policy** — set
+   `.assert-iq/config.yaml > governance.mask_secrets` and
+   `.assert-iq/config.yaml > bug_reporter.pii_redaction_extras` if
+   your compliance posture (HIPAA, PCI, GDPR, FedRAMP, SOX) requires
+   additional redaction classes beyond the default table in `## Data
+   protection` below.
+
+7. **Telemetry source** — if your team files bugs from observability
+   alerts, set
+   `.assert-iq/config.yaml > bug_reporter.telemetry_sources` (e.g.
+   `application_insights`, `datadog`, `new_relic`, `splunk`,
+   `grafana`, `sentry`, `rollbar`, `honeycomb`). The agent uses the
+   appropriate query/link idiom in the alert template.
+
+8. **Regression linkage** — set
+   `.assert-iq/config.yaml > bug_reporter.regression_label` (default
+   `regression`). Used as the tag/label when a closed bug is
+   re-opened-as-new.
+
+9. **Incident integration** — set
+   `.assert-iq/config.yaml > bug_reporter.incident_system` if your
+   team has one separate from the issue tracker (e.g. `pagerduty`,
+   `opsgenie`, `incident_io`, `firehydrant`, `statuspage`,
+   `none`). When an active incident is found, the agent links rather
+   than files a duplicate.
+
+10. **Output sink when no tracker is wired** — set
+    `.assert-iq/config.yaml > bug_reporter.draft_path` (default
+    `./bug-drafts/`). When `tracker.system: markdown_only` or no API
+    access is available, the formatted bug is written to a file in
+    this directory for human review and manual filing.
+-->
 
 # Generate bug report
 
 Convert a failure into a tracker-ready defect that requires zero rework. A good defect saves multiple cycle hours; a bad defect spawns clarification threads.
+
+This skill is **tracker-, language-, platform-, and team-agnostic**. It
+writes defects in whatever issue tracker your repo uses (see
+customization point 1 above). The ADO and Jira templates below are
+illustrative defaults — the skill adapts them to the configured
+tracker.
 
 ---
 
@@ -29,7 +140,7 @@ Before generating, verify this IS a defect:
 ## Inputs
 
 - **Failure source:** test failure, manual finding, telemetry alert, or production incident
-- **Target tracker:** Read from project config if available; otherwise ask. Support ADO and Jira.
+- **Target tracker:** read from `.assert-iq/config.yaml > tracker.system`; otherwise ask. Supports ADO, Jira, GitHub Issues, GitLab Issues, Linear, Bitbucket, Shortcut, Pivotal, Redmine, Trello, Notion, and markdown-only output.
 
 ---
 
@@ -168,7 +279,7 @@ Title: [Component] Verb describing what's broken — context
 - Impact: [User count, revenue impact, scope]
 - Related items: [Incidents, related bugs, work items]
 - Deployment correlation: [Release/commit if timing suggests cause]
-- Area Path: [Current MDA Area]
+- Area Path: [Per `bug_reporter.component_taxonomy = area_path`]
 - Iteration Path: [Current iteration]
 - Tags: [regression, security, data-loss, env-specific — as applicable]
 ```
@@ -206,6 +317,10 @@ Title: [Component] Error description — deployment/time correlation
 
 ## Suggested Action
 [Rollback? Hotfix? Investigation? Feature flag disable?]
+
+## Assignment
+- Area Path: [Per `bug_reporter.component_taxonomy`]
+- Iteration Path: [Current iteration]
 ```
 
 #### Jira format
@@ -240,16 +355,56 @@ Component/s: [Component name]
 Labels: [bug, regression, severity-X, env-specific, area-tag]
 ```
 
+#### GitHub Issues / GitLab Issues / Linear / other Markdown trackers
+
+For trackers that accept Markdown bodies (GitHub Issues, GitLab Issues,
+Linear, Bitbucket, Shortcut, Notion, etc.), use the ADO body structure
+above rendered as plain Markdown:
+
+```
+Title: [Component] Verb describing what's broken — context
+
+## Reproduction
+1. ...
+2. ...
+
+## Expected
+...
+
+## Actual
+...
+
+## Environment
+- OS / runtime: ...
+- Build / commit: ...
+- Frequency: Always | Intermittent (N of M) | Once
+
+## Impact
+- Users affected: ...
+- Workaround: ...
+
+## Severity & Priority
+[Critical/High/Medium/Low] — [justification] | Priority: [P1-P4]
+
+## Suspected component
+...
+
+---
+Labels: bug, regression?, severity-X, env-specific?, <component-label>
+Assignees: <inferred from CODEOWNERS when `component_taxonomy = codeowners`>
+```
+
 ### 8. Delivery
 
 | Condition | Action |
 |-----------|--------|
 | Severity Critical or High | **Never auto-create.** Present draft, require confirmation. |
-| Active incident exists | Link to incident, add as comment. |
+| Security-class bug (auth bypass, data leak, privilege escalation) | **Never auto-create regardless of severity.** Present draft. |
+| Active incident exists in `bug_reporter.incident_system` | Link to incident, add as comment. |
 | Likely duplicate (open) | Link, add context as comment. |
-| Likely duplicate (closed) | File as regression, link to closed item. |
-| Config allows auto-create AND severity ≤ Medium | Create via API/MCP, return ID. |
-| No tracker access | Return formatted draft. |
+| Likely duplicate (closed) | File as regression, link to closed item, tag with `bug_reporter.regression_label`. |
+| Severity ≤ `bug_reporter.auto_create_threshold` AND tracker API/MCP available | Create via API/MCP, return ID. |
+| No tracker access OR `tracker.system: markdown_only` | Write formatted draft to `bug_reporter.draft_path`. |
 
 ---
 
@@ -348,3 +503,31 @@ After redaction: `⚠️ PII redacted. Contact [source] for unredacted details i
 - [ ] Correctly routed — not a feature request, enhancement, flaky test, or UX issue
 - [ ] Regression tagged if previously-fixed issue
 - [ ] Environment-specific factors noted if applicable
+
+---
+
+## Output
+
+One of:
+
+- A tracker work item created via the configured tracker's API / MCP
+  (when severity ≤ `bug_reporter.auto_create_threshold` and not a
+  security-class bug), with the work item ID and URL returned.
+- A formatted draft printed inline for human review and confirmation
+  (when severity exceeds the threshold, or when the bug is
+  security-class).
+- A `.md` file written to `bug_reporter.draft_path` (when
+  `tracker.system: markdown_only` or no API access).
+
+All outputs respect the data-protection rules above.
+
+## Signals emitted
+
+When the QI signal sink is wired, this skill emits a `defect.filed`
+signal per generation conforming to `.assert-iq/signal-schema.json`,
+carrying: `tracker_id` (when filed), `severity`, `priority`,
+`component`, `regression` (boolean), `source`
+(`test_failure` | `manual` | `telemetry` | `incident`), `auto_created`
+(boolean), `duplicate_check_result`
+(`none` | `linked_open` | `linked_closed_regression`),
+`pii_redactions_applied`, and `incident_ref` (when linked).

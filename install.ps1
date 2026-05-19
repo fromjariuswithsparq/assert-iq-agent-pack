@@ -14,19 +14,32 @@
 param()
 
 $ErrorActionPreference = 'Stop'
-$root        = Split-Path -Parent $PSCommandPath
-$hooksSrc    = Join-Path $root 'hooks\hooks.json'
-$settingsDst = Join-Path $root '.claude\settings.json'
-$skillsDst   = Join-Path $root '.claude\skills'
+$root         = Split-Path -Parent $PSCommandPath
+$hooksTpl     = Join-Path $root 'hooks\hooks.template.json'
+$hooksSrc     = Join-Path $root 'hooks\hooks.json'
+$settingsDst  = Join-Path $root '.claude\settings.json'
+$skillsDst    = Join-Path $root '.claude\skills'
 $skillsSrcRel = '..\.github\skills'
 $skillsSrcAbs = Join-Path $root '.github\skills'
 
 function Say($msg) { Write-Host $msg }
 function Fail($msg) { Write-Error "install.ps1: $msg"; exit 1 }
 
-if (-not (Test-Path $hooksSrc)) { Fail "missing $hooksSrc" }
+if (-not (Test-Path $hooksTpl)) { Fail "missing $hooksTpl" }
 
 New-Item -ItemType Directory -Force -Path (Join-Path $root '.claude\agents') | Out-Null
+
+# ---- 0. render hooks.json from template ----------------------------------
+# Substitute __PACK_ROOT__ with this absolute pack path. VS Code Copilot
+# does not propagate any env var that carries the workspace path to hook
+# commands, so the fallback path must be baked in at install time. Claude
+# Code's CLAUDE_PLUGIN_ROOT still takes precedence at runtime. Backslashes
+# in $root are doubled because the template embeds the path inside a
+# PowerShell single-quoted string passed via -Command "& { ... }".
+$packRootEscaped = $root.Replace('\','\\')
+(Get-Content $hooksTpl -Raw) -replace '__PACK_ROOT__', $packRootEscaped |
+    Set-Content -Path $hooksSrc -Encoding UTF8
+Say "[ok] rendered hooks\hooks.json (pack root: $root)"
 
 # ---- 1. sync hooks block -------------------------------------------------
 $newHooks = Get-Content $hooksSrc -Raw | ConvertFrom-Json

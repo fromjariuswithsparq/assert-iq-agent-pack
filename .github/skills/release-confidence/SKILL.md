@@ -1,7 +1,112 @@
 ---
 name: release-confidence
+mode: agent
 description: "Aggregate QI signals across an upcoming release and produce a go/no-go report."
 ---
+
+<!-- markdownlint-disable MD033 -->
+<!--
+HOW TO CUSTOMIZE THIS SKILL
+===========================
+
+This skill is a universal template. It works out of the box for **any
+language, framework, deployment model, tracker, VCS, observability
+stack, or team**. The QI four-layer model (Change / Protection /
+Trust / Outcome) is the engine — you wire it to your own data
+sources.
+
+**How placeholders work**: the agent reads this file, then reads
+`.assert-iq/config.yaml` to find the corresponding key (cited next
+to each point). If a key is absent, the agent runs in **partial-
+signal mode** with explicit confidence reduction — it never
+fabricates.
+
+1. **Release identifier source** — set
+   `.assert-iq/config.yaml > release.identifier_source`:
+   - `tag`       — git tag (`v1.2.3`)
+   - `branch`    — release branch (`release/2026.05`)
+   - `build`     — CI build number
+   - `commit`    — raw SHA
+   - `manual`    — user supplies the ID each run
+   The skill accepts any of these per-invocation regardless.
+
+2. **VCS host** — inherits `vcs.host` (github / azure_devops /
+   gitlab / bitbucket / gitea / gerrit / phabricator / radicle /
+   none). Used to fetch the PR list in scope.
+
+3. **Tracker** — inherits `tracker.system`. Used to resolve
+   work-item scope and to look up incident links.
+
+4. **Change-risk inputs** — the agent computes Change risk from:
+   - PRs in release range (via `vcs.host` MCP)
+   - Service criticality map at
+     `.assert-iq/config.yaml > release.service_criticality`
+     (free-form: `{ payments: critical, billing: critical,
+     notifications: low, ... }`)
+   - Reversibility hints at `release.irreversible_paths` (e.g.
+     migrations, schema changes, public API removals)
+
+5. **Protection inputs** — inherits `coverage_analysis.*` and
+   `traceability.*`. The skill reuses whatever sink those skills
+   already produce.
+
+6. **Trust inputs** — inherits `flake_analysis.results_store`
+   (CI native / JUnit glob / Datadog / Launchable / etc.). Pass
+   rates, flake rates, override counts.
+
+7. **Outcome inputs** — set
+   `.assert-iq/config.yaml > release.outcome_sources`. Supported:
+   - `prometheus` / `datadog` / `new_relic` / `splunk` /
+     `azure_monitor` / `cloudwatch` / `honeycomb` / `sentry` /
+     `bugsnag` / `pagerduty` / `opsgenie` / `incident_io` /
+     `firehydrant` / `statuspage` / `custom_csv` / `none`
+   - When `none`, the Outcome layer is scored "Unable to assess"
+     and the Protection weighting is increased per the partial-
+     signal mode below.
+
+8. **Score thresholds** — the High/Medium/Low coverage and flake
+   thresholds (≥80%, 60–80%, <60%; <2%, 2–5%, >5%) are universal
+   QI defaults. Override per team via
+   `.assert-iq/config.yaml > release.score_thresholds`:
+   ```yaml
+   release:
+     score_thresholds:
+       protection: { high_pct: 80, medium_pct: 60 }
+       trust:      { high_flake_pct: 2, medium_flake_pct: 5 }
+   ```
+
+9. **Red-flag policy** — the 8 red flags in Step 3 are universal
+   defaults. Extend via
+   `.assert-iq/config.yaml > release.red_flags_extras` (array of
+   `{ id, signal, impact }` entries).
+
+10. **Verdict policy** — strict GO requires all-High; mid-tier
+    relaxes to 3 High + 1 Medium. Override the policy bands via
+    `.assert-iq/config.yaml > release.verdict_policy`:
+    - `strict`        (default; requires all-High for plain GO)
+    - `pragmatic`     (allows 1 Medium for GO when no red flags)
+    - `enterprise`    (HOLD on any unmitigated Medium on a
+      critical-criticality service)
+
+11. **Report sink** — set
+    `.assert-iq/config.yaml > release.report_path` (default
+    `./release-confidence-<release-id>.md`). The agent can also
+    post the report to the configured `vcs.host` as a release-tag
+    comment when set to do so.
+
+12. **Compliance / audit hold** — set
+    `.assert-iq/config.yaml > release.compliance_lock`
+    (`none | release_freeze | regulatory`). Matches
+    `traceability.compliance_lock`. Under `regulatory`, the
+    report is written as an immutable artifact with a sha256
+    digest beside it.
+
+13. **Platform notes** — deployment-model-agnostic. The report
+    works for monolith / microservices / serverless / mobile app
+    store releases / firmware / ML model rollouts / data
+    pipelines. The Outcome layer simply reads from whichever
+    telemetry source is wired.
+-->
 
 # Release confidence report
 
@@ -256,3 +361,30 @@ Mitigations: Manual smoke test of critical paths (covers Protection gap),
 What would change: "If coverage jump is verified as meaningful (tests cover real scenarios,
 not just line coverage gaming), Protection upgrades → stronger GO."
 ```
+---
+
+## Output
+
+- A `release-confidence-<release-id>.md` (or `release.report_path`)
+  containing the full report shell from Step 6, including any
+  partial-signal mode header and operational-readiness section.
+- When `release.compliance_lock` is `release_freeze` or
+  `regulatory`: an immutable copy of the report tagged with the
+  release identifier (plus `.sha256` digest under `regulatory`)
+  for audit retention.
+- Optional: a release-tag comment on the configured VCS host
+  (`vcs.host`) summarising the verdict and linking to the full
+  report.
+- A short chat summary: verdict, top blockers (HOLD) or
+  mitigations (GO-WITH-MITIGATION), what would change the
+  verdict.
+
+## Signals emitted
+
+When the QI signal sink is wired, this skill emits a
+`release.confidence_assessed` signal per run conforming to
+`.assert-iq/signal-schema.json`, carrying: `release_id`, `verdict`
+(GO / GO-WITH-MITIGATION / HOLD), `layer_scores` (4 scores +
+unable-to-assess flags), `red_flags_triggered`, `mitigations_count`,
+`blockers_count`, `risks_accepted`, `partial_signal_mode`,
+`compliance_lock`, and `tracker_ref` (release work-item or tag).

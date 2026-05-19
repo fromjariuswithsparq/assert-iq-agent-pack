@@ -1,7 +1,110 @@
 ---
 name: review-acceptance-criteria
+mode: agent
 description: "Review acceptance criteria for testability before generation — catches bad ACs early, prevents wasted downstream work."
 ---
+
+<!-- markdownlint-disable MD033 -->
+<!--
+HOW TO CUSTOMIZE THIS SKILL
+===========================
+
+This skill is a universal template. It works out of the box for **any
+tracker, AC format, language, framework, or team** — it reviews
+requirements text; it does not depend on the system under test.
+
+**How placeholders work**: the agent reads this file, then reads
+`.assert-iq/config.yaml` to find the corresponding key (cited next to
+each point). If a key is absent, the agent infers from context or asks.
+
+1. **Tracker** — inherits `tracker.system`
+   (`ado | jira | github | gitlab | linear | shortcut | asana |
+   trello | rally | youtrack | pivotal | clubhouse | redmine |
+   monday | notion | airtable | csv | none`). The skill uses your
+   tracker's MCP / CLI to fetch ACs; if `none`, the user pastes the
+   ACs at invocation.
+
+2. **Work-item ID format** — inherits `tracker.id_format`
+   (e.g. `AB#1234` for ADO, `PROJ-1234` for Jira, `#1234` for GitHub).
+   Used in report headers and downstream skill hand-off cues.
+
+3. **AC format convention** — set
+   `.assert-iq/config.yaml > ac_review.preferred_format`:
+   - `gwt`         — Given / When / Then (default; BDD)
+   - `numbered`    — numbered acceptance list
+   - `bullets`     — flat bullets
+   - `bdd_table`   — Gherkin Scenario Outline / Examples table
+   - `imperative`  — "The system shall…" (NFR / safety / regulated)
+   - `user_story`  — As a / I want / So that + acceptance bullets
+   - `freeform`    — accept whatever the team writes
+   Rewrites are proposed in this format unless the format itself is
+   the problem.
+
+4. **SMART-T policy** — the five SMART-T checks (Specific, Measurable,
+   Achievable, Relevant, Testable) are universal QI defaults.
+   Extend / replace per team via
+   `.assert-iq/config.yaml > ac_review.criteria_extras` (array of
+   `{ id, name, description, severity_default }` entries).
+
+5. **Severity policy** — Critical / Major / Minor are universal.
+   Override the gate behaviour via
+   `.assert-iq/config.yaml > ac_review.gating_policy`:
+   - `strict`     — any Critical blocks downstream generation (default)
+   - `pragmatic`  — Critical warns; user may force-proceed
+   - `regulated`  — any Critical OR Major blocks (safety / compliance)
+
+6. **Failure-mode taxonomy** — the 7 failure modes (ambiguous wording,
+   missing oracle, compound criteria, implementation in disguise,
+   missing negative paths, missing NFRs, missing data conditions)
+   are universal defaults. Extend via
+   `.assert-iq/config.yaml > ac_review.failure_modes_extras` (e.g.
+   `localization_unstated`, `consent_model_unstated`,
+   `data_retention_unstated`).
+
+7. **NFR scan list** — when scanning for missing non-functional
+   requirements, set
+   `.assert-iq/config.yaml > ac_review.nfr_checklist`:
+   ```yaml
+   ac_review:
+     nfr_checklist:
+       - "performance"   # latency, throughput, p95
+       - "accessibility" # WCAG, screen reader
+       - "security"      # authz, input validation, secrets
+       - "privacy"       # PII, consent, retention
+       - "reliability"   # error rate, retry, idempotency
+       - "i18n"          # locale, RTL, currency, date format
+       - "observability" # logs, metrics, traces
+   ```
+   Drop the items that don't apply to your domain.
+
+8. **Domain-specific gap checks** — set
+   `.assert-iq/config.yaml > ac_review.domain_gap_checks` (array of
+   prompts the agent runs against the AC set). Examples:
+   - finance: "Are rounding / currency / FX rules specified?"
+   - healthcare: "Is PHI handling specified per HIPAA?"
+   - e-commerce: "Is inventory / pricing concurrency specified?"
+   - iot/firmware: "Is OTA rollback / recovery specified?"
+   - ml: "Are model-drift / fallback behaviours specified?"
+
+9. **Report sink** — set
+   `.assert-iq/config.yaml > ac_review.report_path` (default
+   `./ac-review-<work-item-id>.md`).
+
+10. **Hand-off destinations** — the routing table in `## Scope
+    boundary` references three downstream skills. Override the names
+    via `.assert-iq/config.yaml > ac_review.handoff_skills`:
+    - `route`     — default `generate-tests-from-ac`
+    - `automated` — default `generate-automated-unit-test`
+    - `manual`    — default `generate-manual-test-case`
+
+11. **Tracker write-back policy** — set
+    `.assert-iq/config.yaml > ac_review.tracker_writeback`:
+    - `none`            — never edit the work item (default)
+    - `comment`         — post the report as a comment
+    - `attach_artifact` — attach the report as a file
+    The skill **never** rewrites AC text in the tracker — proposed
+    rewrites are always suggestions for PO / BA review.
+-->
 
 # Review acceptance criteria
 
@@ -160,3 +263,27 @@ Ready for `generate-tests-from-ac`.
 - `NEEDS-PRODUCT-INPUT` → recommend Three Amigos before generation.
 - Contradictions always escalate to `NEEDS-PRODUCT-INPUT` regardless of individual AC quality.
 - On handoff to downstream skills, state verdict and caveats for the generation skill.
+- Tracker write-back follows `ac_review.tracker_writeback` — default is `none`.
+- Under `ac_review.gating_policy: regulated`, any Critical **or** Major issue blocks downstream generation.
+
+## Output
+
+- An `ac-review-<work-item-id>.md` (or `ac_review.report_path`)
+  containing the per-AC findings table, cross-AC issues, proposed
+  rewrites, suggested missing ACs, and the final verdict
+  (`READY-FOR-GENERATION` | `NEEDS-PRODUCT-INPUT` |
+  `NEEDS-REWRITE`).
+- A short chat summary: verdict, counts by severity, top 1–3
+  blockers, recommended next step (proceed to which generation
+  skill, or Three Amigos).
+- Optional tracker comment / attachment per
+  `ac_review.tracker_writeback`.
+
+## Signals emitted
+
+When the QI signal sink is wired, this skill emits an
+`ac.reviewed` signal per run conforming to
+`.assert-iq/signal-schema.json`, carrying: `work_item_ref`,
+`ac_count`, `verdict`, `critical_count`, `major_count`,
+`minor_count`, `cross_ac_issues_count`, `rewrites_proposed`,
+`missing_acs_proposed`, `gating_policy`, and `handoff_target`.

@@ -1,16 +1,123 @@
+---
+name: generate-manual-test-case
+mode: agent
+description: "Convert acceptance criteria into scripted manual test cases formatted for the team's manual test management tool."
+---
+
+<!-- markdownlint-disable MD033 -->
+<!--
+HOW TO CUSTOMIZE THIS SKILL
+===========================
+
+This skill is a universal template. It works out of the box for **any
+tracker, manual-test management tool, team, language, or platform** —
+it writes scripted manual cases in whatever import format your tool
+accepts; it does not impose one. You'll get sharper, faster results if
+you fill in the per-repo specifics below.
+
+**How placeholders work**: `{{NAME}}` strings are **documentation
+placeholders, not runtime variables** — nothing substitutes them
+automatically. The agent reads this file, then reads
+`.assert-iq/config.yaml` to find the corresponding key (cited next to
+each point). If the key is absent, the agent infers from repo signals
+or asks you. Wire the values once in `.assert-iq/config.yaml` and they
+flow into every skill that references them — no per-skill editing
+required.
+
+1. **Manual-test management tool** — set
+   `.assert-iq/config.yaml > manual_test_management.tool`. Supported
+   tools and the export format the agent will produce:
+   - `markdown` (default) — human-readable `.md` files
+   - `azure_devops_test_plans` — ADO Test Case XML
+   - `testrail` — TestRail CSV import
+   - `xray` (Jira) — Xray REST JSON
+   - `zephyr` (Jira) — Zephyr Scale or Squad JSON (asks which)
+   - `qase` — Qase API JSON
+   - `practitest` — PractiTest API JSON
+   - `tricentis_qtest` — qTest import
+   - `notion` / `confluence` — wiki page rows
+   - `none` — markdown only
+
+2. **Output path** — for the `markdown` tool, set
+   `.assert-iq/config.yaml > manual_test_management.output_path`
+   (default `./tests/_qi/manual/`). For tracker-backed tools, files
+   are created via API / MCP at the configured location.
+
+3. **Tracker** — set `.assert-iq/config.yaml > tracker.system` (ADO,
+   Jira, GitHub Issues, GitLab, Linear, Bitbucket, Shortcut,
+   Pivotal, Redmine, Trello, Notion). The agent uses the right ID
+   syntax (`AB#1234`, `PROJ-123`, `#123`, `ENG-123`) when pulling AC
+   and embedding work-item references.
+
+4. **Risk-tier model** — set
+   `.assert-iq/config.yaml > manual_cases.risk_tier_model`:
+   - `priority_severity` (default) — derive from work-item priority
+     + severity fields
+   - `wsjf` — Weighted Shortest Job First
+   - `rice` — Reach / Impact / Confidence / Effort
+   - `custom` — point to a file under `manual_cases.risk_tier_path`
+   The risk tier drives case-depth (see the table in Step 3).
+
+5. **Proliferation guardrail** — set
+   `.assert-iq/config.yaml > manual_cases.max_cases_per_ac` (default
+   `8`). When an AC would produce more, the agent consolidates
+   boundary cases into a single multi-input case.
+
+6. **Routing categories** — the agent ships with the universal
+   `subjective | uat | accessibility-cognitive | novel-area |
+   one-time | automation-noted` routing taxonomy. Extend via
+   `.assert-iq/config.yaml > manual_cases.routing_categories_extras`
+   if your team tracks others (e.g. `compliance-audit`,
+   `cross-cultural-review`, `pricing-validation`).
+
+7. **App URL placeholder** — when an environment URL is unknown the
+   agent writes `[APP_URL]/path`. Set
+   `.assert-iq/config.yaml > manual_cases.app_url_template` to the
+   pattern your team prefers (e.g. `https://{env}.example.com`,
+   `http://localhost:{port}`).
+
+8. **Test-data store** — set
+   `.assert-iq/config.yaml > test_framework.data_factory` (shared
+   with the automated-generation skills). Manual cases reference
+   factory IDs / dataset names rather than embedding production-like
+   data inline.
+
+9. **Traceability marker** — the qi-trace YAML header below is the
+   universal idiom. The header schema is fixed; the `work-item`
+   value uses the tracker's native ID format from `tracker.system`.
+
+10. **Work-item comment delivery** — set
+    `.assert-iq/config.yaml > manual_cases.update_work_item_default`:
+    - `ask` (default) — ask the user each time
+    - `always` — always offer to post the execution checklist
+    - `never` — produce files only
+    The interactive-checkbox comment format works in ADO, Jira,
+    GitHub Issues, GitLab Issues, Linear, and most Markdown trackers.
+
+11. **Platform / language notes** — manual cases are
+    language-agnostic by definition (steps are written in user
+    language, not code). The skill works for web, mobile, desktop,
+    embedded, API, ML model, and infrastructure targets.
+-->
+
 # Generate manual test case
 
 Convert acceptance criteria or test plan into scripted manual test cases formatted for
-the client's manual test management tool.
+the team's manual test management tool.
+
+This skill is **tracker-, tool-, language-, platform-, and
+team-agnostic** (see customization points 1–3 above). The ADO + Xray +
+TestRail + Zephyr examples below are illustrative defaults — the
+skill adapts them to the configured tool.
 
 ## Inputs
 
 | Input | Source | Required |
 |-------|--------|----------|
-| Work item ID | ADO or Jira — fetch via MCP if available | Yes (or pasted ACs) |
+| Work item ID | tracker per `.assert-iq/config.yaml > tracker.system` — fetch via MCP if available | Yes (or pasted ACs) |
 | Target tool | `manual_test_management.tool` from `.assert-iq/config.yaml` | Yes (default: `markdown`) |
-| Risk tier | Derive from work item priority/severity, or user-specified | No (default: `medium`) |
-| Test Plan ID | For ADO Test Plans or Xray — user-provided or from config | No |
+| Risk tier | Derive per `manual_cases.risk_tier_model`, or user-specified | No (default: `medium`) |
+| Test Plan / Suite ID | For ADO Test Plans / Xray / TestRail — user-provided or from config | No |
 
 ### When MCP is unavailable
 
@@ -92,7 +199,8 @@ For each AC (including those noted for automation):
 | Medium | 1 | 1–2 | Where AC implies | — |
 | High | 1–2 | 2–3 | Exhaustive | Data variation, concurrency |
 
-**Proliferation guardrail:** If an AC produces > ~8 cases, consolidate. Merge boundary cases testing the same validation into a single multi-input case (see Example D). A work item with 3 ACs should yield roughly 6–15 cases, not 30+.
+**Proliferation guardrail:** If an AC produces more than
+`manual_cases.max_cases_per_ac` (default ~8) cases, consolidate. Merge boundary cases testing the same validation into a single multi-input case (see Example D). A work item with 3 ACs should yield roughly 6–15 cases, not 30+.
 
 ### Step 4: Apply format and headers
 
@@ -142,11 +250,15 @@ qi-trace:
 | Tool | Format |
 |------|--------|
 | `markdown` | Human-readable per case structure above |
-| `ado_test_plans` | Markdown **plus** ADO Test Case XML (see Example B) |
+| `azure_devops_test_plans` | Markdown **plus** ADO Test Case XML (see Example B) |
 | `xray` | Xray JSON import — follow [Xray REST API format](https://docs.getxray.app/display/XRAY/Import+Execution+Results+-+REST) |
 | `testrail` | TestRail CSV (Case ID, Title, Steps, Expected Result) |
 | `zephyr` | Ask which variant (Scale vs Squad) — import formats differ. Best-effort JSON. |
-| Unknown | `markdown` + note: "No import spec for [tool]." |
+| `qase` | Qase API JSON |
+| `practitest` | PractiTest API JSON |
+| `tricentis_qtest` | qTest import |
+| `notion` / `confluence` | Wiki page rows |
+| Unknown / `none` | `markdown` + note: "No import spec for [tool]." |
 
 ### Step 6: Organize multi-AC output
 
@@ -187,7 +299,10 @@ qi-trace:
 
 ### Step 8: Deliver and follow up
 
-- Ask: "Would you like me to update a specific testing task/s with these test cases and steps? If so, provide the child Task ID of the current work item and I'll add them as a comment."
+- Per `manual_cases.update_work_item_default`:
+  - `ask` — "Would you like me to update a specific testing task with these test cases and steps? If so, provide the child Task / sub-issue ID and I'll add them as a comment."
+  - `always` — offer the work-item-comment delivery proactively.
+  - `never` — produce files only.
 - Note ACs flagged for automation — these still have manual cases but are candidates for future automation
 - Confirm assumptions on ambiguous ACs
 
@@ -219,7 +334,35 @@ qi-trace:
 ⚡ AC-3 noted for automation — manual cases generated but recommend `generate-automated-api-test`.
 ```
 
-The `- [ ]` checkbox syntax renders as interactive checkboxes in ADO, GitHub, and most markdown-based trackers — users can click to mark pass/fail during execution.
+The `- [ ]` checkbox syntax renders as interactive checkboxes in ADO, GitHub, GitLab, Linear, and most markdown-based trackers — users can click to mark pass/fail during execution.
+
+---
+
+## Output
+
+One or more case files in the format set by
+`manual_test_management.tool`, written to
+`manual_test_management.output_path` (markdown) or created via API /
+MCP in the tracker (ADO / TestRail / Xray / Zephyr / Qase / PractiTest
+/ qTest / Notion).
+
+Additionally:
+- **Routing report** — inline or summary file (see Step 6)
+- **Work-item comment** with interactive checkboxes per
+  `manual_cases.update_work_item_default`
+- **Automation notes** — surfaced for ACs flagged
+  `automation-noted`, with a `generate-automated-*-test` follow-up
+  recommendation
+
+## Signals emitted
+
+When the QI signal sink is wired, this skill emits a
+`test.generated.manual` signal per generation conforming to
+`.assert-iq/signal-schema.json`, carrying: `work_item`, `tool`,
+`acs_processed`, `cases_generated`, `routing_breakdown` (counts per
+route category), `risk_tier`, `ambiguous_acs_assumed`,
+`automation_candidates`, `destructive_cases` (count), and
+`tracker_ref`.
 
 ---
 

@@ -1,3 +1,97 @@
+---
+name: generate-test-plan
+mode: agent
+description: "Produce a one-page operating test plan a delivery team can actually use — calibrated to scope, risk-weighted, signal-based exit criteria."
+---
+
+<!-- markdownlint-disable MD033 -->
+<!--
+HOW TO CUSTOMIZE THIS SKILL
+===========================
+
+This skill is a universal template. It works out of the box for **any
+language, framework, platform, tracker, manual-test tool, or team**
+— it produces a markdown plan by default and adapts to whatever
+test-plan management tool your team uses. You'll get sharper, faster
+results if you fill in the per-repo specifics below.
+
+**How placeholders work**: the agent reads this file, then reads
+`.assert-iq/config.yaml` to find the corresponding key (cited next to
+each point). If a key is absent, the agent infers from repo signals
+or asks you. Wire values once and they flow into every skill that
+references them.
+
+1. **Tracker** — set `.assert-iq/config.yaml > tracker.system`. The
+   agent uses the right ID syntax (`AB#1234`, `PROJ-123`, `#123`,
+   `ENG-123`) when linking ACs and owners. Supported: ADO, Jira,
+   GitHub Issues, GitLab, Linear, Bitbucket, Shortcut, Pivotal,
+   Redmine, Trello, Notion.
+
+2. **Test-plan management tool** — set
+   `.assert-iq/config.yaml > manual_test_management.tool` (shared
+   key). Supported outputs:
+   - `markdown` (default) — the plan as a `.md` file
+   - `azure_devops_test_plans` — markdown **plus** ADO Test Plan
+     structure (suites + plan import)
+   - `xray` / `zephyr` / `testrail` / `qase` / `practitest` /
+     `tricentis_qtest` — markdown **plus** plan-level import
+     skeleton for the tool
+   - `notion` / `confluence` — wiki page format
+   - `none` — markdown only
+
+3. **Plan output path** — set
+   `.assert-iq/config.yaml > test_plan.output_path` (default
+   `./tests/_qi/plans/`). For tracker-backed tools, files are created
+   via API / MCP.
+
+4. **Complexity ceilings** — the trivial / feature / release /
+   program target line counts (30 / 80 / 150 / 250) are universal
+   starting points. Override per-team via
+   `.assert-iq/config.yaml > test_plan.complexity_ceilings`.
+
+5. **Approach distribution heuristics** — the auto/manual/exploratory
+   percentages in the table below are starting points by project
+   type. Override defaults via
+   `.assert-iq/config.yaml > test_plan.approach_defaults` keyed by
+   `api | ui | data | integration | security | mobile | embedded |
+   ml | infra`.
+
+6. **Risk model** — the agent uses the configured
+   `manual_cases.risk_tier_model` (`priority_severity` | `wsjf` |
+   `rice` | `custom`) to weight risk areas. No separate config
+   needed here.
+
+7. **Risk-history source** — the agent pulls escape / churn /
+   coverage-gap data from the same sinks the other QI skills use:
+   `escape_analysis.results_store`, `flake_analysis.results_store`,
+   `coverage_analysis.results_store`. If none exist, the plan notes
+   "structural-only assessment".
+
+8. **Environments catalogue** — set
+   `.assert-iq/config.yaml > test_plan.environments` (free-form
+   array, e.g. `["local", "dev", "staging", "pre-prod", "prod"]`).
+   The agent prefers your real environments to generic placeholders.
+
+9. **Exit-criteria policy** — set
+   `.assert-iq/config.yaml > test_plan.exit_criteria_policy`:
+   - `strict_measurable` (default) — reject any non-measurable
+     criterion ("tests look good", "QA signs off")
+   - `prefer_measurable` — measurable wherever possible; allow
+     judgement gates when explicitly justified
+
+10. **Maturity-aware behaviour** — the agent respects
+    `.assert-iq/config.yaml > maturity_tier`:
+    - `early` — emits the plan but adds a "this team has limited
+      historical signals" disclaimer
+    - `mid` — weights risks with available signals
+    - `higher` — enforces signal-based exit criteria strictly
+
+11. **Platform notes** — the plan is platform-agnostic. For mobile
+    add device-matrix; for embedded add hardware-rig matrix; for
+    ML add model-evaluation gates; for data add data-quality
+    gates. The templates below absorb these via the Environments
+    and Risk Areas sections.
+-->
 
 # Generate test plan
 
@@ -58,7 +152,7 @@ Match output length to complexity.
 5. **For multi-feature releases:** Prioritize by risk. Effort proportional to risk, not equal.
 6. **Generate the plan** using the template. Drop empty/speculative sections.
 7. **Verify** output matches complexity calibration target. Trim if over.
-8. **Output as markdown.** If `tracker.type = ado`, also produce importable ADO Test Plan structure.
+8. **Output as markdown.** When `manual_test_management.tool` is set to a tracker-backed tool (ADO Test Plans, Xray, Zephyr, TestRail, Qase, PractiTest, qTest), additionally produce the importable plan structure for that tool.
 
 ## Approach distribution heuristics
 
@@ -362,3 +456,26 @@ Migrate API from REST to GraphQL without breaking existing consumers, validated 
 ```
 
 55 lines. Constraint Analysis makes trade-offs visible; plan remains actionable despite limitations.
+
+---
+
+## Output
+
+- A markdown plan written to
+  `.assert-iq/config.yaml > test_plan.output_path` (default
+  `./tests/_qi/plans/<scope-slug>.md`).
+- When `manual_test_management.tool` is tracker-backed, additionally
+  the import structure for that tool (ADO suites JSON, Xray plan
+  JSON, TestRail CSV, etc.).
+- When the scope is incomplete or contradictory, a partial plan
+  plus an explicit "pending" list — never fabricated confidence.
+
+## Signals emitted
+
+When the QI signal sink is wired, this skill emits a
+`test.plan_generated` signal per generation conforming to
+`.assert-iq/signal-schema.json`, carrying: `scope`, `complexity`,
+`approach_distribution` (auto/manual/exploratory percentages),
+`risk_areas` (count by level), `exit_criteria_count`,
+`measurable_exit_criteria_count`, `constraints_flagged`,
+`residual_risks_accepted`, `tracker_ref`.

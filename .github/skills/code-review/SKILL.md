@@ -33,17 +33,97 @@ description: >
   classification, and actionable suggestions. When a PR number is provided, automatically fetches
   PR comment threads and commit history to include reviewer feedback and claimed fixes as context,
   then reconciles those claims against the actual committed code.
-  Supports C#/.NET MAUI, Python, JavaScript/TypeScript, Java, Go, Rust, Kotlin, Swift, Ruby,
-  and any other language — with language-specific guidance for each.
+  Framework-, language-, platform-, and VCS-host-agnostic. Ships with language-specific guidance
+  for C#/.NET, Python, JavaScript/TypeScript, Java, Go, Rust, Kotlin, Swift, and Ruby; the
+  universal checks apply to any other language.
   WHEN: "code review", "review this file", "review these files", "check this code",
   "analyze this code", "review my code", "critique this", "what's wrong with this code",
   "can you review", "look at this code for issues", "security review", "audit this code",
   "review PR", "review pull request", "check PR comments", "PR <number>"
 ---
 
+<!-- markdownlint-disable MD033 -->
+<!--
+HOW TO CUSTOMIZE THIS SKILL
+===========================
+
+This skill is a universal template. It works out of the box for **any
+language, framework, platform, VCS host, or team** — the 9 review
+categories and severity decision trees are language-agnostic; the
+language-specific blocks below them are additive guidance the skill
+applies only to the detected language. You'll get sharper, faster
+results if you fill in the per-repo specifics below.
+
+**How placeholders work**: `{{NAME}}` strings are **documentation
+placeholders, not runtime variables** — nothing substitutes them
+automatically. The agent reads this file, then reads
+`.assert-iq/config.yaml` to find the corresponding key (cited next to
+each placeholder). If the key is absent, the agent infers from repo
+signals or asks you. Wire the values once in `.assert-iq/config.yaml`
+and they flow into every skill that references them — no per-skill
+editing required.
+
+1. **VCS host** — `{{VCS_HOST}}` determines how the PR Context Gathering
+   Protocol fetches diffs and comment threads. Set
+   `.assert-iq/config.yaml > vcs.type` to one of: `github` | `ado-repos`
+   | `gitlab` | `bitbucket` | `gitea`. The protocol below has examples
+   per host; the skill picks the right one automatically.
+
+2. **Base branch** — `{{BASE_BRANCH}}` is the branch a PR is diffed
+   against. Set `.assert-iq/config.yaml > vcs.default_branch` (e.g.
+   `main`, `master`, `develop`, `trunk`). If your PRs target a different
+   base than the default branch, set `vcs.pr_base_branch`.
+
+3. **Tracker** — already configured in
+   `.assert-iq/config.yaml > tracker`. Used to resolve work-item
+   references found in PR descriptions and `{{TRACE_MARKER}}` comments.
+
+4. **Categories enabled / disabled** — by default all 9 categories run.
+   To disable a category for this repo, list it under
+   `.assert-iq/config.yaml > code_review.disabled_categories`. Critical
+   findings still surface regardless (see Handling Partial-Scope and
+   Suppression Requests).
+
+5. **Test-code calibration** — when the skill detects a test file, it
+   applies the Test Code Calibration adjustments. Toggle via
+   `.assert-iq/config.yaml > code_review.test_code_calibration` (default
+   `true`). Add custom test-file globs under
+   `code_review.test_file_globs` (defaults cover `*Test*`, `*_test.*`,
+   `*.test.*`, `*.spec.*`, `tests/**`, `__tests__/**`).
+
+6. **Severity floor** — `.assert-iq/config.yaml >
+   code_review.severity_floor` (`critical` | `warning` | `ok`)
+   suppresses findings below the floor. Defaults to `ok` (show
+   everything). Useful for PR-comment output formats where only
+   actionable findings matter.
+
+7. **Output format default** — `.assert-iq/config.yaml >
+   code_review.default_output_format`: `markdown` (default) | `json` |
+   `pr_comment` | `quick_summary`. Per-invocation request overrides.
+
+8. **Tooling recommendations** — toggle via
+   `.assert-iq/config.yaml > code_review.recommend_tooling` (default
+   `true`). Add or override per-language tools under
+   `code_review.tooling_overrides`.
+
+9. **Report sink** — by default the markdown report is written to
+   `code-review-report.md` at the repo root. Override the path in
+   `.assert-iq/config.yaml > code_review.report_path`. (Structured QI
+   signal emission is separate — see the `signals` section in
+   `.assert-iq/config.yaml`.)
+
+10. **Platform notes** — this skill is platform-agnostic (monorepo,
+    polyrepo, mobile, browser, embedded, infrastructure-as-code). If a
+    language is missing from the per-language blocks below, the
+    universal checks still apply and the skill will state its assumption
+    about the detected language at the top of the report.
+-->
+
 # Code Review Skill
 
 Perform a thorough, structured code review against **nine** engineering principles. Adapt all guidance to the **detected language** of the submitted code.
+
+This skill is **framework-, language-, platform-, and VCS-host-agnostic**. The 9 categories and severity decision trees apply universally; the language-specific blocks add idiomatic guidance for whichever language is detected. PR-context gathering adapts to the configured `{{VCS_HOST}}` (see customization point 1 above).
 
 ---
 
@@ -74,6 +154,8 @@ If either condition fails:
 
 Execute all four steps before writing a single line of the review. The findings from this protocol feed directly into the **PR Comment Reconciliation** section of the output (see Output Format).
 
+This protocol is **VCS-host-agnostic**. Detect `{{VCS_HOST}}` from `.assert-iq/config.yaml > vcs.type`, fall back to `git remote get-url origin` if unset. Use `{{BASE_BRANCH}}` from `vcs.pr_base_branch` (falling back to `vcs.default_branch`). For both diff and thread retrieval, prefer **MCP → official CLI → REST API with stored git credentials → manual paste** in that order. Never prompt the user for secrets directly.
+
 ### Step 1 — Retrieve the PR diff
 
 ```bash
@@ -81,11 +163,11 @@ Execute all four steps before writing a single line of the review. The findings 
 git remote get-url origin
 
 # Get all commits unique to the PR branch (not yet on the base branch)
-git log --format="%H %ai %s" origin/pr/<PR_NUMBER> ^origin/dev 2>/dev/null
+git log --format="%H %ai %s" origin/pr/<PR_NUMBER> ^origin/{{BASE_BRANCH}} 2>/dev/null
 # If the PR is merged, origin/pr/<PR_NUMBER> is the merge commit tip.
 
 # Get the cumulative final diff (base branch to PR tip)
-git diff origin/dev...origin/pr/<PR_NUMBER>
+git diff origin/{{BASE_BRANCH}}...origin/pr/<PR_NUMBER>
 
 # Also diff each code commit individually to track what changed between iterations
 # (identifies if a later commit reversed or broke a claimed fix)
@@ -94,43 +176,57 @@ git show <each_non_merge_commit_hash> --stat
 
 Use the **cumulative diff** as the basis for code review. Use the **per-commit diffs** to understand the iteration history and to verify that claimed fixes were actually committed.
 
+Host-specific ref conventions (when `git fetch origin pull/<N>/head` or the PR-ref refspec isn't already configured):
+
+- **GitHub**: `git fetch origin pull/<PR_NUMBER>/head:pr/<PR_NUMBER>` (also via `gh pr checkout <PR_NUMBER>`).
+- **Azure DevOps Repos**: `git fetch origin pull/<PR_NUMBER>/merge:pr/<PR_NUMBER>`.
+- **GitLab**: `git fetch origin merge-requests/<MR_IID>/head:mr/<MR_IID>`.
+- **Bitbucket Cloud**: `git fetch origin pull-requests/<PR_ID>/from:pr/<PR_ID>`.
+- **Gitea / Forgejo**: `git fetch origin pull/<PR_NUMBER>/head:pr/<PR_NUMBER>`.
+
 ### Step 2 — Fetch PR comment threads
 
-The remote URL determines where to fetch threads from.
+Resolve `{{VCS_HOST}}` then pick the matching path. For each thread, capture: thread ID, **status** (`active`/`pending`/`fixed`/`resolved`/`wontFix`/`closed`/`outdated` — map host-specific values to this universal set), file path, line number, and the full comment chain (all authors, in order). Skip system comments (status-change events). Never prompt for credentials — read them from MCP, the host CLI, or `git credential fill` only.
 
-**Azure DevOps** (`dev.azure.com`):
+**GitHub** (`vcs.type: github`):
 ```bash
-# Derive org and project from remote URL:
-# https://<org>@dev.azure.com/<org>/<project>/_git/<repo>
-# → org = <org>, project = <project>, repo = <repo>
+# Preferred: gh CLI (auto-resolves auth from gh's keychain)
+gh pr view <PR_NUMBER> --json comments,reviews,reviewThreads
+gh api repos/<owner>/<repo>/pulls/<PR_NUMBER>/comments
+```
+MCP alternative: the Azure MCP / GitHub MCP `github_repo` and PR-thread tools.
 
-# Retrieve stored git credentials (never prompt the user for secrets)
-PAT=$(git credential fill <<'EOF' 2>/dev/null | grep ^password | cut -d= -f2-
-protocol=https
-host=dev.azure.com
-EOF
-)
-B64=$(printf ":%s" "$PAT" | base64)
-
-curl -s "https://dev.azure.com/<org>/<project>/_apis/git/repositories/<repo>/pullRequests/<PR_NUMBER>/threads?api-version=7.1" \
-  -H "Authorization: Basic $B64" \
-  -H "Accept: application/json"
+**Azure DevOps Repos** (`vcs.type: ado-repos`):
+```bash
+# Preferred: az devops CLI
+az repos pr show --id <PR_NUMBER> --query 'threads' --output json
+# REST API fallback (uses stored credential, never prompts):
+curl -s -u :"$(git credential fill <<<'protocol=https\nhost=dev.azure.com\n' | grep ^password | cut -d= -f2-)" \
+  "https://dev.azure.com/<org>/<project>/_apis/git/repositories/<repo>/pullRequests/<PR_NUMBER>/threads?api-version=7.1"
 ```
 
-**GitHub** (`github.com`):
+**GitLab** (`vcs.type: gitlab`):
 ```bash
-# Use the gh CLI if available, otherwise fall back to stored credentials
-gh pr view <PR_NUMBER> --comments --json comments,reviews
-# or
-curl -s "https://api.github.com/repos/<owner>/<repo>/pulls/<PR_NUMBER>/comments" \
-  -H "Authorization: token $(git credential fill <<'EOF' | grep ^password | cut -d= -f2-
-protocol=https
-host=github.com
-EOF
-)"
+glab mr view <MR_IID> --comments
+# REST fallback:
+curl -s --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+  "https://<host>/api/v4/projects/<project_id>/merge_requests/<MR_IID>/discussions"
 ```
 
-For each thread, capture: thread ID, **status** (`active`/`pending`/`fixed`/`resolved`/`wontFix`), file path, line number, and the full comment chain (all authors, in order). Skip system comments (status-change events).
+**Bitbucket Cloud** (`vcs.type: bitbucket`):
+```bash
+# Bitbucket CLI is community-maintained; REST is the canonical path:
+curl -s -u "$BB_USER:$BB_APP_PASSWORD" \
+  "https://api.bitbucket.org/2.0/repositories/<workspace>/<repo>/pullrequests/<PR_ID>/comments"
+```
+
+**Gitea / Forgejo** (`vcs.type: gitea`):
+```bash
+curl -s -H "Authorization: token $GITEA_TOKEN" \
+  "https://<host>/api/v1/repos/<owner>/<repo>/issues/<PR_NUMBER>/comments"
+```
+
+**Manual-paste fallback** — if no API path works (offline, locked-down PAT, etc.), ask the user to paste the rendered comment thread; parse it heuristically. Note in the report header that PR context came from manual paste so the user knows the reconciliation table is best-effort.
 
 ### Step 3 — Build the iteration timeline
 
@@ -1469,7 +1565,7 @@ After delivering the report, offer the user concrete next steps based on the fin
 | Scenario | Offer |
 |---|---|
 | **❌ Unimplemented PR thread(s)** | "Would you like me to implement the fixes that were promised in the PR comments but never committed — [Thread #N: description]?" |
-| **⚠️ Merged with open thread(s)** | "Thread #N is still open. Would you like me to answer Jorge's question / implement the fix now?" |
+| **⚠️ Merged with open thread(s)** | "Thread #N is still open. Would you like me to answer the reviewer's question / implement the fix now?" |
 | **🔴 Critical findings exist** | "Would you like me to fix the critical issues? I can provide corrected code for [specific findings]." |
 | **Many 🟡 Warnings** | "Want me to prioritize these into a refactoring plan with estimated effort?" |
 | **Security findings** | "I can generate a security-hardened version of [specific function/class] if you'd like." |
@@ -1477,3 +1573,24 @@ After delivering the report, offer the user concrete next steps based on the fin
 | **All 🟢 OK** | "The code looks solid. If you want, I can review additional files or do a deeper dive on [specific area]." |
 
 Keep the offer to **one sentence, max two options**. Don't overwhelm the user with a menu. Pick the highest-impact follow-up based on the findings — PR thread discrepancies take precedence over general code findings.
+
+---
+
+## Output
+
+A `code-review-report.md` artifact (or the path configured in
+`.assert-iq/config.yaml > code_review.report_path`) when the report is
+written to disk. When the review is delivered inline (chat, PR comment),
+no file is written unless explicitly requested.
+
+## Signals emitted
+
+When the QI signal sink is wired, this skill emits a `code.review`
+signal per run conforming to `.assert-iq/signal-schema.json`, carrying:
+`scope` (`file` | `pr` | `multi_file`), `language`, `vcs_host`,
+`pr_number` (when applicable), `findings_count_by_severity`
+(`critical` / `warning` / `ok`), `findings_count_by_category`,
+`pr_thread_reconciliation` (counts of `implemented` /
+`unimplemented` / `merged_with_open` / `awaiting_response`), and
+`top_findings[]` (each with `category`, `severity`, `location`,
+`one_line_summary`).

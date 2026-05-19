@@ -28,6 +28,7 @@ is there — your file browser is filtering it.
 | 2 | `.assert-iq/governance.md` | Compliance posture and refusal rules — fill in per client |
 | 3 | `.assert-iq/maturity-profile.md` | QI maturity tier rationale — fill in per client |
 | 4 | `.assert-iq/signal-schema.json` | JSON schema for the QI outcome signal payload |
+| 4a | `.assert-iq/.install-manifest.json` | **Generated at bootstrap time.** Records `{version, installed_at, mode, paths[]}` for the install. Trial mode uses this to wire `.git/info/exclude`; `--graduate` flips `mode` to `committed`. |
 | 5 | `.claude-plugin/plugin.json` | Plugin manifest (Claude plugin format) — makes the pack installable as a cross-tool plugin in VS Code Copilot and Claude Code. Uses `${CLAUDE_PLUGIN_ROOT}` for portable hook paths. |
 | 5a | `.github/agents/Assert-IQ.agent.md` | Default front-door agent (Copilot) — full tools, routes to skills |
 | 5b | `.github/agents/Assert-IQ-PLAN.agent.md` | Read-only planning sibling (Copilot) — ends with Start Implementation handoff to Assert-IQ |
@@ -59,7 +60,7 @@ is there — your file browser is filtering it.
 | 31 | `.github/skills/review-acceptance-criteria/SKILL.md` | Skill: `/review-acceptance-criteria` |
 | 32 | `.github/skills/review-test-quality/SKILL.md` | Skill: `/review-test-quality` |
 | 33 | `.github/skills/risk-assess-pr/SKILL.md` | Skill: `/risk-assess-pr` |
-| 33a | `.github/skills/assert-iq-bootstrap/SKILL.md` | Skill: `/assert-iq-bootstrap` — cross-platform bootstrap for new workspaces (workspace / user-global / skip per surface, `solo` and `pod` presets) |
+| 33a | `.github/skills/assert-iq-bootstrap/SKILL.md` | Skill: `/assert-iq-bootstrap` — cross-platform bootstrap for new workspaces. Three install modes (`trial` / `committed` / `ask`), per-file conflict resolver with SHA256 fast-path, manifest tracking, `--graduate` to reverse trial mode. |
 | 34 | `.vscode/mcp.json` | MCP wiring for ADO / Jira / GitHub |
 | 35 | `.vscode/settings.json` | VS Code config to wire skills/ into Copilot |
 | 36 | `MANIFEST.md` | This file — full file listing, visible to all file browsers |
@@ -75,8 +76,8 @@ is there — your file browser is filtering it.
 | 45 | `.claude/skills` | Symlink → `../.github/skills/` so Claude discovers the same skills as Copilot |
 | 46 | `install.sh` | Bash installer — syncs hooks into settings.json, creates skills symlink (idempotent) |
 | 47 | `install.ps1` | PowerShell installer — parity with `install.sh` |
-| 47a | `scripts/bootstrap.sh` | Cross-platform bootstrap (macOS/Linux) invoked by `/assert-iq-bootstrap`. Flag-driven, idempotent, skip-if-exists. |
-| 47b | `scripts/bootstrap.ps1` | Cross-platform bootstrap (Windows) invoked by `/assert-iq-bootstrap`. PowerShell parity with `bootstrap.sh`. |
+| 47a | `scripts/bootstrap.sh` | Cross-platform bootstrap (macOS/Linux) invoked by `/assert-iq-bootstrap`. Flag-driven, idempotent. Supports `--mode={trial,committed,ask}`, `--graduate`, interactive conflict resolver, manifest tracking. |
+| 47b | `scripts/bootstrap.ps1` | Cross-platform bootstrap (Windows) invoked by `/assert-iq-bootstrap`. PowerShell parity with `bootstrap.sh`: same flags (`-Mode`, `-Trial`, `-Committed`, `-Graduate`), same manifest format, same `.git/info/exclude` block. |
 | 48 | `.github/README.md` | Plain-language guide to the Copilot-side of the pack |
 | 49 | `.claude/README.md` | Plain-language guide to the Claude-side of the pack |
 | — | `hooks/hooks.json` + `hooks/scripts/` | Hooks tree at pack root: `hooks/hooks.json` (Claude plugin format, paths use `${CLAUDE_PLUGIN_ROOT}`) + `hooks/scripts/` + `hooks/config/` + `hooks/state/` + `hooks/sessions/` + `hooks/logs/` |

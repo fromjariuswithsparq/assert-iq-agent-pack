@@ -28,13 +28,36 @@ but does **not** wire into the tool automatically:
 | `.github/copilot-instructions.md` | Always-on QI guidance for Copilot |
 | `AGENTS.md` | Generic agent-spec pointer (Codex, Cursor, Aider) |
 
+## Install modes (trial vs committed)
+
+The bootstrap supports **three install modes**:
+
+| Mode | What it does | When to use |
+|---|---|---|
+| `trial` | Drops files into the workspace but adds their paths to `.git/info/exclude` so git ignores them locally. **The codebase `.gitignore` is never touched.** Other contributors see nothing. | Evaluating the pack; piloting on a single dev machine before a team adopts it. |
+| `committed` | Drops files into the workspace as normal, visible to git. User commits when ready. | Team has decided to adopt; pack should be in the repo for everyone. |
+| `ask` (default in TTY) | Interactive prompt at install time. Non-TTY falls back to `committed`. | Default when no flag is passed. |
+
+**Graduating from trial → committed** is one command:
+```bash
+scripts/bootstrap.sh --graduate    # or -Graduate on Windows
+```
+This removes the managed block from `.git/info/exclude` and updates
+`.assert-iq/.install-manifest.json` so `mode: committed`. Files on
+disk are untouched.
+
 ## How to run it (the chat flow)
 
 1. **Greet and explain**. "I'll set up the Assert.IQ pack in this
-   workspace. Five things to place — I'll ask where each should go.
-   Want a quick preset, or per-surface control?"
+   workspace. First — do you want to **trial** it (files local-only,
+   ignored by `.git/info/exclude`) or **commit** it (visible to git)?
+   Then I'll ask where each of five surfaces goes."
 
-2. **Offer presets first** (option A):
+2. **Decide trial vs committed.** Always pass `--mode=` explicitly to
+   the script — the chat is the prompt surface, not the script. This
+   suppresses the script's own interactive prompt.
+
+3. **Offer presets next**:
    - **`pod`** (default): everything in the workspace. Best when the
      pack is being tailored per-client and the repo is the source of
      truth.
@@ -42,7 +65,7 @@ but does **not** wire into the tool automatically:
      everything else user-global. Best for a contractor rotating across
      many client repos who wants the same QI brain everywhere.
 
-3. **If preset is chosen**, confirm and skip to step 6. Otherwise, walk
+4. **If preset is chosen**, confirm and skip to step 6. Otherwise, walk
    through each surface and ask `workspace` / `user-global` / `skip`.
    For `--copilot=user` or `--agents=user`, explain there's no native
    user-global slot and treat as `skip` (the agent automatically
@@ -59,19 +82,26 @@ but does **not** wire into the tool automatically:
    drop-in checkout. The script handles this automatically when
    `--source` is omitted.
 
-6. **Invoke the script** with explicit flags (do NOT rely on
-   interactive prompts in the script — flags are the contract):
+6. **Invoke the script** with explicit flags (always pass `--mode=`
+   from the chat to avoid double-prompting the user):
 
    ```bash
-   # macOS / Linux
+   # macOS / Linux — trial mode
    bash "${CLAUDE_PLUGIN_ROOT:-.}/scripts/bootstrap.sh" \
+     --mode=trial \
      --preset=solo \
      --workspace="$PWD"
+
+   # macOS / Linux — committed mode
+   bash "${CLAUDE_PLUGIN_ROOT:-.}/scripts/bootstrap.sh" \
+     --mode=committed \
+     --preset=pod
    ```
 
    ```powershell
-   # Windows
+   # Windows — trial mode
    pwsh -NoProfile -File "$env:CLAUDE_PLUGIN_ROOT\scripts\bootstrap.ps1" `
+     -Mode trial `
      -Preset solo `
      -Workspace (Get-Location).Path
    ```
@@ -80,9 +110,17 @@ but does **not** wire into the tool automatically:
 
    ```bash
    bash scripts/bootstrap.sh \
+     --mode=committed \
      --preset=pod \
      --instructions=user \
      --claude=skip
+   ```
+
+   **Graduating from trial → committed later:**
+   ```bash
+   bash scripts/bootstrap.sh --graduate
+   # or:
+   pwsh -File scripts/bootstrap.ps1 -Graduate
    ```
 
 7. **Show the summary table the script prints** verbatim. It tells the
@@ -98,6 +136,11 @@ but does **not** wire into the tool automatically:
 
 | Flag | Values | Default |
 |---|---|---|
+| `--mode` / `-Mode` | `trial`, `committed`, `ask` | `ask` (TTY) / `committed` (non-TTY) |
+| `--trial` / `-Trial` | (switch) | shorthand for `--mode=trial` |
+| `--committed` / `-Committed` | (switch) | shorthand for `--mode=committed` |
+| `--graduate` / `-Graduate` | (switch) | reverses trial mode; exits after |
+| `--untrial` / `-Untrial` | (switch) | alias for `--graduate` |
 | `--preset` / `-Preset` | `solo`, `pod` | (none — falls back to `pod` if no per-surface flags given) |
 | `--assert-iq` / `-AssertIq` | `workspace`, `user`, `skip` | preset default |
 | `--instructions` / `-Instructions` | `workspace`, `user`, `skip` | preset default |
@@ -109,24 +152,35 @@ but does **not** wire into the tool automatically:
 
 ## Behavior contract
 
-- **Always skip-if-exists.** v1 does not overwrite. If a file already
-  lives at the destination, the script reports `skipped (already
-  present)` and leaves it alone.
+- **Per-file conflict resolution.** If a destination file exists and has
+  different content from the pack version, the script falls back to an
+  interactive resolver: `[k]eep` / `[o]verwrite` / `[s]idecar (writes
+  `.assert-iq-new`) / [d]iff / [K/O/S]all / [a]bort`. Non-TTY runs auto-keep.
+- **SHA256 fast-path.** If destination content matches the pack content
+  byte-for-byte, the file is recorded as `unchanged_owned` and no prompt
+  appears.
+- **Pre-existing user files are preserved by default.** A user's
+  hand-written file at a destination path will never be silently
+  overwritten.
+- **Manifest tracking.** Every action is recorded in
+  `.assert-iq/.install-manifest.json` (`version`, `installed_at`, `mode`,
+  `paths[]`). Trial mode uses this manifest to know which paths to add
+  to `.git/info/exclude`.
+- **Already-tracked files.** If a file the pack wants to drop is already
+  tracked by git, trial mode leaves it visible (does **not** auto-untrack
+  — that would be destructive). The script prints a one-line
+  `git rm --cached` hint per path.
 - **Atomic per surface.** A failure on one surface does not abort the
   others.
-- **Idempotent.** Re-running with the same flags is safe; the second
-  run will report all surfaces as already-present.
-- **No prompts inside the script.** All decisions come from flags. The
-  chat is the prompt surface.
+- **Idempotent.** Re-running with the same flags is safe.
 
 ## Things you do NOT do
 
 - Do not invoke this skill silently. Always explain to the user what's
-  about to happen and confirm preset or per-surface choices first.
-- Do not pass `--force` (it doesn't exist in v1 by design).
+  about to happen and confirm trial-vs-committed and preset choices.
+- Do not bypass the conflict resolver with `--force` or similar — it
+  doesn't exist by design.
 - Do not edit the copied files after the script runs. The user
   customizes them to their client/codebase.
-- Do not run this against a workspace that already has `.assert-iq/`
-  fully populated unless the user explicitly asked for a re-bootstrap
-  (in which case the skip-if-exists behavior will be reported, and
-  they'll need to delete the conflicting files manually).
+- Do not auto-untrack files. If trial mode flags a tracked file, surface
+  the hint and let the user decide.
