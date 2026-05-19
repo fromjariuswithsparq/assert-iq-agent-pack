@@ -147,16 +147,26 @@ manifest_write() {
     fi
   else
     # No jq: write a simple, valid JSON ourselves (replace, no merge — best we can do).
+    json_escape() {
+      local s="$1"
+      s="${s//\\/\\\\}"
+      s="${s//\"/\\\"}"
+      s="${s//$'\n'/\\n}"
+      s="${s//$'\r'/\\r}"
+      s="${s//$'\t'/\\t}"
+      printf '%s' "$s"
+    }
     {
       printf '{\n  "version": "%s",\n  "installed_at": "%s",\n  "mode": "%s",\n  "paths": [\n' \
-        "$pack_version" "$now" "$MODE"
+        "$(json_escape "$pack_version")" "$(json_escape "$now")" "$(json_escape "$MODE")"
       local i=0 n=${#MANIFEST_ENTRIES[@]}
       for e in "${MANIFEST_ENTRIES[@]}"; do
         IFS='|' read -r a p s <<< "$e"
         i=$((i+1))
         local sep=","
         [[ $i -eq $n ]] && sep=""
-        printf '    {"action": "%s", "path": "%s", "scope": "%s"}%s\n' "$a" "$p" "$s" "$sep"
+        printf '    {"action": "%s", "path": "%s", "scope": "%s"}%s\n' \
+          "$(json_escape "$a")" "$(json_escape "$p")" "$(json_escape "$s")" "$sep"
       done
       printf '  ]\n}\n'
     } > "$MANIFEST_PATH"
@@ -544,8 +554,11 @@ render_hooks_json() {
   [[ -f "$template" ]] || { echo ""; return; }
   local tmp
   tmp="$(mktemp)"
+  # Escape '&' and backslashes for sed replacement safety.
+  local escaped_root
+  escaped_root="$(printf '%s' "$pack_root" | sed -e 's/[\\/&]/\\&/g')"
   # Use '|' delimiter since filesystem paths normally don't contain it.
-  sed "s|__PACK_ROOT__|$pack_root|g" "$template" > "$tmp"
+  sed "s|__PACK_ROOT__|$escaped_root|g" "$template" > "$tmp"
   echo "$tmp"
 }
 

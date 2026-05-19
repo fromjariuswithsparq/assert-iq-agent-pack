@@ -552,7 +552,10 @@ function Render-HooksJson {
     # __PACK_ROOT__ in the template is used both as a POSIX path (bash side)
     # and a Windows path (PowerShell side, single-quoted). Substitute both.
     $content = Get-Content -LiteralPath $template -Raw
-    $content = $content.Replace('__PACK_ROOT__', $PackRoot)
+    # __PACK_ROOT__ appears inside JSON strings; escape JSON-sensitive chars
+    # so Windows paths like C:\repo remain valid JSON.
+    $packRootJson = $PackRoot.Replace('\', '\\').Replace('"', '\"')
+    $content = $content.Replace('__PACK_ROOT__', $packRootJson)
     Set-Content -LiteralPath $tmp -Value $content -Encoding UTF8 -NoNewline
     return $tmp
 }
