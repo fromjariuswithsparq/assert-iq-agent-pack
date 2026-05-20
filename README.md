@@ -92,7 +92,16 @@ Bootstrap copies instruction files, `.assert-iq/` config, `.vscode/settings.json
 
 3. **Wire your tools** in `.vscode/mcp.json`. The pack ships 20 pre-configured MCP servers. Add credentials when VS Code prompts — they go to your OS keychain, not the file. See [`.vscode/MCP.md`](.vscode/MCP.md) for a per-server setup guide.
 
-4. **Run a skill.** In Copilot Chat, select the `Assert-IQ` agent and try:
+4. **Tailor `config.yaml` to your codebase.** Open `.assert-iq/config.yaml` — it controls your maturity tier, tracker, test framework, signal sink, and the free-text context the agent uses when generating artifacts. Every field has inline comments, so you can edit it manually. Or let the agent do it:
+
+   - Add `.assert-iq/config.yaml` to the chat context (drag the file in, or use the **Attach** button in Copilot Chat).
+   - Then say:
+     ```
+     Customize this config.yaml file to my codebase and workspace.
+     ```
+   The agent will ask a few targeted questions about your stack, tracker, and team, then fill in the placeholders for you.
+
+5. **Run a skill.** In Copilot Chat, select the `Assert-IQ` agent and try:
    ```
    /risk-assess-pr
    ```
