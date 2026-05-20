@@ -652,6 +652,6 @@ Tag releases. Keep a CHANGELOG in `.assert-iq/CHANGELOG.md`.
 ## Where to learn more
 
 - Quality Intelligence Kit (Sparq internal) — the operating model behind every skill in this pack
-- QI Diagnostic Guide — how to set the right maturity tier
-- QI Facilitator Guide and Playbook — how to talk about this pack with clients without making it the headline
-- Assert.IQ and the Quality Intelligence Vision — positioning between the operating model and the commercial offering
+- QI Diagnostic Guide — how to set the right maturity tier (See Jarius)
+- QI Facilitator Guide and Playbook — how to talk about this pack with clients without making it the headline (Sparq internal)
+- Assert.IQ and the Quality Intelligence Vision — positioning between the operating model and the commercial offering (See Jarius)
