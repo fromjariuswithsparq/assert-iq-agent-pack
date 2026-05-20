@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Assert.IQ Agent Pack — Quality Intelligence capability layer for VS Code Copilot and Claude Code.",
-    "version": "0.7.0-rc.5"
+    "version": "0.7.0"
   },
   "plugins": [
     {
       "name": "assert-iq",
       "source": "./",
       "description": "Quality Intelligence skills, agents, and hooks. Front door is the Assert-IQ agent; switch to Assert-IQ-PLAN when you want plan-first behavior.",
-      "version": "0.7.0-rc.5",
+      "version": "0.7.0",
       "homepage": "https://github.com/fromjariuswithsparq/assert-iq-agent-pack"
     }
   ]

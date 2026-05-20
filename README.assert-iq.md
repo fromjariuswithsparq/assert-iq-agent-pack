@@ -4,7 +4,7 @@
 > instructions, modes, and tools that turn GitHub Copilot Chat **and**
 > Claude Code into a QI-aware delivery partner inside the IDE.
 
-**Version**: v0.7.0-rc.5
+**Version**: v0.7.0
 **Status**: Internal Sparq asset — Intelligence Studio
 **Owner**: QE Competency Council
 **Repo**: <https://github.com/fromjariuswithsparq/assert-iq-agent-pack>
@@ -90,7 +90,7 @@ fromjariuswithsparq/assert-iq-agent-pack
 
 | Tool | Pinning supported? |
 |---|---|
-| **Claude Code** (`/plugin install`) | Yes — append `@v0.7.0-rc.5`. |
+| **Claude Code** (`/plugin install`) | Yes — append `@v0.7.0`. |
 | **VS Code Copilot** (`Chat: Install Plugin From Source`) | **Not in the current build.** The installer accepts only `owner/repo` shorthand or a clone URL; appending `@ref` returns `not a valid plugin source`. Copilot installs from the default branch (`main`). |
 
 `main` only ever fast-forwards to a released tag, so installing from
@@ -197,7 +197,7 @@ git commit -m "chore: adopt Assert.IQ agent pack"
    ```
 
    > Common mistakes: pasting the full HTTPS URL returns *Repository not
-   > found*; appending `@v0.7.0-rc.5` returns *not a valid plugin source*.
+   > found*; appending `@v0.7.0` returns *not a valid plugin source*.
    > The current Copilot build only accepts the bare shorthand and
    > installs from the repo's default branch.
 
@@ -235,10 +235,10 @@ git commit -m "chore: adopt Assert.IQ agent pack"
    supports pinning to a tag with the `@ref` suffix:
 
    ```
-   /plugin install fromjariuswithsparq/assert-iq-agent-pack@v0.7.0-rc.5
+   /plugin install fromjariuswithsparq/assert-iq-agent-pack@v0.7.0
    ```
 
-   Drop the `@v0.7.0-rc.5` suffix to install from the default branch.
+   Drop the `@v0.7.0` suffix to install from the default branch.
 
 2. After install, bootstrap the workspace the same way as Copilot —
    either talk to `@assert-iq` and let it auto-route, or run:
@@ -268,7 +268,7 @@ restricted org policy, or you want the files vendored into your own
 repo — clone the tag directly and copy the contents:
 
 ```bash
-git clone --depth 1 --branch v0.7.0-rc.5 \
+git clone --depth 1 --branch v0.7.0 \
   https://github.com/fromjariuswithsparq/assert-iq-agent-pack.git
 cd assert-iq-agent-pack
 bash install.sh        # macOS / Linux
@@ -629,7 +629,8 @@ or `qi-traceability.instructions.md` with examples drawn from your codebase.
 | 0.7.0-rc.2 | Added `.claude-plugin/marketplace.json` so VS Code Copilot's `Chat: Install Plugin From Source` accepts the repo. README install instructions clarified (no `@ref` pinning on the Copilot side). |
 | 0.7.0-rc.3 | Bootstrap surfaces three more workspace artifacts: `.vscode/` (settings + mcp), `hooks/` (scripts + rendered `hooks.json`), and `.claude/settings.json`. Additive JSON deep-merge for settings files — user's scalar values win on conflicts, object keys union from both sides — so pre-existing user config is never clobbered. Hook scripts now actually fire after a plugin install. |
 | 0.7.0-rc.4 | Bootstrap now also surfaces the Hindsight Hooks runtime directories — `hooks/state/` (seed JSON for `dismissed-lessons` and `edit-frequency`), `hooks/logs/` (writable log sink), and an empty `hooks/sessions/` directory for per-session scratch. Without these, hooks fired but had no state to read or anywhere to write. Trial-mode `.git/info/exclude` now records 38 paths (was 35). |
-| **0.7.0-rc.5** | **Hardened bootstrap manifest and hook path rendering (PR #3). Validated apply-selection tokens in `skill-improve-apply` so invalid selections no longer silently dismiss candidates (PR #4).** |
+| 0.7.0-rc.5 | Hardened bootstrap manifest and hook path rendering (PR #3). Validated apply-selection tokens in `skill-improve-apply` so invalid selections no longer silently dismiss candidates (PR #4). |
+| **0.7.0** | **First official release. Windows verified end-to-end. Fixes since rc.5: escaped `$manifestPath` interpolation in the bootstrap graduate log (PR #5); trial-mode unignore guidance added to README (PR #6); Windows hook commands switched to `pwsh -File` so PS1 hooks fire correctly on Windows (PR #7).** |
 
 Tag releases. Keep a CHANGELOG in `.assert-iq/CHANGELOG.md`.
 
