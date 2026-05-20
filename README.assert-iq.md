@@ -254,8 +254,8 @@ Upgrades are an explicit, intentional act. To move to a later tag:
 1. Read the release notes on the
    [Releases page](https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases).
 2. Uninstall the current version (see
-   [.github/README.md](.github/README.md#uninstalling-the-pack) or
-   [.claude/README.md](.claude/README.md#uninstalling-the-pack)).
+   [.github/vscode-readme.md](.github/vscode-readme.md#uninstalling-the-pack) or
+   [.claude/claude-readme.md](.claude/claude-readme.md#uninstalling-the-pack)).
 3. Reinstall — same command. On Claude Code, bump the `@vX.Y.Z` suffix.
    On VS Code Copilot, just reinstall from `owner/repo` (the latest
    release will be on `main`).

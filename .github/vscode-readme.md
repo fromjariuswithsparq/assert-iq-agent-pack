@@ -41,7 +41,7 @@ folder on their own.
 ## "Will this also work in Claude Code?"
 
 Yes. The same content is mirrored to the `.claude/` folder at the repo
-root. See [`.claude/README.md`](../.claude/README.md) for the Claude
+root. See [`.claude/claude-readme.md`](../.claude/claude-readme.md) for the Claude
 side. You can use either tool — they share the same skills, instructions,
 and hooks.
 

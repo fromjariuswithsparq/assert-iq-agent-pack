@@ -142,6 +142,6 @@ The three steps above are the fast path. When you're ready for the full picture:
 **[README.assert-iq.md →](README.assert-iq.md)** — detailed install options (drop-in / air-gapped / trial vs. committed), full skill reference, maturity tier matrix, MCP server inventory, hooks architecture, and full release history.
 
 Tool-specific references:
-- VS Code / Copilot — [`.github/README.md`](.github/README.md)
-- Claude Code — [`.claude/README.md`](.claude/README.md)
+- VS Code / Copilot — [`.github/vscode-readme.md`](.github/vscode-readme.md)
+- Claude Code — [`.claude/claude-readme.md`](.claude/claude-readme.md)
 - MCP servers — [`.vscode/MCP.md`](.vscode/MCP.md)

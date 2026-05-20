@@ -42,7 +42,7 @@ The instructions ("house rules") that Copilot reads from
 
 Yes. The same content is mirrored to the `.github/` folder at the repo
 root, and Copilot reads it automatically — no installer needed for the
-Copilot side. See [`../.github/README.md`](../.github/README.md).
+Copilot side. See [`../.github/vscode-readme.md`](../.github/vscode-readme.md).
 
 You can use either tool — they share the same skills, instructions, and
 hooks.
