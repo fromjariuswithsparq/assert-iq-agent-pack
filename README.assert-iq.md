@@ -641,11 +641,11 @@ Tag releases. Keep a CHANGELOG in `.assert-iq/CHANGELOG.md`.
 
 | Role | Responsibility |
 |---|---|
-| Pack technical owner | Jarius Hayes |
+| Pack technical owner/QI Sponsor | Jarius Hayes |
 | Assert.IQ commercial owner | Intelligence Studio leadership |
 | Pilot account leads | Embedded QE pod leads |
 | Governance review | QI sponsor + Sparq InfoSec |
-| Versioning and release | QE Competency Council |
+| Versioning and release | Jarius Hayes |
 
 ---
 
