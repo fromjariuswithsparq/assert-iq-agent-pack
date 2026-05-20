@@ -2,7 +2,7 @@
 
 **Version**: v0.8.0
 **Generated**: 2026-05-20
-**Total files (top-level inventory)**: 51 + hooks tree + tests scaffolding
+**Total files (top-level inventory)**: 53 + hooks tree + tests scaffolding
 
 ---
 
@@ -61,10 +61,12 @@ is there — your file browser is filtering it.
 | 32 | `.github/skills/review-test-quality/SKILL.md` | Skill: `/review-test-quality` |
 | 33 | `.github/skills/risk-assess-pr/SKILL.md` | Skill: `/risk-assess-pr` |
 | 33a | `.github/skills/assert-iq-bootstrap/SKILL.md` | Skill: `/assert-iq-bootstrap` — cross-platform bootstrap for new workspaces. Three install modes (`trial` / `committed` / `ask`), per-file conflict resolver with SHA256 fast-path, manifest tracking, `--graduate` to reverse trial mode. |
-| 34 | `.vscode/mcp.json` | MCP wiring for ADO / Jira / GitHub |
+| 34 | `.vscode/mcp.json` | MCP wiring for 20 servers: GitHub, ADO, Jira/Atlassian, git, GitLab, Bitbucket, filesystem, Postgres, SQLite, AWS, Sentry, Grafana, Datadog, Honeycomb, Playwright, Puppeteer, Notion, Confluence, Slack, Teams. All credentials via `${input:…}` prompts — file is safe to commit. |
+| 34a | `.vscode/MCP.md` | Per-server setup guide: prerequisites (`uv`, `node`), VS Code quick start, Claude Code / Claude Desktop equivalents, credential sourcing, and troubleshooting for every MCP server in `mcp.json`. |
 | 35 | `.vscode/settings.json` | VS Code config to wire skills/ into Copilot |
 | 36 | `MANIFEST.md` | This file — full file listing, visible to all file browsers |
-| 37 | `README.assert-iq.md` | Day-one onboarding doc for client engineers and Sparq pods |
+| 36a | `README.md` | Repo landing page ("Start Here"). QI overview, Assert.IQ pitch, three-step get-started, annotated directory tree, upgrade steps, and links to all deep-dive docs. Replaces the `.github/README.md` fallback GitHub previously displayed. |
+| 37 | `README.assert-iq.md` | Full reference doc: detailed install options, drop-in / air-gapped path, skill reference, maturity tier matrix, MCP inventory, hooks architecture, release history. |
 | 38 | `tests/_qi/automated/.gitkeep` | Placeholder so the empty test directory is preserved by git |
 | 39 | `tests/_qi/exploratory/.gitkeep` | Placeholder so the empty test directory is preserved by git |
 | 40 | `tests/_qi/manual/.gitkeep` | Placeholder so the empty test directory is preserved by git |
@@ -92,6 +94,35 @@ is there — your file browser is filtering it.
 **Agents (Copilot)**: 2 (in `.github/agents/`) — `Assert-IQ` (default), `Assert-IQ-PLAN` (planner)
 **Subagents (Claude)**: 2 (in `.claude/agents/`) — `assert-iq`, `assert-iq-plan`
 **Hooks**: SessionStart, PostToolUse, Stop (see `hooks/hooks.json`)
+
+## Notes for v0.8.0
+
+- **Expanded MCP server catalog.** `.vscode/mcp.json` grew from 3 servers
+  (GitHub, ADO, Atlassian) to 20. The 17 additions cover local git
+  operations, GitLab, Bitbucket, filesystem access, Postgres, SQLite, AWS
+  (AWS Labs server via `uvx`), Sentry, Grafana, Datadog, Honeycomb,
+  Playwright, Puppeteer, Notion, Confluence, Slack, and Microsoft Teams.
+  All secrets remain outside the file — every credential is routed through
+  a VS Code `${input:…}` promptString with `"password": true`, storing
+  values in the OS keychain on first use.
+- **`.vscode/MCP.md` setup guide.** New file documenting prerequisites,
+  VS Code quick start, Claude Code / Claude Desktop equivalents, and a
+  per-server card for all 20 entries (what it does, what credentials you
+  need, where to get them, troubleshooting).
+- **Root `README.md` landing page.** The repo previously had no root
+  `README.md`; GitHub fell back to `.github/README.md`. A new root
+  `README.md` serves as the directional "Start Here" entry point: QI
+  four-layer model overview, Assert.IQ pitch, and a five-step get-started
+  guide (install → bootstrap → wire MCP → customize config.yaml → run a
+  skill). All deep-dive content deferred to `README.assert-iq.md` and the
+  tool-specific READMEs.
+- **`.github/README.md` → `.github/vscode-readme.md`** and
+  **`.claude/README.md` → `.claude/claude-readme.md`** — renamed so the
+  root `README.md` is unambiguously the landing page and GitHub stops
+  using the `.github/` fallback. All cross-references updated.
+- **Version metadata bumped to 0.8.0** in `.claude-plugin/plugin.json`,
+  `.claude-plugin/marketplace.json`, `MANIFEST.md`, and
+  `README.assert-iq.md` (version banner, install pins, history row).
 
 ## Notes for v0.7.0-pre
 
