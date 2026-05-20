@@ -137,6 +137,12 @@ Recommended adoption path:
    with `--mode=trial`. Files land in the workspace but are added to
    `.git/info/exclude` (the codebase `.gitignore` is **not** touched).
    Other contributors see nothing; you get the full QI experience locally.
+
+   > Ready to expose one or more pack files to git before full graduation?
+   > Open `.git/info/exclude`, find the `# Assert-IQ trial mode` block, and
+   > delete the specific path(s) you want to start tracking (or remove the
+   > whole block to expose everything). Verify with `git status --ignored`
+   > and stage only what you intend with `git add <path>`.
 2. **Per-repo onboarding** — when the team is ready, run
    `scripts/bootstrap.sh --graduate` (or `-Graduate` on Windows). That
    removes the local-ignore block, flips the manifest to
