@@ -295,7 +295,7 @@ if ($doGraduate) {
             $m = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
             $m.mode = 'committed'
             $m | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $manifestPath -Encoding UTF8
-            Write-Host "Updated $manifestPath: mode -> committed"
+            Write-Host "Updated ${manifestPath}: mode -> committed"
         } catch {
             Write-Warning "Could not update manifest mode: $_"
         }
