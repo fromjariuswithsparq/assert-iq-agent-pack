@@ -99,7 +99,7 @@ Bootstrap copies instruction files, `.assert-iq/` config, `.vscode/settings.json
      ```
      Customize this config.yaml file to my codebase and workspace.
      ```
-   The agent will ask a few targeted questions about your stack, tracker, and team, then fill in the placeholders for you.
+   The agent will ask a few targeted questions about your stack, tracker, and team, then fill in the placeholders for you. (Tip: You can also do this for other files like instructions and skills!)
 
 5. **Run a skill.** In Copilot Chat, select the `Assert-IQ` agent and try:
    ```
