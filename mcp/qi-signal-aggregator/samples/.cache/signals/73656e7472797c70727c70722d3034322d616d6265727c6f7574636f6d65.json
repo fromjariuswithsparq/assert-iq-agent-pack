@@ -1,0 +1,14 @@
+{
+  "state": "STRONG",
+  "metrics": {
+    "active_critical_incident": false,
+    "issues_total": 1,
+    "unresolved_p1": 0
+  },
+  "evidence": [
+    {
+      "source": "sentry (fixture)",
+      "value": "1 issue(s); 0 unresolved fatal/error"
+    }
+  ]
+}

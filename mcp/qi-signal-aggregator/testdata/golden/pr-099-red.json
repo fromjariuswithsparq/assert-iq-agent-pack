@@ -1,0 +1,46 @@
+{
+  "scenario": "pr-099-red",
+  "scope": "pr",
+  "maturity_tier": "mid",
+  "input": {
+    "change": {
+      "state": "WEAK",
+      "metrics": {
+        "churn": 730,
+        "files_changed": 18,
+        "late_changes": 4
+      }
+    },
+    "protection": {
+      "state": "STRONG",
+      "metrics": {
+        "coverage_pct": 85,
+        "traced_pct": 80
+      }
+    },
+    "trust": {
+      "state": "STRONG",
+      "metrics": {
+        "flaky_pct": 0,
+        "blocked_count": 0
+      }
+    },
+    "outcome": {
+      "state": "WEAK",
+      "metrics": {
+        "unresolved_p1": 1,
+        "escapes_critical": 1
+      }
+    }
+  },
+  "expected": {
+    "verdict_band": "RED",
+    "mitigation_required": true,
+    "rationale": "Red flag(s) present alongside weak/ungraded signal \u2014 cannot ship without resolution.",
+    "tier_capped": false,
+    "red_flags": [
+      "active_critical_incident",
+      "late_breaking_change"
+    ]
+  }
+}

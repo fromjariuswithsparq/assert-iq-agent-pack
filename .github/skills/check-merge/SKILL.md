@@ -143,6 +143,26 @@ customization block above).
   list, or skip a layer for this run (e.g. `--skip-traceability` on a
   bot-authored PR).
 
+## Prefer the QI Signal Aggregator MCP when available
+
+If the `qi-signal-aggregator` MCP server is registered with your client
+(check by calling its `health` tool), call it instead of synthesizing
+the four layers yourself:
+
+```
+get_decision_confidence(scope="merge", identifier="<pr-number>")
+```
+
+The returned payload conforms to `.assert-iq/signal-schema.json` and
+includes the verdict, per-layer state (`STRONG` / `WEAK` / `UNGRADED`),
+evidence, and red flags. Map the verdict to the MERGE / HOLD / DISCUSS
+output cited as `server: qi-signal-aggregator` evidence.
+
+If the server is unavailable, returns `partial_signal_mode: true`, or
+any layer is `UNGRADED`, **fall back to the manual procedure below**
+for the affected layer(s). The procedure remains the partial-signal
+path and must not be deleted.
+
 ## Procedure
 
 1. **Confirm CI state** on `{{CI_PROVIDER}}` for the PR's head commit:

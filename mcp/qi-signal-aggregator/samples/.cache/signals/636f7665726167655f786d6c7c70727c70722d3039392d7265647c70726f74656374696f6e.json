@@ -1,0 +1,13 @@
+{
+  "state": "STRONG",
+  "metrics": {
+    "coverage_pct": 92
+  },
+  "evidence": [
+    {
+      "source": "coverage_xml",
+      "value": "line-rate=92.00%",
+      "link": "fixtures/coverage/coverage.xml"
+    }
+  ]
+}

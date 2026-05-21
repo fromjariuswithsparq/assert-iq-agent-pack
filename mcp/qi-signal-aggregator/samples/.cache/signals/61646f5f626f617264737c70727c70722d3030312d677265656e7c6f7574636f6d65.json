@@ -1,0 +1,13 @@
+{
+  "state": "STRONG",
+  "metrics": {
+    "escapes_critical": 0,
+    "escapes_total": 0
+  },
+  "evidence": [
+    {
+      "source": "ado_boards (fixture)",
+      "value": "0 escape(s); 0 at critical severity"
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{"adapter":"qi_traceability_scan","error":"","evidence":["qi_traceability_scan:5af717bd725613cb"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T03:12:09.993088Z","type":"adapter_call"}
+{"adapter":"coverage_xml","error":"","evidence":["coverage_xml:d5dbe80f9d7fd326"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T03:12:09.993287Z","type":"adapter_call"}
+{"adapter":"sentry","error":"","evidence":["sentry (fixture):e727b7b006e8d334"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T03:12:09.993394Z","type":"adapter_call"}
+{"adapter":"github","error":"fixture fixtures/github/pr-001-green.json parse: json: cannot unmarshal array into Go struct field fixturePR.services_touched of type int","evidence":[],"identifier":"pr-001-green","scope":"pr","state":"UNGRADED","ts":"2026-05-21T03:12:09.993536Z","type":"adapter_call"}
+{"adapter":"jira","error":"","evidence":["jira (fixture):0641b25cd120975d"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T03:12:09.993644Z","type":"adapter_call"}
+{"adapter":"junit_glob","error":"","evidence":["junit_glob:081ef58e2afb2a08"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T03:12:09.99374Z","type":"adapter_call"}
+{"identifier":"pr-001-green","mitigation_required":true,"red_flag_ids":[],"scope":"pr","tier_capped":false,"ts":"2026-05-21T03:12:09.994167Z","type":"decision","verdict_band":"AMBER"}
+{"adapter":"github","error":"fixture fixtures/github/pr-001-green.json parse: json: cannot unmarshal array into Go struct field fixturePR.services_touched of type int","evidence":[],"identifier":"pr-001-green","scope":"pr","state":"UNGRADED","ts":"2026-05-21T03:12:21.313098Z","type":"adapter_call"}
+{"identifier":"pr-001-green","mitigation_required":true,"red_flag_ids":[],"scope":"pr","tier_capped":false,"ts":"2026-05-21T03:12:21.313264Z","type":"decision","verdict_band":"AMBER"}
+{"adapter":"github","error":"","evidence":["github (fixture):53ab5388d879f58d"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T03:14:36.279997Z","type":"adapter_call"}
+{"identifier":"pr-001-green","mitigation_required":false,"red_flag_ids":[],"scope":"pr","tier_capped":false,"ts":"2026-05-21T03:14:36.280506Z","type":"decision","verdict_band":"GREEN"}
+{"adapter":"jira","error":"","evidence":["jira (fixture):633cb80d4172bb1f"],"identifier":"pr-042-amber","scope":"pr","state":"STRONG","ts":"2026-05-21T03:14:36.314634Z","type":"adapter_call"}
+{"adapter":"github","error":"","evidence":["github (fixture):461d6c39ec9d68e4"],"identifier":"pr-042-amber","scope":"pr","state":"WEAK","ts":"2026-05-21T03:14:36.314833Z","type":"adapter_call"}
+{"adapter":"junit_glob","error":"","evidence":["junit_glob:081ef58e2afb2a08"],"identifier":"pr-042-amber","scope":"pr","state":"STRONG","ts":"2026-05-21T03:14:36.315048Z","type":"adapter_call"}
+{"adapter":"coverage_xml","error":"","evidence":["coverage_xml:d5dbe80f9d7fd326"],"identifier":"pr-042-amber","scope":"pr","state":"STRONG","ts":"2026-05-21T03:14:36.315185Z","type":"adapter_call"}
+{"adapter":"qi_traceability_scan","error":"","evidence":["qi_traceability_scan:5af717bd725613cb"],"identifier":"pr-042-amber","scope":"pr","state":"STRONG","ts":"2026-05-21T03:14:36.315287Z","type":"adapter_call"}
+{"adapter":"sentry","error":"","evidence":["sentry (fixture):d9fdf7abfeaf6c97"],"identifier":"pr-042-amber","scope":"pr","state":"STRONG","ts":"2026-05-21T03:14:36.315415Z","type":"adapter_call"}
+{"identifier":"pr-042-amber","mitigation_required":true,"red_flag_ids":[],"scope":"pr","tier_capped":false,"ts":"2026-05-21T03:14:36.316504Z","type":"decision","verdict_band":"AMBER"}
+{"adapter":"jira","error":"","evidence":["jira (fixture):c3b1683b250db354"],"identifier":"pr-099-red","scope":"pr","state":"WEAK","ts":"2026-05-21T03:14:36.344158Z","type":"adapter_call"}
+{"adapter":"github","error":"","evidence":["github (fixture):54e2440cfa5e7cf6"],"identifier":"pr-099-red","scope":"pr","state":"WEAK","ts":"2026-05-21T03:14:36.344366Z","type":"adapter_call"}
+{"adapter":"sentry","error":"","evidence":["sentry (fixture):79316bfc99744749"],"identifier":"pr-099-red","scope":"pr","state":"WEAK","ts":"2026-05-21T03:14:36.344537Z","type":"adapter_call"}
+{"adapter":"qi_traceability_scan","error":"","evidence":["qi_traceability_scan:5af717bd725613cb"],"identifier":"pr-099-red","scope":"pr","state":"STRONG","ts":"2026-05-21T03:14:36.34472Z","type":"adapter_call"}
+{"adapter":"coverage_xml","error":"","evidence":["coverage_xml:d5dbe80f9d7fd326"],"identifier":"pr-099-red","scope":"pr","state":"STRONG","ts":"2026-05-21T03:14:36.344903Z","type":"adapter_call"}
+{"adapter":"junit_glob","error":"","evidence":["junit_glob:081ef58e2afb2a08"],"identifier":"pr-099-red","scope":"pr","state":"STRONG","ts":"2026-05-21T03:14:36.345403Z","type":"adapter_call"}
+{"identifier":"pr-099-red","mitigation_required":true,"red_flag_ids":[],"scope":"pr","tier_capped":false,"ts":"2026-05-21T03:14:36.345677Z","type":"decision","verdict_band":"RED"}
+{"identifier":"pr-001-green","mitigation_required":false,"red_flag_ids":[],"scope":"pr","tier_capped":false,"ts":"2026-05-21T03:16:07.566384Z","type":"decision","verdict_band":"GREEN"}
+{"identifier":"pr-042-amber","mitigation_required":true,"red_flag_ids":[],"scope":"pr","tier_capped":false,"ts":"2026-05-21T03:16:07.603516Z","type":"decision","verdict_band":"AMBER"}
+{"identifier":"pr-099-red","mitigation_required":true,"red_flag_ids":["late_breaking_change","active_critical_incident"],"scope":"pr","tier_capped":false,"ts":"2026-05-21T03:16:07.636118Z","type":"decision","verdict_band":"RED"}
+{"adapter":"jira","error":"","evidence":["jira (fixture):0641b25cd120975d"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T03:36:36.203295Z","type":"adapter_call"}
+{"adapter":"sentry","error":"","evidence":["sentry (fixture):e727b7b006e8d334"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T03:36:36.203419Z","type":"adapter_call"}
+{"adapter":"github","error":"","evidence":["github (fixture):53ab5388d879f58d"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T03:36:36.203519Z","type":"adapter_call"}
+{"adapter":"coverage_xml","error":"","evidence":["coverage_xml:d5dbe80f9d7fd326"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T03:36:36.203646Z","type":"adapter_call"}
+{"adapter":"qi_traceability_scan","error":"","evidence":["qi_traceability_scan:5af717bd725613cb"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T03:36:36.203751Z","type":"adapter_call"}
+{"identifier":"pr-001-green","mitigation_required":false,"red_flag_ids":[],"scope":"pr","tier_capped":false,"ts":"2026-05-21T03:36:36.204367Z","type":"decision","verdict_band":"GREEN"}
+{"adapter":"github","error":"","evidence":["github (fixture):461d6c39ec9d68e4"],"identifier":"pr-042-amber","scope":"pr","state":"WEAK","ts":"2026-05-21T03:37:09.536564Z","type":"adapter_call"}
+{"adapter":"jira","error":"","evidence":["jira (fixture):633cb80d4172bb1f"],"identifier":"pr-042-amber","scope":"pr","state":"STRONG","ts":"2026-05-21T03:37:09.536712Z","type":"adapter_call"}
+{"adapter":"sentry","error":"","evidence":["sentry (fixture):d9fdf7abfeaf6c97"],"identifier":"pr-042-amber","scope":"pr","state":"STRONG","ts":"2026-05-21T03:37:09.537111Z","type":"adapter_call"}
+{"adapter":"coverage_xml","error":"","evidence":["coverage_xml:d5dbe80f9d7fd326"],"identifier":"pr-042-amber","scope":"pr","state":"STRONG","ts":"2026-05-21T03:37:09.53721Z","type":"adapter_call"}
+{"adapter":"qi_traceability_scan","error":"","evidence":["qi_traceability_scan:5af717bd725613cb"],"identifier":"pr-042-amber","scope":"pr","state":"STRONG","ts":"2026-05-21T03:37:09.537302Z","type":"adapter_call"}
+{"identifier":"pr-042-amber","mitigation_required":true,"red_flag_ids":[],"scope":"pr","tier_capped":false,"ts":"2026-05-21T03:37:09.537651Z","type":"decision","verdict_band":"AMBER"}
+{"adapter":"jira","error":"","evidence":["jira (fixture):c3b1683b250db354"],"identifier":"pr-099-red","scope":"pr","state":"WEAK","ts":"2026-05-21T03:37:56.485187Z","type":"adapter_call"}
+{"adapter":"github","error":"","evidence":["github (fixture):54e2440cfa5e7cf6"],"identifier":"pr-099-red","scope":"pr","state":"WEAK","ts":"2026-05-21T03:37:56.4854Z","type":"adapter_call"}
+{"adapter":"sentry","error":"","evidence":["sentry (fixture):79316bfc99744749"],"identifier":"pr-099-red","scope":"pr","state":"WEAK","ts":"2026-05-21T03:37:56.485554Z","type":"adapter_call"}
+{"adapter":"coverage_xml","error":"","evidence":["coverage_xml:d5dbe80f9d7fd326"],"identifier":"pr-099-red","scope":"pr","state":"STRONG","ts":"2026-05-21T03:37:56.485741Z","type":"adapter_call"}
+{"adapter":"qi_traceability_scan","error":"","evidence":["qi_traceability_scan:5af717bd725613cb"],"identifier":"pr-099-red","scope":"pr","state":"STRONG","ts":"2026-05-21T03:37:56.485978Z","type":"adapter_call"}
+{"identifier":"pr-099-red","mitigation_required":true,"red_flag_ids":["late_breaking_change","active_critical_incident"],"scope":"pr","tier_capped":false,"ts":"2026-05-21T03:37:56.486263Z","type":"decision","verdict_band":"RED"}
+{"adapter":"ado_boards","error":"","evidence":["ado_boards (fixture):0c0789fe59fd4ef4"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T04:21:26.572701Z","type":"adapter_call"}
+{"adapter":"ado_repos","error":"","evidence":["ado_repos (fixture):53ab5388d879f58d"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T04:21:26.573109Z","type":"adapter_call"}
+{"adapter":"jira","error":"","evidence":["jira (fixture):0641b25cd120975d"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T04:21:26.573227Z","type":"adapter_call"}
+{"adapter":"sentry","error":"","evidence":["sentry (fixture):e727b7b006e8d334"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T04:21:26.573364Z","type":"adapter_call"}
+{"adapter":"github","error":"","evidence":["github (fixture):53ab5388d879f58d"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T04:21:26.573565Z","type":"adapter_call"}
+{"adapter":"coverage_xml","error":"","evidence":["coverage_xml:d5dbe80f9d7fd326"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T04:21:26.573718Z","type":"adapter_call"}
+{"adapter":"qi_traceability_scan","error":"","evidence":["qi_traceability_scan:5af717bd725613cb"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T04:21:26.573852Z","type":"adapter_call"}
+{"adapter":"junit_glob","error":"","evidence":["junit_glob:081ef58e2afb2a08"],"identifier":"pr-001-green","scope":"pr","state":"STRONG","ts":"2026-05-21T04:21:26.57396Z","type":"adapter_call"}
+{"identifier":"pr-001-green","mitigation_required":false,"red_flag_ids":[],"scope":"pr","tier_capped":false,"ts":"2026-05-21T04:21:26.574412Z","type":"decision","verdict_band":"GREEN"}
+{"adapter":"ado_repos","error":"","evidence":["ado_repos (fixture):461d6c39ec9d68e4"],"identifier":"pr-042-amber","scope":"pr","state":"WEAK","ts":"2026-05-21T04:21:26.606284Z","type":"adapter_call"}
+{"adapter":"ado_boards","error":"","evidence":["ado_boards (fixture):9c23ed2a8ee346a4"],"identifier":"pr-042-amber","scope":"pr","state":"STRONG","ts":"2026-05-21T04:21:26.606448Z","type":"adapter_call"}
+{"adapter":"coverage_xml","error":"","evidence":["coverage_xml:d5dbe80f9d7fd326"],"identifier":"pr-042-amber","scope":"pr","state":"STRONG","ts":"2026-05-21T04:21:26.606572Z","type":"adapter_call"}
+{"adapter":"jira","error":"","evidence":["jira (fixture):633cb80d4172bb1f"],"identifier":"pr-042-amber","scope":"pr","state":"STRONG","ts":"2026-05-21T04:21:26.606688Z","type":"adapter_call"}
+{"adapter":"sentry","error":"","evidence":["sentry (fixture):d9fdf7abfeaf6c97"],"identifier":"pr-042-amber","scope":"pr","state":"STRONG","ts":"2026-05-21T04:21:26.60682Z","type":"adapter_call"}
+{"adapter":"github","error":"","evidence":["github (fixture):461d6c39ec9d68e4"],"identifier":"pr-042-amber","scope":"pr","state":"WEAK","ts":"2026-05-21T04:21:26.606932Z","type":"adapter_call"}
+{"adapter":"qi_traceability_scan","error":"","evidence":["qi_traceability_scan:5af717bd725613cb"],"identifier":"pr-042-amber","scope":"pr","state":"STRONG","ts":"2026-05-21T04:21:26.607061Z","type":"adapter_call"}
+{"adapter":"junit_glob","error":"","evidence":["junit_glob:081ef58e2afb2a08"],"identifier":"pr-042-amber","scope":"pr","state":"STRONG","ts":"2026-05-21T04:21:26.607309Z","type":"adapter_call"}
+{"identifier":"pr-042-amber","mitigation_required":true,"red_flag_ids":[],"scope":"pr","tier_capped":false,"ts":"2026-05-21T04:21:26.607691Z","type":"decision","verdict_band":"AMBER"}
+{"adapter":"ado_boards","error":"","evidence":["ado_boards (fixture):7d0b378eac90edf3"],"identifier":"pr-099-red","scope":"pr","state":"WEAK","ts":"2026-05-21T04:21:26.647775Z","type":"adapter_call"}
+{"adapter":"ado_repos","error":"","evidence":["ado_repos (fixture):54e2440cfa5e7cf6"],"identifier":"pr-099-red","scope":"pr","state":"WEAK","ts":"2026-05-21T04:21:26.648052Z","type":"adapter_call"}
+{"adapter":"qi_traceability_scan","error":"","evidence":["qi_traceability_scan:5af717bd725613cb"],"identifier":"pr-099-red","scope":"pr","state":"STRONG","ts":"2026-05-21T04:21:26.648175Z","type":"adapter_call"}
+{"adapter":"coverage_xml","error":"","evidence":["coverage_xml:d5dbe80f9d7fd326"],"identifier":"pr-099-red","scope":"pr","state":"STRONG","ts":"2026-05-21T04:21:26.648278Z","type":"adapter_call"}
+{"adapter":"jira","error":"","evidence":["jira (fixture):c3b1683b250db354"],"identifier":"pr-099-red","scope":"pr","state":"WEAK","ts":"2026-05-21T04:21:26.648377Z","type":"adapter_call"}
+{"adapter":"sentry","error":"","evidence":["sentry (fixture):79316bfc99744749"],"identifier":"pr-099-red","scope":"pr","state":"WEAK","ts":"2026-05-21T04:21:26.648479Z","type":"adapter_call"}
+{"adapter":"github","error":"","evidence":["github (fixture):54e2440cfa5e7cf6"],"identifier":"pr-099-red","scope":"pr","state":"WEAK","ts":"2026-05-21T04:21:26.648576Z","type":"adapter_call"}
+{"adapter":"junit_glob","error":"","evidence":["junit_glob:081ef58e2afb2a08"],"identifier":"pr-099-red","scope":"pr","state":"STRONG","ts":"2026-05-21T04:21:26.648684Z","type":"adapter_call"}
+{"identifier":"pr-099-red","mitigation_required":true,"red_flag_ids":["late_breaking_change","active_critical_incident"],"scope":"pr","tier_capped":false,"ts":"2026-05-21T04:21:26.648946Z","type":"decision","verdict_band":"RED"}
+{"identifier":"pr-001-green","mitigation_required":false,"red_flag_ids":[],"scope":"pr","tier_capped":false,"ts":"2026-05-21T04:21:37.504466Z","type":"decision","verdict_band":"GREEN"}
+{"identifier":"pr-042-amber","mitigation_required":true,"red_flag_ids":[],"scope":"pr","tier_capped":false,"ts":"2026-05-21T04:21:37.565911Z","type":"decision","verdict_band":"AMBER"}
+{"identifier":"pr-099-red","mitigation_required":true,"red_flag_ids":["late_breaking_change","active_critical_incident"],"scope":"pr","tier_capped":false,"ts":"2026-05-21T04:21:37.625069Z","type":"decision","verdict_band":"RED"}
+{"identifier":"pr-099-red","mitigation_required":true,"red_flag_ids":["late_breaking_change","active_critical_incident"],"scope":"pr","tier_capped":false,"ts":"2026-05-21T04:21:50.175451Z","type":"decision","verdict_band":"RED"}

@@ -1,56 +1,85 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://assert-iq.dev/schemas/signal-schema/v0.2.json",
   "title": "QI Outcome Signal Payload",
+  "description": "Canonical payload returned by the QI Signal Aggregator MCP server and emitted by CI. v0.2 adds per-layer state, evidence arrays, partial-signal mode, and red-flag enumeration to support release-confidence, risk-assess-pr, and check-merge skills from a single source.",
   "type": "object",
-  "required": ["run_id", "commit_sha", "maturity_tier", "layers"],
+  "required": ["schema_version", "run_id", "commit_sha", "maturity_tier", "scope", "identifier", "layers", "verdict", "partial_signal_mode"],
   "properties": {
+    "schema_version": { "const": "0.2.0" },
     "run_id": { "type": "string" },
     "commit_sha": { "type": "string" },
-    "branch": { "type": "string" },
+    "branch": { "type": ["string", "null"] },
     "pr_id": { "type": ["string", "null"] },
+    "scope": { "enum": ["pr", "release", "merge", "commit"] },
+    "identifier": { "type": "string" },
     "maturity_tier": { "enum": ["early", "mid", "higher"] },
+    "partial_signal_mode": {
+      "type": "boolean",
+      "description": "True when one or more layers returned UNGRADED."
+    },
+    "generated_at": { "type": "string", "format": "date-time" },
     "layers": {
       "type": "object",
-      "required": ["change", "protection", "trust", "outcome", "decision"],
+      "required": ["change", "protection", "trust", "outcome"],
       "properties": {
-        "change": {
-          "type": "object",
-          "properties": {
-            "files_changed": { "type": "integer" },
-            "services_touched": { "type": "array", "items": { "type": "string" } },
-            "churn_lines": { "type": "integer" },
-            "late_changes": { "type": "integer" }
-          }
+        "change":     { "$ref": "#/definitions/layer" },
+        "protection": { "$ref": "#/definitions/layer" },
+        "trust":      { "$ref": "#/definitions/layer" },
+        "outcome":    { "$ref": "#/definitions/layer" }
+      }
+    },
+    "red_flags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "signal", "impact"],
+        "properties": {
+          "id":     { "type": "string" },
+          "signal": { "type": "string" },
+          "impact": { "type": "string" }
+        }
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "required": ["band", "mitigation_required"],
+      "properties": {
+        "band": {
+          "enum": ["GREEN", "AMBER", "RED", "GO", "GO_WITH_MITIGATION", "HOLD"]
         },
-        "protection": {
-          "type": "object",
-          "properties": {
-            "tests_executed": { "type": "integer" },
-            "coverage_pct": { "type": "number" },
-            "traceability_pct": { "type": "number" }
-          }
+        "mitigation_required": { "type": "boolean" },
+        "rationale":           { "type": "string" },
+        "tier_capped":         { "type": "boolean" }
+      }
+    }
+  },
+  "definitions": {
+    "layer": {
+      "type": "object",
+      "required": ["state", "evidence"],
+      "properties": {
+        "state": { "enum": ["STRONG", "WEAK", "UNGRADED"] },
+        "reason": {
+          "type": ["string", "null"],
+          "description": "Required when state is UNGRADED; explains the data gap."
         },
-        "trust": {
+        "metrics": {
           "type": "object",
-          "properties": {
-            "flaky_count": { "type": "integer" },
-            "blocked_count": { "type": "integer" },
-            "env_uptime_pct": { "type": "number" }
-          }
+          "description": "Layer-specific scalar metrics (e.g. coverage_pct, flake_pct).",
+          "additionalProperties": true
         },
-        "outcome": {
-          "type": "object",
-          "properties": {
-            "defects_open": { "type": "integer" },
-            "escapes_30d": { "type": "integer" },
-            "telemetry_alerts": { "type": "integer" }
-          }
-        },
-        "decision": {
-          "type": "object",
-          "properties": {
-            "release_confidence": { "enum": ["green", "amber", "red"] },
-            "mitigation_required": { "type": "boolean" }
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["source", "value"],
+            "properties": {
+              "source":  { "type": "string" },
+              "value":   {},
+              "link":    { "type": ["string", "null"] },
+              "weight":  { "type": ["number", "null"] }
+            }
           }
         }
       }

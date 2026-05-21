@@ -155,6 +155,67 @@ pr:
 # primary language; mixed-language repos can override per-file via the
 # instruction files in .github/instructions/.
 # -----------------------------------------------------------------------------
+
+
+# -----------------------------------------------------------------------------
+# SIGNAL AGGREGATOR  — QI Signal Aggregator MCP server settings
+# -----------------------------------------------------------------------------
+# When the qi-signal-aggregator MCP server is installed and registered with
+# your client, release-confidence / risk-assess-pr / check-merge skills call
+# it instead of running the four-layer fan-out themselves. Output conforms
+# to .assert-iq/signal-schema.json (v0.2.0).
+#
+# Try it without configuring anything:
+#   qi-signal-aggregator --config mcp/qi-signal-aggregator/samples/config.yaml demo
+#
+# To exercise it against your real repo, fill in the adapter_settings and
+# secrets_env blocks below. Layers with no configured adapter return
+# UNGRADED — the verdict is then capped at AMBER per the integrity rule.
+# -----------------------------------------------------------------------------
+signal_aggregator:
+  enabled: true
+  cache_dir: ".assert-iq/.cache/signals"
+
+  # Per-layer TTL for cached adapter responses (seconds).
+  cache_ttl_seconds:
+    change: 300
+    protection: 600
+    trust: 3600
+    outcome: 900
+
+  # Which adapters cover each layer. The six defaults ship with the server.
+  # Add custom adapters via the qi_signal_aggregator.adapters entry point.
+  adapters:
+    change:     ["github"]
+    protection: ["coverage_xml", "qi_traceability_scan"]
+    trust:      ["junit_glob"]
+    outcome:    ["sentry", "jira"]
+
+  # Per-adapter settings. Each adapter documents its own keys; the common
+  # pattern is a path / glob / API base URL.
+  adapter_settings:
+    github:
+      repo: "<owner>/<repo>"
+    coverage_xml:
+      path: "coverage.xml"
+    qi_traceability_scan:
+      scan_root: "."
+    junit_glob:
+      glob: "test-results/**/*.xml"
+    sentry:
+      organization: "<sentry-org>"
+      project: "<sentry-project>"
+    jira:
+      base_url: "https://<your-org>.atlassian.net"
+      escapes_jql: "project = <KEY> AND issuetype = Bug AND created >= -30d"
+
+  # Env-var NAMES only (never values). Adapter pulls the value at request time.
+  secrets_env:
+    github_token: "GITHUB_TOKEN"
+    sentry_token: "SENTRY_TOKEN"
+    jira_token:   "JIRA_TOKEN"
+
+
 traceability:
   marker_style: "generic"   # options:
                             #   generic    → // qi-trace: <WORK-ITEM>

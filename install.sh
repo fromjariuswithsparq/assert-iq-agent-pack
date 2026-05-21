@@ -77,7 +77,96 @@ else
     fi
 fi
 
+# ---- 3. QI Signal Aggregator MCP server (optional) ----------------------
+# As of v0.2.0 the aggregator is a single static Go binary distributed via
+# GitHub Releases. No Python or Go toolchain required on the target machine.
+#   - Set QI_INSTALL_AGGREGATOR=0 to skip.
+#   - Set QI_AGGREGATOR_VERSION=vX.Y.Z to pin (default: latest release).
+AGGREGATOR_DIR="$ROOT/mcp/qi-signal-aggregator"
+if [ "${QI_INSTALL_AGGREGATOR:-1}" = "1" ] && [ -d "$AGGREGATOR_DIR" ]; then
+    BIN_NAME="qi-signal-aggregator"
+    INSTALL_DIR="${QI_AGGREGATOR_BIN_DIR:-$HOME/.local/bin}"
+    VERSION="${QI_AGGREGATOR_VERSION:-latest}"
+    REPO="${QI_AGGREGATOR_REPO:-assert-iq/qi-signal-aggregator}"
+
+    UNAME_S=$(uname -s)
+    UNAME_M=$(uname -m)
+    case "$UNAME_S" in
+        Darwin) GO_OS=darwin ;;
+        Linux)  GO_OS=linux ;;
+        *)      GO_OS="" ;;
+    esac
+    case "$UNAME_M" in
+        x86_64|amd64) GO_ARCH=amd64 ;;
+        arm64|aarch64) GO_ARCH=arm64 ;;
+        *)            GO_ARCH="" ;;
+    esac
+
+    if [ -z "$GO_OS" ] || [ -z "$GO_ARCH" ]; then
+        say "[skip] qi-signal-aggregator: unsupported platform $UNAME_S/$UNAME_M"
+    elif ! command -v curl >/dev/null 2>&1; then
+        say "[skip] qi-signal-aggregator: curl not found"
+    else
+        ASSET="${BIN_NAME}_${GO_OS}_${GO_ARCH}.tar.gz"
+        if [ "$VERSION" = "latest" ]; then
+            URL_BASE="https://github.com/${REPO}/releases/latest/download"
+        else
+            URL_BASE="https://github.com/${REPO}/releases/download/${VERSION}"
+        fi
+        URL="${URL_BASE}/${ASSET}"
+        SUM_URL="${URL_BASE}/checksums.txt"
+
+        TMP=$(mktemp -d)
+        trap 'rm -rf "$TMP"' EXIT
+        if curl -fsSL -o "$TMP/$ASSET" "$URL" 2>/dev/null && \
+           curl -fsSL -o "$TMP/checksums.txt" "$SUM_URL" 2>/dev/null; then
+            # Verify SHA256 (entry in checksums.txt). Tolerate either sha256sum or shasum.
+            EXPECTED=$(grep "  $ASSET$" "$TMP/checksums.txt" | awk '{print $1}')
+            if [ -n "$EXPECTED" ]; then
+                if command -v sha256sum >/dev/null 2>&1; then
+                    ACTUAL=$(sha256sum "$TMP/$ASSET" | awk '{print $1}')
+                else
+                    ACTUAL=$(shasum -a 256 "$TMP/$ASSET" | awk '{print $1}')
+                fi
+                if [ "$EXPECTED" != "$ACTUAL" ]; then
+                    fail "qi-signal-aggregator: SHA256 mismatch on $ASSET (expected $EXPECTED, got $ACTUAL)"
+                fi
+            else
+                say "[warn] qi-signal-aggregator: no checksum found for $ASSET (continuing)"
+            fi
+
+            mkdir -p "$INSTALL_DIR"
+            tar -xzf "$TMP/$ASSET" -C "$TMP"
+            mv "$TMP/$BIN_NAME" "$INSTALL_DIR/$BIN_NAME"
+            chmod +x "$INSTALL_DIR/$BIN_NAME"
+
+            # macOS: drop quarantine so the unsigned binary runs without
+            # the user being prompted to allow it from Settings.
+            if [ "$GO_OS" = "darwin" ]; then
+                xattr -d com.apple.quarantine "$INSTALL_DIR/$BIN_NAME" 2>/dev/null || true
+            fi
+
+            say "[ok] installed $BIN_NAME ($VERSION, $GO_OS/$GO_ARCH) -> $INSTALL_DIR"
+            case ":$PATH:" in
+                *":$INSTALL_DIR:"*) ;;
+                *) say "     NOTE: $INSTALL_DIR is not in \$PATH. Add: export PATH=\"$INSTALL_DIR:\$PATH\"" ;;
+            esac
+            say "[ok] client snippets at: $AGGREGATOR_DIR/clients/"
+            say "     - VS Code / Copilot : copy clients/vscode-mcp.json -> .vscode/mcp.json"
+            say "     - Claude Code       : copy clients/claude-code.json -> .mcp.json (workspace) or ~/.claude.json"
+            say "     - Codex CLI         : copy clients/codex-cli.toml block -> ~/.codex/config.toml"
+            say "     Try it: $BIN_NAME --config $AGGREGATOR_DIR/samples/config.yaml demo"
+        else
+            say "[skip] qi-signal-aggregator: could not download $URL"
+            say "       Build from source: cd $AGGREGATOR_DIR && go build -o $INSTALL_DIR/$BIN_NAME ./cmd/qi-signal-aggregator"
+        fi
+        trap - EXIT
+        rm -rf "$TMP"
+    fi
+fi
+
 say ""
 say "Pack installed."
 say "  Copilot reads .github/copilot-instructions.md, .github/instructions/*, .github/agents/*, .github/skills/*"
 say "  Claude  reads CLAUDE.md, .claude/agents/*, .claude/skills/*, .claude/settings.json (hooks)"
+say "  MCP     qi-signal-aggregator (if installed): see $AGGREGATOR_DIR/README.md"

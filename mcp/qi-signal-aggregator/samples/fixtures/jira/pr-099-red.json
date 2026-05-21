@@ -1,0 +1,11 @@
+{
+  "issues": [
+    {
+      "key": "ESC-301",
+      "fields": {
+        "priority": { "name": "P1" },
+        "summary": "Production: payments service crash loop after shared-infra deploy"
+      }
+    }
+  ]
+}

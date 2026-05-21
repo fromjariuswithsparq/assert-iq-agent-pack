@@ -1,0 +1,43 @@
+{
+  "scenario": "release-mitigation",
+  "scope": "release",
+  "maturity_tier": "mid",
+  "input": {
+    "change": {
+      "state": "STRONG",
+      "metrics": {
+        "churn": 200,
+        "files_changed": 3,
+        "late_changes": 0
+      }
+    },
+    "protection": {
+      "state": "STRONG",
+      "metrics": {
+        "coverage_pct": 88,
+        "traced_pct": 92
+      }
+    },
+    "trust": {
+      "state": "STRONG",
+      "metrics": {
+        "flaky_pct": 2,
+        "blocked_count": 0
+      }
+    },
+    "outcome": {
+      "state": "WEAK",
+      "metrics": {
+        "unresolved_p1": 0,
+        "escapes_critical": 0
+      }
+    }
+  },
+  "expected": {
+    "verdict_band": "GO_WITH_MITIGATION",
+    "mitigation_required": true,
+    "rationale": "One layer WEAK; mitigation required for the affected layer.",
+    "tier_capped": false,
+    "red_flags": []
+  }
+}

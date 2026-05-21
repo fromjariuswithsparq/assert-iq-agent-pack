@@ -163,6 +163,29 @@ Each of the four layers must be assessed as one of:
 
 ---
 
+## Prefer the QI Signal Aggregator MCP when available
+
+If the `qi-signal-aggregator` MCP server is registered with your client
+(check by calling its `health` tool), call it instead of running the
+four-layer fan-out yourself:
+
+```
+get_decision_confidence(scope="pr", identifier="<pr-number>")
+```
+
+The returned payload conforms to `.assert-iq/signal-schema.json` and
+includes the verdict (`GREEN` / `AMBER` / `RED`), per-layer state
+(`STRONG` / `WEAK` / `UNGRADED`), evidence with sources, and detected
+red flags. Use it as the basis for the PR risk comment — cite the
+server output as evidence (`server: qi-signal-aggregator`).
+
+If the server is unavailable, returns `partial_signal_mode: true`, or
+any layer is `UNGRADED`, **fall back to the manual procedure below**
+for the affected layer(s). The procedure is the partial-signal path —
+do not delete it.
+
+---
+
 ## Procedure
 
 ### Step 1 — Change layer

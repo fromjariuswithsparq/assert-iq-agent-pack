@@ -1,0 +1,9 @@
+{
+  "number": 42,
+  "changed_files": 6,
+  "additions": 180,
+  "deletions": 40,
+  "services_touched": ["payments"],
+  "late_breaking_change": false,
+  "touches_sensitive_path": true
+}

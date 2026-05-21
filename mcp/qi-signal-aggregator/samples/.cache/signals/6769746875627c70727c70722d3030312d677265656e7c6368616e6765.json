@@ -1,0 +1,16 @@
+{
+  "state": "STRONG",
+  "metrics": {
+    "churn": 30,
+    "files_changed": 1,
+    "late_changes": 0,
+    "sensitive_path": false,
+    "services_touched": 1
+  },
+  "evidence": [
+    {
+      "source": "github (fixture)",
+      "value": "PR #1 (1 changed files, +24/-6)"
+    }
+  ]
+}

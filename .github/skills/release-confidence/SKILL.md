@@ -132,6 +132,28 @@ This skill assesses **release-level** confidence (multiple PRs, a release scope)
 - **Scope** — work items/features included (fetch via MCP; otherwise ask user)
 - **Available signals** — what data sources are accessible (CI, coverage, telemetry, incident history)
 
+## Prefer the QI Signal Aggregator MCP when available
+
+If the `qi-signal-aggregator` MCP server is registered with your client
+(check by calling its `health` tool), use it instead of running the
+four-layer fan-out yourself:
+
+```
+get_decision_confidence(scope="release", identifier="<tag|build|branch>", lookback_days=30)
+```
+
+The returned payload conforms to `.assert-iq/signal-schema.json` and
+includes the verdict (`GO` / `GO_WITH_MITIGATION` / `HOLD`), per-layer
+state (`STRONG` / `WEAK` / `UNGRADED`), evidence with sources, and
+detected red flags. **Skip Steps 1–4 below** and go straight to Step 5
+(operational readiness) plus the report-rendering step, citing the
+server output as evidence (`server: qi-signal-aggregator`).
+
+If the server is unavailable, returns `partial_signal_mode: true`, or
+any layer is `UNGRADED`, **fall back to the manual procedure below** to
+fill the gap. The procedure is the partial-signal path — do not delete
+it.
+
 ## Procedure
 
 ### Step 1: Gather signals

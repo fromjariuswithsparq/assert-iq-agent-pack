@@ -1,0 +1,17 @@
+{
+  "state": "STRONG",
+  "metrics": {
+    "blocked_count": 0,
+    "flaky_count": 0,
+    "flaky_pct": 0,
+    "tests_seen": 3,
+    "total_runs": 9
+  },
+  "evidence": [
+    {
+      "source": "junit_glob",
+      "value": "3 tests across 9 runs; 0 flaky; 0 blocked",
+      "link": "fixtures/junit/*.xml"
+    }
+  ]
+}

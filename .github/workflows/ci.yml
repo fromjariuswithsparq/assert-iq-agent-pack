@@ -1,0 +1,47 @@
+name: qi-signal-aggregator CI
+
+# PR gate: every PR runs go vet, go test, and goreleaser check so that we
+# never tag a release that won't build.
+on:
+  pull_request:
+    paths:
+      - "mcp/qi-signal-aggregator/**"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/release.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mcp/qi-signal-aggregator/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp/qi-signal-aggregator
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: mcp/qi-signal-aggregator/go.sum
+      - run: go vet ./...
+      - run: go test -race ./...
+
+  goreleaser-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp/qi-signal-aggregator
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: mcp/qi-signal-aggregator/go.sum
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: check
+          workdir: mcp/qi-signal-aggregator

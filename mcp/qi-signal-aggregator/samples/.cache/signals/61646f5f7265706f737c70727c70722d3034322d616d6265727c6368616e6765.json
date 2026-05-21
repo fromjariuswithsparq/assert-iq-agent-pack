@@ -1,0 +1,17 @@
+{
+  "state": "WEAK",
+  "reason": "churn=220 ≥ 200; touches sensitive path",
+  "metrics": {
+    "churn": 220,
+    "files_changed": 6,
+    "late_changes": 0,
+    "sensitive_path": true,
+    "services_touched": 1
+  },
+  "evidence": [
+    {
+      "source": "ado_repos (fixture)",
+      "value": "PR #42 (6 changed files, +180/-40)"
+    }
+  ]
+}

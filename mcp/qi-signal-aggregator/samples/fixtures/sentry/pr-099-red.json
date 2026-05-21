@@ -1,0 +1,19 @@
+{
+  "issues": [
+    {
+      "id": "SENTRY-099A",
+      "level": "fatal",
+      "status": "unresolved",
+      "title": "Active P1: shared-infra connection pool exhausted",
+      "culprit": "shared.db.pool"
+    },
+    {
+      "id": "SENTRY-099B",
+      "level": "error",
+      "status": "unresolved",
+      "title": "Auth service intermittent 500s",
+      "culprit": "app.auth.session"
+    }
+  ],
+  "lookback_days": 30
+}

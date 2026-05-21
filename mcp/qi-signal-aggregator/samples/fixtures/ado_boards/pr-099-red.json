@@ -1,0 +1,13 @@
+{
+  "value": [
+    {
+      "id": 30412,
+      "fields": {
+        "System.WorkItemType": "Bug",
+        "System.Title": "Production: payments service crash loop after shared-infra deploy",
+        "Microsoft.VSTS.Common.Severity": "1 - Critical",
+        "Microsoft.VSTS.Common.Priority": 1
+      }
+    }
+  ]
+}

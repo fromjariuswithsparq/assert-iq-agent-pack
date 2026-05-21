@@ -1,0 +1,6 @@
+qi-signal-aggregator
+qi-signal-aggregator.exe
+/dist/
+*.test
+*.out
+coverage.txt

@@ -1,0 +1,64 @@
+# Drop-in config that wires every adapter to the fixtures in this directory.
+# Use:
+#   qi-signal-aggregator --config mcp/qi-signal-aggregator/samples/config.yaml demo
+# No network, no secrets — all adapters in fixture mode.
+
+maturity:
+  tier: "mid"          # mid lets verdicts go GREEN/GO when warranted
+
+signal_aggregator:
+  enabled: true
+  cache_dir: ".cache/signals"
+
+  adapters:
+    # You'd normally pick ONE source per concern (github OR ado_repos,
+    # jira OR ado_boards). Both are listed here so the demo exercises every
+    # built-in adapter; worst-of aggregation across same-layer adapters is
+    # safe — see scoring.MergeLayersByKind.
+    change:     ["github", "ado_repos"]
+    protection: ["coverage_xml", "qi_traceability_scan"]
+    trust:      ["junit_glob"]
+    outcome:    ["sentry", "jira", "ado_boards"]
+
+  # Map of canonical secret key -> environment variable name. Adapters read
+  # via FetchContext.Secrets[<key>]. Missing env vars are silently omitted;
+  # adapters that need them fall back to UNGRADED with a clear reason.
+  secrets_env:
+    ado_token: ADO_TOKEN
+
+  adapter_settings:
+    github:
+      fixture_dir: "fixtures/github"
+    ado_repos:
+      fixture_dir: "fixtures/ado_repos"
+      # Live-mode fields (ignored when fixture_dir is set):
+      # org: "my-org"
+      # project: "my-project"
+      # repository: "my-repo"
+      # secret_key: "ado_token"
+      # sensitive_paths: ["src/auth/", "infra/"]
+      # service_roots:   ["services"]
+      # late_window_hours: 24
+    coverage_xml:
+      path: "fixtures/coverage/coverage.xml"
+    qi_traceability_scan:
+      scan_root: "fixtures/repo"
+      includes: ["**/*.py"]
+      excludes: ["**/tests/**"]
+    junit_glob:
+      glob: "fixtures/junit/*.xml"
+    sentry:
+      fixture_dir: "fixtures/sentry"
+    jira:
+      fixture_dir: "fixtures/jira"
+    ado_boards:
+      fixture_dir: "fixtures/ado_boards"
+      # Live-mode fields:
+      # org: "my-org"
+      # project: "my-project"
+      # secret_key: "ado_token"
+      # wiql: |
+      #   SELECT [System.Id] FROM WorkItems
+      #   WHERE [System.WorkItemType] = 'Bug'
+      #     AND [System.Tags] CONTAINS 'pr-{id}'
+      #     AND [System.State] <> 'Closed'

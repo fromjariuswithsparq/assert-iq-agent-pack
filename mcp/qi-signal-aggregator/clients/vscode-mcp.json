@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "qi-signal-aggregator": {
+      "command": "qi-signal-aggregator",
+      "args": ["--config", "${workspaceFolder}/.assert-iq/config.yaml"]
+    }
+  }
+}

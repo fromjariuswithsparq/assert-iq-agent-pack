@@ -1,5 +1,10 @@
 {
   "servers": {
+    "qi-signal-aggregator": {
+      "type": "stdio",
+      "command": "${userHome}/.local/bin/qi-signal-aggregator",
+      "args": ["--config", "${workspaceFolder}/mcp/qi-signal-aggregator/samples/config.yaml", "serve"]
+    },
     "github": {
       "type": "http",
       "url": "https://api.githubcopilot.com/mcp/",

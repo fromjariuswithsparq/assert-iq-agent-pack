@@ -138,3 +138,26 @@ AI-assisted merge. Re-approve quarterly or on any material change.
 | Product owner (required if gated ACs are in scope) | `<name>` | `<date>` | |
 
 **Review cadence:** `<quarterly | per-release | annually>` or on material change to compliance posture.
+
+## 12. QI Signal Aggregator MCP — audit trail
+
+When the `qi-signal-aggregator` MCP server is in use:
+
+- **Auditable evidence trail.** The server records every adapter call and
+  every verdict to a JSONL audit log under `cache_dir/audit/`. Each entry
+  carries `(timestamp, adapter, identifier, status, duration_ms,
+  evidence_hash)` for adapter calls, and `(scope, identifier, verdict,
+  layer_states, partial_signal_mode, red_flags)` for decisions. Regulated
+  programs may treat this log as the canonical record of decision
+  evidence.
+- **Outcome reconciliation.** 30-day outcome events are appended to the
+  same log keyed by `(scope, identifier)`, enabling later analysis of
+  verdict-vs-reality calibration. No PII is written.
+- **Secrets.** API tokens are read from the environment variables named
+  in `signal_aggregator.secrets_env` at request time. Tokens are never
+  logged, cached, or echoed in evidence. The audit log records only the
+  evidence hash, not the raw response body.
+- **Refusal.** If an adapter cannot run without a secret and the
+  environment variable is unset, the adapter returns `UNGRADED` rather
+  than prompting for or fabricating the value. The verdict is then
+  capped per the integrity rule.

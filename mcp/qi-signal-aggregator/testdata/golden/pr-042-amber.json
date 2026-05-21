@@ -1,0 +1,41 @@
+{
+  "scenario": "pr-042-amber",
+  "scope": "pr",
+  "maturity_tier": "mid",
+  "input": {
+    "change": {
+      "state": "WEAK",
+      "metrics": {
+        "churn": 220,
+        "files_changed": 4,
+        "late_changes": 0,
+        "sensitive_path": true
+      }
+    },
+    "protection": {
+      "state": "STRONG",
+      "metrics": {
+        "coverage_pct": 92,
+        "traced_pct": 100
+      }
+    },
+    "trust": {
+      "state": "STRONG",
+      "metrics": {
+        "flaky_pct": 0,
+        "blocked_count": 0
+      }
+    },
+    "outcome": {
+      "state": "STRONG",
+      "metrics": {}
+    }
+  },
+  "expected": {
+    "verdict_band": "AMBER",
+    "mitigation_required": true,
+    "rationale": "One layer WEAK; mitigation required for the affected layer.",
+    "tier_capped": false,
+    "red_flags": []
+  }
+}

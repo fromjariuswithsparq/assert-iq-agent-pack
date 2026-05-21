@@ -1,0 +1,11 @@
+<?xml version="1.0" ?>
+<coverage line-rate="0.92" branch-rate="0.88" version="6.5.0" timestamp="1747800000">
+  <packages>
+    <package name="app" line-rate="0.92" branch-rate="0.88">
+      <classes>
+        <class name="app.payments" filename="app/payments.py" line-rate="0.95"/>
+        <class name="app.auth" filename="app/auth.py" line-rate="0.91"/>
+      </classes>
+    </package>
+  </packages>
+</coverage>

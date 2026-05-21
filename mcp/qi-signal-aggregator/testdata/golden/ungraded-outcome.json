@@ -1,0 +1,40 @@
+{
+  "scenario": "ungraded-outcome",
+  "scope": "pr",
+  "maturity_tier": "mid",
+  "input": {
+    "change": {
+      "state": "STRONG",
+      "metrics": {
+        "churn": 10,
+        "files_changed": 1,
+        "late_changes": 0
+      }
+    },
+    "protection": {
+      "state": "STRONG",
+      "metrics": {
+        "coverage_pct": 95,
+        "traced_pct": 100
+      }
+    },
+    "trust": {
+      "state": "STRONG",
+      "metrics": {
+        "flaky_pct": 0,
+        "blocked_count": 0
+      }
+    },
+    "outcome": {
+      "state": "UNGRADED",
+      "metrics": {}
+    }
+  },
+  "expected": {
+    "verdict_band": "AMBER",
+    "mitigation_required": true,
+    "rationale": "Partial-signal mode: one or more layers UNGRADED. Verdict capped per integrity rule.",
+    "tier_capped": false,
+    "red_flags": []
+  }
+}

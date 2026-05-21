@@ -1,0 +1,12 @@
+{
+  "issues": [
+    {
+      "id": "SENTRY-042",
+      "level": "warning",
+      "status": "unresolved",
+      "title": "Minor: refund retry latency above threshold",
+      "culprit": "app.payments.refund"
+    }
+  ],
+  "lookback_days": 30
+}

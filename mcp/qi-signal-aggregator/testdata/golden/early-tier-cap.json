@@ -1,0 +1,40 @@
+{
+  "scenario": "early-tier-cap",
+  "scope": "pr",
+  "maturity_tier": "early",
+  "input": {
+    "change": {
+      "state": "STRONG",
+      "metrics": {
+        "churn": 10,
+        "files_changed": 1,
+        "late_changes": 0
+      }
+    },
+    "protection": {
+      "state": "STRONG",
+      "metrics": {
+        "coverage_pct": 95,
+        "traced_pct": 100
+      }
+    },
+    "trust": {
+      "state": "STRONG",
+      "metrics": {
+        "flaky_pct": 0,
+        "blocked_count": 0
+      }
+    },
+    "outcome": {
+      "state": "STRONG",
+      "metrics": {}
+    }
+  },
+  "expected": {
+    "verdict_band": "AMBER",
+    "mitigation_required": true,
+    "rationale": "Early-tier policy: optimistic verdicts capped at AMBER/GO_WITH_MITIGATION (CLAUDE.md tier gating).",
+    "tier_capped": true,
+    "red_flags": []
+  }
+}

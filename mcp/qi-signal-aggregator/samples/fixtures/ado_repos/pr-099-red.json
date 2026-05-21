@@ -1,0 +1,9 @@
+{
+  "number": 99,
+  "changed_files": 14,
+  "additions": 620,
+  "deletions": 110,
+  "services_touched": ["payments", "auth", "shared-infra"],
+  "late_breaking_change": true,
+  "touches_sensitive_path": true
+}

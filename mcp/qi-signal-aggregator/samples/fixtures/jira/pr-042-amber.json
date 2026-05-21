@@ -1,0 +1,11 @@
+{
+  "issues": [
+    {
+      "key": "ESC-201",
+      "fields": {
+        "priority": { "name": "Low" },
+        "summary": "Minor UI label issue on receipt page"
+      }
+    }
+  ]
+}

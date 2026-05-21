@@ -1,0 +1,40 @@
+{
+  "scenario": "pr-001-green",
+  "scope": "pr",
+  "maturity_tier": "mid",
+  "input": {
+    "change": {
+      "state": "STRONG",
+      "metrics": {
+        "churn": 30,
+        "files_changed": 1,
+        "late_changes": 0
+      }
+    },
+    "protection": {
+      "state": "STRONG",
+      "metrics": {
+        "coverage_pct": 92,
+        "traced_pct": 100
+      }
+    },
+    "trust": {
+      "state": "STRONG",
+      "metrics": {
+        "flaky_pct": 0,
+        "blocked_count": 0
+      }
+    },
+    "outcome": {
+      "state": "STRONG",
+      "metrics": {}
+    }
+  },
+  "expected": {
+    "verdict_band": "GREEN",
+    "mitigation_required": false,
+    "rationale": "All four layers STRONG; no red flags.",
+    "tier_capped": false,
+    "red_flags": []
+  }
+}

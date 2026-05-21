@@ -1,0 +1,14 @@
+{
+  "state": "WEAK",
+  "reason": "1 critical-severity escaped defect(s)",
+  "metrics": {
+    "escapes_critical": 1,
+    "escapes_total": 1
+  },
+  "evidence": [
+    {
+      "source": "ado_boards (fixture)",
+      "value": "1 escape(s); 1 at critical severity"
+    }
+  ]
+}

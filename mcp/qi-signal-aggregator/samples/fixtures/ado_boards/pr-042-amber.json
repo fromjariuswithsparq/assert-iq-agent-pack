@@ -1,0 +1,13 @@
+{
+  "value": [
+    {
+      "id": 20114,
+      "fields": {
+        "System.WorkItemType": "Bug",
+        "System.Title": "Minor UI label issue on receipt page",
+        "Microsoft.VSTS.Common.Severity": "3 - Medium",
+        "Microsoft.VSTS.Common.Priority": 3
+      }
+    }
+  ]
+}

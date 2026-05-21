@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "qi-signal-aggregator": {
+      "command": "qi-signal-aggregator",
+      "args": ["--config", ".assert-iq/config.yaml"]
+    }
+  }
+}

@@ -1,0 +1,40 @@
+name: qi-signal-aggregator release
+
+# Triggered by pushing a tag like v0.2.0. Builds the 5-target matrix
+# (darwin/amd64, darwin/arm64, linux/amd64, linux/arm64, windows/amd64)
+# and publishes a GitHub Release with SHA256 checksums.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp/qi-signal-aggregator
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: mcp/qi-signal-aggregator/go.sum
+
+      - name: Run parity tests (gate)
+        run: go test ./...
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+          workdir: mcp/qi-signal-aggregator
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

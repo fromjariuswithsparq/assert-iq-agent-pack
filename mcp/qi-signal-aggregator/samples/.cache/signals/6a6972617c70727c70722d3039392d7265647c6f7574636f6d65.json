@@ -1,0 +1,14 @@
+{
+  "state": "WEAK",
+  "reason": "1 critical-priority escaped defect(s)",
+  "metrics": {
+    "escapes_critical": 1,
+    "escapes_total": 1
+  },
+  "evidence": [
+    {
+      "source": "jira (fixture)",
+      "value": "1 escape(s); 1 at critical priority"
+    }
+  ]
+}

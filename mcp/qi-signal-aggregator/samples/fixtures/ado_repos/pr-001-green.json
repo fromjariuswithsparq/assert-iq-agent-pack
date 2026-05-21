@@ -1,0 +1,9 @@
+{
+  "number": 1,
+  "changed_files": 1,
+  "additions": 24,
+  "deletions": 6,
+  "services_touched": ["docs"],
+  "late_breaking_change": false,
+  "touches_sensitive_path": false
+}

@@ -1,0 +1,15 @@
+{
+  "state": "STRONG",
+  "metrics": {
+    "files_scanned": 2,
+    "files_traced": 2,
+    "traced_pct": 100
+  },
+  "evidence": [
+    {
+      "source": "qi_traceability_scan",
+      "value": "2 of 2 source files carry qi-trace marker (100%)",
+      "link": "fixtures/repo"
+    }
+  ]
+}

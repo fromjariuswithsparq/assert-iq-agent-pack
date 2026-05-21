@@ -1,0 +1,15 @@
+{
+  "state": "WEAK",
+  "reason": "2 unresolved fatal/error issue(s) in Sentry",
+  "metrics": {
+    "active_critical_incident": true,
+    "issues_total": 2,
+    "unresolved_p1": 2
+  },
+  "evidence": [
+    {
+      "source": "sentry (fixture)",
+      "value": "2 issue(s); 2 unresolved fatal/error"
+    }
+  ]
+}

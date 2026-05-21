@@ -1,0 +1,6 @@
+<?xml version="1.0" ?>
+<testsuite name="run-3" tests="3" failures="0" skipped="0">
+  <testcase classname="app.payments" name="test_charge"/>
+  <testcase classname="app.payments" name="test_refund"/>
+  <testcase classname="app.auth" name="test_login"/>
+</testsuite>

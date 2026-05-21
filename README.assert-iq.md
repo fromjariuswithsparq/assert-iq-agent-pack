@@ -369,6 +369,102 @@ Open `.vscode/mcp.json` and confirm the servers for the configured tracker
 and VCS are enabled. Provide the required PATs / API tokens at the input
 prompts.
 
+#### Bundled `qi-signal-aggregator` MCP server
+
+The pack ships a Go-based MCP server that emits four-layer signal verdicts
+(`change`, `protection`, `trust`, `outcome` → `verdict`) consumed by
+skills like `/risk-assess-pr`, `/check-merge`, and `/release-confidence`.
+
+- `bash install.sh` (or `pwsh -File install.ps1` on Windows) downloads
+  the prebuilt binary into `~/.local/bin/qi-signal-aggregator` and
+  injects the server entry into `.vscode/mcp.json` via deep-merge.
+- For an immediate working setup with no network calls and no secrets:
+
+  ```bash
+  bash scripts/bootstrap.sh --aggregator-quickstart
+  # Windows:
+  pwsh -File scripts/bootstrap.ps1 -AggregatorQuickstart
+  ```
+
+  This generates `.assert-iq/aggregator-quickstart.yaml` wired to the
+  bundled sample fixtures (8 adapters: github, ado_repos,
+  coverage_xml, qi_traceability_scan, junit_glob, sentry, jira,
+  ado_boards). Verify with:
+
+  ```bash
+  qi-signal-aggregator --config .assert-iq/aggregator-quickstart.yaml health
+  qi-signal-aggregator --config .assert-iq/aggregator-quickstart.yaml demo --id pr-099-red
+  # expect band=RED, red_flags=[late_breaking_change, active_critical_incident]
+  ```
+
+  Then point the `qi-signal-aggregator` server entry in `.vscode/mcp.json`
+  at the quickstart file and reload VS Code.
+
+#### If you want live ADO mode
+
+To get real verdicts from Azure DevOps Repos (Change layer) and Boards
+(Outcome layer) instead of fixtures:
+
+1. **Provide the PAT through your shell environment**, not through the
+   VS Code input prompt. The aggregator binary reads `ADO_TOKEN` from
+   its own process environment; values typed into the VS Code input UI
+   flow to the MCP client, not to the server process.
+
+   ```bash
+   # ~/.zshrc or ~/.bashrc
+   export ADO_TOKEN="<your-PAT-with-Code:Read + Work-Items:Read>"
+   ```
+
+   Launch VS Code from that shell (`code .`) so the editor inherits the
+   variable. PAT scopes required: **Code (Read)** and **Work Items
+   (Read)**.
+
+2. **Replace the quickstart adapter settings with live config** in
+   `.assert-iq/config.yaml`:
+
+   ```yaml
+   signal_aggregator:
+     enabled: true
+     secrets_env:
+       ado_token: ADO_TOKEN
+
+     adapters:
+       change:     [ado_repos]
+       protection: [coverage_xml, qi_traceability_scan]
+       trust:      [junit_glob]
+       outcome:    [ado_boards]
+
+     adapter_settings:
+       ado_repos:
+         org: "<your-ado-org>"
+         project: "<your-project>"
+         repository: "<your-repo-name>"
+         sensitive_paths: ["src/auth/**", "src/payments/**"]
+         service_roots:   ["services/"]
+         late_window_hours: 24
+
+       ado_boards:
+         org: "<your-ado-org>"
+         project: "<your-project>"
+         # WIQL with {id} substituted to the PR or change id at query time
+         wiql: |
+           SELECT [System.Id]
+           FROM WorkItems
+           WHERE [System.WorkItemType] = 'Bug'
+             AND [System.Tags] CONTAINS 'pr-{id}'
+             AND [System.State] <> 'Closed'
+   ```
+
+3. Confirm with:
+
+   ```bash
+   qi-signal-aggregator --config .assert-iq/config.yaml health
+   ```
+
+   All adapters should report `ok: true`. If `ado_repos` or `ado_boards`
+   report `ok: false`, the diagnostic in the JSON response will name the
+   missing setting or auth scope.
+
 ### 4. Validate
 
 In Copilot Chat, type:
