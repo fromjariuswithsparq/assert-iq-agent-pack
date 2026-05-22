@@ -4,7 +4,7 @@
 > instructions, modes, and tools that turn GitHub Copilot Chat **and**
 > Claude Code into a QI-aware delivery partner inside the IDE.
 
-**Version**: v0.8.0
+**Version**: v0.9.0
 **Status**: Internal Sparq asset — Intelligence Studio
 **Owner**: QE Competency Council
 **Repo**: <https://github.com/fromjariuswithsparq/assert-iq-agent-pack>
@@ -90,7 +90,7 @@ fromjariuswithsparq/assert-iq-agent-pack
 
 | Tool | Pinning supported? |
 |---|---|
-| **Claude Code** (`/plugin install`) | Yes — append `@v0.8.0`. |
+| **Claude Code** (`/plugin install`) | Yes — append `@v0.9.0`. |
 | **VS Code Copilot** (`Chat: Install Plugin From Source`) | **Not in the current build.** The installer accepts only `owner/repo` shorthand or a clone URL; appending `@ref` returns `not a valid plugin source`. Copilot installs from the default branch (`main`). |
 
 `main` only ever fast-forwards to a released tag, so installing from
@@ -197,7 +197,7 @@ git commit -m "chore: adopt Assert.IQ agent pack"
    ```
 
    > Common mistakes: pasting the full HTTPS URL returns *Repository not
-   > found*; appending `@v0.8.0` returns *not a valid plugin source*.
+   > found*; appending `@v0.9.0` returns *not a valid plugin source*.
    > The current Copilot build only accepts the bare shorthand and
    > installs from the repo's default branch.
 
@@ -235,10 +235,10 @@ git commit -m "chore: adopt Assert.IQ agent pack"
    supports pinning to a tag with the `@ref` suffix:
 
    ```
-   /plugin install fromjariuswithsparq/assert-iq-agent-pack@v0.8.0
+   /plugin install fromjariuswithsparq/assert-iq-agent-pack@v0.9.0
    ```
 
-   Drop the `@v0.8.0` suffix to install from the default branch.
+   Drop the `@v0.9.0` suffix to install from the default branch.
 
 2. After install, bootstrap the workspace the same way as Copilot —
    either talk to `@assert-iq` and let it auto-route, or run:
@@ -268,7 +268,7 @@ restricted org policy, or you want the files vendored into your own
 repo — clone the tag directly and copy the contents:
 
 ```bash
-git clone --depth 1 --branch v0.8.0 \
+git clone --depth 1 --branch v0.9.0 \
   https://github.com/fromjariuswithsparq/assert-iq-agent-pack.git
 cd assert-iq-agent-pack
 bash install.sh        # macOS / Linux
@@ -632,6 +632,7 @@ or `qi-traceability.instructions.md` with examples drawn from your codebase.
 | 0.7.0-rc.5 | Hardened bootstrap manifest and hook path rendering (PR #3). Validated apply-selection tokens in `skill-improve-apply` so invalid selections no longer silently dismiss candidates (PR #4). |
 | **0.7.0** | **First official release. Windows verified end-to-end. Fixes since rc.5: escaped `$manifestPath` interpolation in the bootstrap graduate log (PR #5); trial-mode unignore guidance added to README (PR #6); Windows hook commands switched to `pwsh -File` so PS1 hooks fire correctly on Windows (PR #7).** |
 | **0.8.0** | **Expanded MCP server catalog.** `.vscode/mcp.json` now wires 20 MCP servers (was 3): adds `git`, `gitlab`, `bitbucket`, `filesystem`, `postgres`, `sqlite`, `aws`, `sentry`, `grafana`, `datadog`, `honeycomb`, `playwright`, `puppeteer`, `notion`, `confluence`, `slack`, `teams`. All secrets routed through `${input:…}` prompts so the file stays safe to commit. New `.vscode/MCP.md` is a per-server setup guide covering prereqs (`uv`, `node`), VS Code quick start, Claude Code / Claude Desktop equivalents, credential sourcing, and troubleshooting. |
+| **0.9.0** | **Workspace topology + Five Whys discipline.** New `workspace.role` config (`monorepo` default, `prod`, `tests`) plus optional `companion_repo` (`path` / `remote` / `fetch: mcp \| local_path \| manual_paste`) wires split-repo teams whose tests live separate from prod code. Topology contract centralized in `qi-foundation.instructions.md` § Workspace topology with fetch fallback (MCP → local path → manual paste) and UNGRADED degradation (`reason: companion_repo_unset \| companion_repo_unreachable`) per the v0.2 signal-schema `partial_signal_mode` contract — never fabricated. Seven cross-repo skills (`risk-assess-pr`, `check-merge`, `release-confidence`, `code-review`, `check-test-coverage`, `generate-traceability-matrix`, `analyze-escaped-defect`) carry short pointers to the rule. Also lands Five Whys discipline in `debug-ui-tests`, `analyze-flaky-test`, and `analyze-escaped-defect`: mandatory evidence-per-link chains, `max_depth` runaway guard, user-gated Anti-Patterns appendix for cumulative learning. Backward-compatible: single-repo users see zero behavioral change. |
 
 Tag releases. Keep a CHANGELOG in `.assert-iq/CHANGELOG.md`.
 

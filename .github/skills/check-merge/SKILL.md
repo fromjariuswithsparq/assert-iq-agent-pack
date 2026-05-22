@@ -122,6 +122,21 @@ editing required.
     in `.assert-iq/config.yaml > merge_gate.report_path`. (Structured
     QI signal emission is separate — see the `signals` section in
     `.assert-iq/config.yaml`.)
+
+12. **Workspace topology** — inherits
+    `.assert-iq/config.yaml > workspace.role` (`monorepo` |
+    `prod` | `tests`, default `monorepo`). The merge gate
+    synthesizes signals from both sides: **Change** (PR diff,
+    files touched) on the prod side, **Protection** + **Trust**
+    (covering tests, flake history) on the tests side. When
+    `role=prod`, fetch tests-side signals from
+    `workspace.companion_repo`; when `role=tests`, fetch the PR
+    diff from the companion. Use MCP → local path → manual paste
+    per qi-foundation § Workspace topology. If the companion is
+    unavailable, the affected layer is reported as UNGRADED with
+    `reason: "companion_repo_unset"` and the verdict shifts to
+    **discuss** (not auto-block) so the human gate decides. Never
+    auto-merge against an UNGRADED layer.
 -->
 
 # Check merge

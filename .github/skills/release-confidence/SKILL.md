@@ -106,6 +106,20 @@ fabricates.
     store releases / firmware / ML model rollouts / data
     pipelines. The Outcome layer simply reads from whichever
     telemetry source is wired.
+
+14. **Workspace topology** — inherits
+    `.assert-iq/config.yaml > workspace.role` (`monorepo` |
+    `prod` | `tests`, default `monorepo`). When `role=tests`, the
+    **Change layer** (release diff, included commits, blast
+    radius) lives in `workspace.companion_repo`; when `role=prod`,
+    the **Protection** and **Trust** layers (test results, flake
+    history) live in the companion. Fetch via MCP → local path →
+    manual paste per qi-foundation § Workspace topology. If the
+    companion is unavailable, the affected layer is reported as
+    UNGRADED with `reason: "companion_repo_unset"`. This skill
+    already supports `partial_signal_mode: true` — the verdict
+    card flags topology-driven UNGRADED layers explicitly so the
+    release decision is made with full awareness of the gap.
 -->
 
 # Release confidence report

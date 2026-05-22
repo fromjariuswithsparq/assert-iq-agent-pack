@@ -117,6 +117,18 @@ editing required.
     language is missing from the per-language blocks below, the
     universal checks still apply and the skill will state its assumption
     about the detected language at the top of the report.
+
+11. **Workspace topology** — inherits
+    `.assert-iq/config.yaml > workspace.role` (`monorepo` |
+    `prod` | `tests`, default `monorepo`). When `role=tests`, the
+    files under review and the PR Context Gathering Protocol's
+    target branch live in `workspace.companion_repo`; fetch via
+    MCP → local path → manual paste per qi-foundation § Workspace
+    topology. If the companion is unavailable, refuse to render a
+    review verdict on prod-side files — state
+    `reason: "companion_repo_unset"` and ask the user to paste
+    the files, the PR diff, or both. Do **not** review against a
+    stale local cache or infer code from test references.
 -->
 
 # Code Review Skill

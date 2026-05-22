@@ -35,6 +35,17 @@ changes by tier:
 - **Higher**: full pack, including autonomous healing within configured retry
   bounds.
 
+## Workspace awareness
+
+Read `.assert-iq/config.yaml > workspace.role` before reasoning about the
+four signal layers. Default is `monorepo` — production code and tests in
+one workspace, no cross-repo behavior. When `role` is `prod` or `tests`,
+the workspace holds only one half; cross-repo skills fetch the other half
+from `workspace.companion_repo` (MCP → local path → manual paste). When
+the companion is unset or unreachable, the affected layer is **UNGRADED**
+with an explicit reason — never fabricated. Full rule in
+`@.github/instructions/qi-foundation.instructions.md` § Workspace topology.
+
 ## Governance you must enforce
 
 - Every generated test must include a traceability comment linking to the

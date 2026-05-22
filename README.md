@@ -2,7 +2,7 @@
 
 > Quality Intelligence for every IDE, every sprint, every team.
 
-**v0.8.0** · [Full documentation →](README.assert-iq.md)
+**v0.9.0** · [Full documentation →](README.assert-iq.md)
 
 ---
 
@@ -60,7 +60,7 @@ QI is the operating model. Assert.IQ is how teams act on it — from day one, in
 **Claude Code**
 
 ```bash
-/plugin install fromjariuswithsparq/assert-iq-agent-pack@v0.8.0
+/plugin install fromjariuswithsparq/assert-iq-agent-pack@v0.9.0
 ```
 
 This installs the 22 skills and both agents globally. Nothing is written to your codebase yet — that's the next step.
@@ -101,7 +101,17 @@ Bootstrap copies instruction files, `.assert-iq/` config, `.vscode/settings.json
      ```
    The agent will ask a few targeted questions about your stack, tracker, and team, then fill in the placeholders for you. (Tip: You can also do this for other files like instructions and skills!)
 
-5. **Run a skill.** In Copilot Chat, select the `Assert-IQ` agent and try:
+5. **Pick your workspace topology.** Open `.assert-iq/config.yaml` and set `workspace.role`:
+
+   | Topology | `workspace.role` | Setup |
+   |---|---|---|
+   | Tests and prod code in the same repo | `monorepo` (default) | Nothing else to configure — every skill behaves exactly as it did pre-v0.8 |
+   | This repo holds prod code; tests live in a separate repo | `prod` | Set `workspace.companion_repo` to the tests repo (path or remote) |
+   | This repo holds tests; prod code lives in a separate repo | `tests` | Set `workspace.companion_repo` to the prod repo (path or remote) |
+
+   When the companion is set, cross-repo skills (`risk-assess-pr`, `check-merge`, `release-confidence`, `code-review`, `check-test-coverage`, `generate-traceability-matrix`, `analyze-escaped-defect`) fetch the other half via your VCS MCP, a local checkout, or manual paste. When it isn't set, the affected layer is reported as **UNGRADED** with reason `companion_repo_unset` — never fabricated. Full contract in [.github/instructions/qi-foundation.instructions.md](.github/instructions/qi-foundation.instructions.md). For tight test↔prod feedback loops in a split-repo team, also consider opening both folders as a multi-root VS Code workspace.
+
+6. **Run a skill.** In Copilot Chat, select the `Assert-IQ` agent and try:
    ```
    /risk-assess-pr
    ```

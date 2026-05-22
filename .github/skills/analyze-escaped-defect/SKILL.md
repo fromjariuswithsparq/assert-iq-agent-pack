@@ -99,6 +99,21 @@ editing required.
      appending to the Anti-Patterns appendix below; `off` disables
      capture. `auto` is deliberately not offered — silent self-edits
      to the skill are forbidden.
+
+10. **Workspace topology** — inherits
+    `.assert-iq/config.yaml > workspace.role` (`monorepo` | `prod` |
+    `tests`, default `monorepo`). The introducing commit, the
+    Change-layer drill-down in the Five Whys chain, and the
+    "responsible code path" both live in the **prod repo**. When
+    `role=tests`, fetch these from `workspace.companion_repo` via
+    MCP → local path → manual paste per qi-foundation § Workspace
+    topology. If the companion is unavailable, mark the Change
+    layer (and any Five Whys link that depends on prod-side
+    evidence) as UNGRADED with
+    `reason: "companion_repo_unset"`; do **not** infer the
+    introducing commit from test history alone. The post-mortem
+    still proceeds on the remaining evidenced layers — stating the
+    gap is the correct behavior, not a failure.
 -->
 
 # Analyze escaped defect

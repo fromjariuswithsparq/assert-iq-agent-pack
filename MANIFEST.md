@@ -1,6 +1,6 @@
 # Assert.IQ Agent Pack — File Manifest
 
-**Version**: v0.8.0
+**Version**: v0.9.0
 **Generated**: 2026-05-20
 **Total files (top-level inventory)**: 53 + hooks tree + tests scaffolding
 
@@ -94,6 +94,51 @@ is there — your file browser is filtering it.
 **Agents (Copilot)**: 2 (in `.github/agents/`) — `Assert-IQ` (default), `Assert-IQ-PLAN` (planner)
 **Subagents (Claude)**: 2 (in `.claude/agents/`) — `assert-iq`, `assert-iq-plan`
 **Hooks**: SessionStart, PostToolUse, Stop (see `hooks/hooks.json`)
+
+## Notes for v0.9.0
+
+- **Workspace topology (split-repo support).** New `workspace:` block in
+  `.assert-iq/config.yaml` introduces `role: monorepo | prod | tests`
+  (default `monorepo`) plus an optional `companion_repo` sub-block
+  (`path` / `remote` / `fetch: mcp | local_path | manual_paste` /
+  `branch`). Lets teams whose tests live in a repo separate from their
+  production code wire both halves together without forking the pack.
+  Default `monorepo` is backward-compatible — single-repo users see
+  zero behavioral change.
+- **Centralized topology contract in qi-foundation.** New
+  "Workspace topology — read first" section in
+  `.github/instructions/qi-foundation.instructions.md` defines the
+  fetch fallback chain (MCP → local path → manual paste) and the
+  UNGRADED contract: when the companion is unset or unreachable, the
+  affected signal layer is reported as UNGRADED with
+  `reason: "companion_repo_unset"` (or `"companion_repo_unreachable"`)
+  per the v0.2 signal-schema `partial_signal_mode: true` rule — never
+  silently fabricated.
+- **Seven skills made workspace-aware.** Each of `risk-assess-pr`,
+  `check-merge`, `release-confidence`, `code-review`,
+  `check-test-coverage`, `generate-traceability-matrix`, and
+  `analyze-escaped-defect` gained a new customization point that
+  names which layer / source degrades to UNGRADED when the companion
+  is missing. The full rule lives in qi-foundation; the skills carry
+  short pointers, so the contract is not duplicated.
+- **Five Whys discipline across diagnostic skills (post-v0.8 commit
+  d9bbaee).** `debug-ui-tests`, `analyze-flaky-test`, and
+  `analyze-escaped-defect` now enforce a mandatory Five Whys chain
+  with evidence required at every link, runaway guard (`max_depth`
+  default 7), and a user-gated Anti-Patterns appendix for cumulative
+  learning. Configuration knobs under `ui_debug.five_whys`,
+  `flake_analysis.five_whys`, and `escape_analysis.five_whys`.
+- **Tool entrypoint callouts.** `.github/copilot-instructions.md` and
+  `CLAUDE.md` gained parallel "Workspace awareness" sections (mirroring
+  the existing "Maturity awareness" pattern) so both Copilot and
+  Claude Code surface the topology rule on every interaction.
+- **README onboarding step added.** New Step 5 in `README.md` —
+  "Pick your workspace topology" — with a three-row setup table
+  (monorepo / prod / tests) and a pointer to multi-root VS Code
+  workspaces for split-repo teams who want both halves open at once.
+- **Version metadata bumped to 0.9.0** in `.claude-plugin/plugin.json`,
+  `.claude-plugin/marketplace.json`, `MANIFEST.md`, `README.md`, and
+  `README.assert-iq.md` (version banner, install pins, history row).
 
 ## Notes for v0.8.0
 

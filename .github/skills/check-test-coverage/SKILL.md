@@ -112,6 +112,20 @@ editing required.
     `coverage_analysis.report_artifact` at the merge command
     (`lcov-result-merger`, `coverage combine`, etc.) or a directory
     glob — the skill aggregates before analyzing.
+
+11. **Workspace topology** — inherits
+    `.assert-iq/config.yaml > workspace.role` (`monorepo` |
+    `prod` | `tests`, default `monorepo`). Coverage analysis needs
+    **both** the coverage report (tests side) and the source paths
+    it references (prod side). When `role=prod`, the coverage
+    report and test inventory live in `workspace.companion_repo`;
+    when `role=tests`, the source files referenced by the report
+    live in the companion. Fetch via MCP → local path → manual
+    paste per qi-foundation § Workspace topology. If the companion
+    side is unavailable, the Protection layer is reported as
+    UNGRADED with `reason: "companion_repo_unset"`; partial reports
+    that cannot resolve a source path mark those files
+    `coverage_resolution: unresolved` rather than inferring 0%.
 -->
 
 # Check test coverage

@@ -31,6 +31,45 @@ client:
 
 
 # -----------------------------------------------------------------------------
+# WORKSPACE TOPOLOGY  — where production code and tests live
+# -----------------------------------------------------------------------------
+# Gates how every cross-repo skill reads signals. Three roles:
+#   monorepo   → production code AND tests live in this same workspace.
+#                Default. Skills behave exactly as they did pre-v0.8 — no
+#                cross-repo lookups, no UNGRADED degradations on topology.
+#   prod       → this workspace holds production code; tests live elsewhere.
+#                Skills that need test signals (Protection, Trust layers;
+#                coverage; traceability test side) read from companion_repo
+#                when set, or emit UNGRADED with reason `companion_repo_unset`
+#                when not.
+#   tests      → this workspace holds the test suite; production code lives
+#                elsewhere. Skills that need prod signals (Change layer; PR
+#                diffs; code review target; introducing commit for escape
+#                analysis) read from companion_repo when set, or emit
+#                UNGRADED with reason `companion_repo_unset` when not.
+#
+# The four-layer signal contract still holds: a layer that cannot be assessed
+# is UNGRADED with a stated reason, never silently fabricated. See
+# .github/instructions/qi-foundation.instructions.md for the full rule.
+# -----------------------------------------------------------------------------
+workspace:
+  role: "monorepo"                  # options: monorepo | prod | tests
+
+  # companion_repo: required when role is `prod` or `tests`.
+  # Ignored entirely when role is `monorepo`.
+  # companion_repo:
+  #   role: "tests"                 # the OTHER role — must be prod ↔ tests
+  #   path: "../my-product-tests"   # local checkout path (used by `local_path`)
+  #   remote: "acme/my-product-tests"  # owner/repo on the same VCS host as `vcs.host`
+  #   fetch: "mcp"                  # options: mcp | local_path | manual_paste
+  #                                 #   mcp           → use the configured VCS MCP
+  #                                 #                  (gh / azure-devops / gitlab MCP)
+  #                                 #   local_path    → read from the local clone at `path`
+  #                                 #   manual_paste  → prompt the user each run
+  #   branch: "main"                # default branch on companion (defaults to vcs.default_branch)
+
+
+# -----------------------------------------------------------------------------
 # MATURITY TIER  — controls which Assert.IQ capabilities are active
 # -----------------------------------------------------------------------------
 # Tier comparison:

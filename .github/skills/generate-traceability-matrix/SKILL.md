@@ -113,6 +113,21 @@ references them.
 11. **Platform notes** — platform-agnostic. The scan is a plain
     filesystem walk + tracker MCP validation; works on any OS,
     monorepo or polyrepo, with any CI.
+
+12. **Workspace topology** — inherits
+    `.assert-iq/config.yaml > workspace.role` (`monorepo` |
+    `prod` | `tests`, default `monorepo`). The matrix spans three
+    sides: requirement (tracker), code (prod repo), test (tests
+    repo). When `role=prod`, the test column is fetched from
+    `workspace.companion_repo`; when `role=tests`, the code column
+    is fetched from the companion. Use MCP → local path → manual
+    paste per qi-foundation § Workspace topology. If the companion
+    is unavailable, the matrix is still emitted with the missing
+    column flagged — each affected row is marked
+    `trace_state: "partial"` with
+    `reason: "companion_repo_unset"`; do **not** mark a
+    requirement "untested" or "unimplemented" just because the
+    other side isn't reachable.
 -->
 
 # Generate traceability matrix

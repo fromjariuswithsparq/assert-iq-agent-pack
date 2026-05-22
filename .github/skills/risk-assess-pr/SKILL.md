@@ -111,6 +111,17 @@ per the integrity rule — the skill never fabricates positive signal.
     monolith / microservices / serverless / mobile / firmware /
     ML model / data-pipeline PRs alike. The four layers map onto
     any change topology.
+
+14. **Workspace topology** — inherits
+    `.assert-iq/config.yaml > workspace.role` (`monorepo` |
+    `prod` | `tests`, default `monorepo`). When `role=tests`,
+    the **Change layer** (PR diff, blast radius, churn) lives in
+    `workspace.companion_repo`; fetch via MCP → local path →
+    manual paste per qi-foundation § Workspace topology. If the
+    companion is unset or unreachable, the Change layer is
+    reported as UNGRADED with `reason: "companion_repo_unset"`
+    (or `"companion_repo_unreachable"`); never fabricate it from
+    the local checkout. `monorepo` users see no change.
 -->
 
 # PR risk assessment
