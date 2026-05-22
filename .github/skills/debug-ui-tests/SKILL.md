@@ -110,6 +110,20 @@ editing required.
     (`xvfb-run`, `docker compose exec`, `npx playwright test`,
     `flutter drive`, `gradle connectedAndroidTest`, simulator boot),
     include that wrapper inside `{{TARGETED_TEST_COMMAND}}`.
+
+11. **Five Whys discipline** — `.assert-iq/config.yaml >
+    ui_debug.five_whys`:
+    - `max_depth` (default `7`) — runaway guard only, not a target. A
+      short chain that reaches an evidence-exhausted root is correct.
+    - `require_evidence_per_link` (default `true`, recommended locked)
+      — every "why" must cite a concrete artifact (log line, stack
+      frame, screenshot region, trace event, DOM snapshot, history
+      pattern, commit SHA, query result, selector, line of code).
+      Unevidenced links are marked `[ASSUMPTION]` and pause the chain.
+    - `anti_pattern_capture` (default `ask`) — `ask` prompts before
+      appending a new row to the Anti-Patterns appendix below;
+      `off` disables capture. `auto` is deliberately not offered —
+      silent self-edits to the skill are forbidden.
 -->
 
 # Debug UI tests
@@ -154,21 +168,79 @@ produces (see customization points 1, 3, 4 above).
    any environment dimension that correlates (branch, browser, device,
    shard, runner, time of day).
 
-3. **Classify the failure** into exactly one of four universal
-   categories:
-   - **Flaky** — passes/fails non-deterministically on the same code.
-     Likely causes: timing, animations, race conditions, shared state,
-     hard sleeps, network/data variability, viewport / device variance.
-   - **Brittle** — passes today but breaks on minor UI changes. Likely
-     causes: fragile selectors (CSS path, nth-child, generated IDs),
-     hard-coded test data, environment coupling, locale / timezone
-     coupling.
-   - **Broken** — test logic itself is incorrect or outdated. The
-     assertion no longer matches the intended behavior.
-   - **Regression** — the test is correct; production code broke the
-     contract the test encodes.
+3. **Run the Five Whys causal chain — MANDATORY on every failure,
+   including obvious ones.** This step is non-skippable. A short chain
+   that terminates early at a genuine root is correct; a skipped chain
+   is not. Discipline over depth — the requirement enforces consistency
+   and prevents pattern-match-to-known-fix drift.
 
-4. **For flaky** — propose a minimal test-side fix:
+   Before starting, check the **Anti-Patterns** appendix at the bottom
+   of this skill for a matching failure signature. If a match is found,
+   note the signature ID, then still run a (short) chain to *ratify*
+   the match against the current evidence — never shortcut purely on
+   pattern recognition.
+
+   Chain rules:
+
+   - **Start from the literal symptom** (the failing assertion or
+     error message), not from a hypothesis.
+   - **Each "why" must be backed by concrete evidence**: log line,
+     stack frame, screenshot region, trace event, DOM snapshot,
+     history pattern, commit SHA, query result, selector, or line of
+     code. Cite the artifact inline (`see trace.zip:event#42`,
+     `LoginPage.ts:88`, `runs 4/5 fail on commit abc123`).
+   - **Tag each link's confidence**: `evidenced` (artifact cited),
+     `inferred` (reasoned from cited evidence but not directly
+     observed), `assumed` (no evidence — pauses the chain).
+   - **Render the chain inline in the working response, not only in
+     the final report**, so the user can intervene precisely at the
+     drifting link without waiting for completion.
+   - **Stop rule = evidence exhaustion**, not layer boundary. Keep
+     asking "why" until the next answer cannot be backed by evidence
+     available in the repo, artifacts, history, or wired MCP sources.
+     Production code, infra, third-party causes, and process / team
+     conventions are all in-scope for the chain. The stop rule is:
+     evidence runs out, not ownership changes.
+   - **Action scope is bounded separately from chain scope.** The
+     chain may identify a production-code root; the *fix* still
+     escalates (see step 8). Finding the true root is more important
+     than making the test pass.
+   - **Runaway guard**: depth cap `ui_debug.five_whys.max_depth`
+     (default 7). If reached without exhausting evidence, halt and
+     declare insufficient evidence per the Stop conditions.
+   - **Contradictory evidence mid-chain**: pick the higher-confidence
+     branch, continue, and log the discarded branch with its evidence
+     in the report. No parallel chains.
+   - **When the user pushes back**: revise the specific challenged
+     link with new evidence. Do **not** restart the chain or
+     re-shuffle the category to please the user. Hold position when
+     every link is `evidenced`; defer or re-investigate when any link
+     is `inferred` or `assumed`.
+   - **When the user states the root cause**: still produce the chain
+     from the symptom to validate or contradict. No shortcutting.
+
+   Record the terminal link as the **root cause**. The next step's
+   classification falls out of where evidence ran out.
+
+4. **Classify the failure** into exactly one of four universal
+   categories. The category must follow from the root cause identified
+   in step 3 — do **not** select a category before the chain
+   terminates.
+   - **Flaky** — root is non-determinism in test, fixture, wait, or
+     shared state. Symptoms: passes/fails on the same code; timing,
+     animations, race conditions, hard sleeps, network/data
+     variability, viewport / device variance.
+   - **Brittle** — root is selector / data / locale coupling. Symptoms:
+     passes today, breaks on minor UI changes; fragile selectors (CSS
+     path, nth-child, generated IDs), hard-coded test data,
+     environment coupling.
+   - **Broken** — root is the assertion itself encoding the wrong
+     intent. Test logic is incorrect or outdated; assertion no longer
+     matches the intended behavior.
+   - **Regression** — root is in production code. The test is correct;
+     production broke the contract the test encodes.
+
+5. **For flaky** — propose a minimal test-side fix:
    - replace hard sleeps with framework-native waits / retry-ability
      (per `ui_debug.wait_policy`)
    - isolate shared state (fresh fixtures, per-test data factory,
@@ -177,31 +249,66 @@ produces (see customization points 1, 3, 4 above).
    - if the root cause is genuinely a product timing bug, escalate as
      **Regression** instead
 
-5. **For brittle** — propose selector / data hardening:
+6. **For brittle** — propose selector / data hardening:
    - migrate the selector to the policy in `ui_debug.selector_policy`
    - replace hard-coded data with factories / deterministic seeds (see
      `generate-test-data`)
    - decouple from environment-specific text where possible
 
-6. **For broken** — surface the assertion drift; propose the updated
+7. **For broken** — surface the assertion drift; propose the updated
    expectation, citing the work item or PR that changed the intended
    behavior. Do **not** simply re-record golden values to "make it
    pass" — confirm the new behavior is correct first.
 
-7. **For regression — STOP.** Escalate to the developer with the
+8. **For regression — STOP.** Escalate to the developer with the
    evidence chain. Do **not** patch production code under any maturity
    tier. Do **not** weaken the assertion to mask the regression.
 
-8. **Emit a debug report** containing:
+9. **Emit a debug report** containing:
    - failure signature (stack, screenshots / trace references, env)
    - run-history slice with the correlation dimension
-   - classification + confidence + reasoning
+   - **the full Five Whys chain** with per-link evidence citations and
+     confidence tags, and the stop reason
+   - discarded-branch log (if contradictory evidence was encountered)
+   - classification + confidence + reasoning, explicitly tied to the
+     terminal link of the chain
    - artifact links (screenshots, video, trace, DOM)
    - recommended corrective action (test edit OR escalation)
    - tracker reference preserved from the test header
+   - Anti-Patterns lookup result: matched signature ID, or the
+     proposed-new-signature row awaiting confirmation (see step 10)
+
+10. **Capture learning — update the Anti-Patterns appendix.** After
+    the report is produced:
+    - If the chain matched an existing signature in the appendix,
+      increment its `Recurrences` count and update `Last seen`. This
+      may be done in the same turn; surface the change in the
+      response.
+    - If the chain produced a **new** signature, draft the proposed
+      row (signature, root cause, diagnostic shortcut, first seen,
+      recurrences = 1) and **ask the user before appending**. Asking
+      is mandatory — `auto` capture is not offered. If the response
+      would end before the append can be performed (tool unavailable,
+      conversation closing), include the proposed row and the
+      explicit ask as the final block of the response so the user can
+      approve in the next turn.
+    - Entries must be paraphrased / pattern-level. **Never** paste
+      raw stack traces, full DOM dumps, PII, secrets, internal URLs,
+      or customer data into the appendix.
+    - The goal of this loop is to make the skill sharper over time —
+      a matched signature in step 3 lets future invocations reach the
+      root faster without sacrificing the discipline of the chain.
 
 ## Stop conditions
 
+- The Five Whys chain hits an `[ASSUMPTION]` link that cannot be
+  resolved with available evidence — pause the chain, surface the
+  unevidenced link to the user, and recommend the specific artifact
+  needed (additional run, trace, video, query) before continuing. Do
+  **not** advance the chain by guessing.
+- The chain reaches `max_depth` without exhausting evidence — declare
+  insufficient evidence; recommend escalation rather than acting on a
+  half-formed root.
 - Classification cannot be determined with confidence — surface the
   ambiguity to the user; recommend additional artifacts (more runs,
   trace, video) before acting.
@@ -228,12 +335,61 @@ produces (see customization points 1, 3, 4 above).
 - The blameless principle applies: classify the failure, don't blame
   the author.
 
+### Five Whys discipline (anti-drift)
+
+- The chain is **mandatory** on every failure, including obvious
+  ones. Skipping is forbidden; short chains are fine when the root is
+  reached early.
+- Every link must be evidenced or explicitly tagged `[ASSUMPTION]`.
+  Unevidenced advancement is forbidden.
+- The classification (step 4) must follow from the terminal link of
+  the chain. **Never** pick a category before the chain terminates.
+- When challenged by the user, revise the specific link with new
+  evidence — do **not** restart the chain or swap the category to
+  satisfy the user. Hold position when every link is `evidenced`;
+  defer or re-investigate only when any link is `inferred` or
+  `assumed`.
+- When the user states the root cause directly, still produce the
+  chain from the symptom to validate or contradict. No shortcutting
+  on user authority.
+- Contradictory evidence mid-chain: single chain only — pick the
+  higher-confidence branch and log the discarded branch in the
+  report. No parallel chains.
+
+### Self-update discipline (Anti-Patterns appendix)
+
+- Anti-Patterns table edits are **user-gated**. The agent may
+  **never** append, edit, or reorder rows without explicit
+  confirmation in the same turn. `auto` capture mode is not offered.
+- Recurrence increments on a clear signature match may be applied in
+  the same turn, but must be surfaced in the response.
+- Entries are paraphrased and pattern-level. **No** raw stack traces,
+  DOM dumps, PII, secrets, internal URLs, or customer data.
+- If the response would end before the proposed row can be appended,
+  the agent must include the proposed row and the explicit ask as the
+  final block of its response so the user can approve next turn.
+- The appendix is the skill's long-term memory. Bloat is a real risk:
+  prefer updating an existing signature over creating a near-duplicate,
+  and propose retiring rows that have not recurred in 12 months.
+
 ## Output
 
 A `ui-debug-report.md` artifact (or the path configured in
-`.assert-iq/config.yaml > ui_debug.report_path`) with the
-classification, evidence, and recommended action — plus the corrected
-test file(s) when the proposed fix is test-side.
+`.assert-iq/config.yaml > ui_debug.report_path`) containing:
+
+- failure signature and environment
+- run-history slice and correlation dimension
+- **the full Five Whys chain** with per-link evidence citations,
+  confidence tags (`evidenced` / `inferred` / `assumed`), and the
+  stop reason
+- discarded-branch log when contradictory evidence was encountered
+- classification + confidence, tied to the terminal link of the chain
+- artifact links (screenshots, video, trace, DOM)
+- recommended corrective action (test edit OR escalation)
+- tracker reference preserved from the test header
+- Anti-Patterns lookup result: matched signature ID, or the
+  proposed-new-signature row awaiting user confirmation
+- the corrected test file(s) when the proposed fix is test-side
 
 ## Signals emitted
 
@@ -243,4 +399,23 @@ signal per run conforming to `.assert-iq/signal-schema.json`, carrying:
 (`flaky` | `brittle` | `broken` | `regression`), `confidence`,
 `history_window`, `correlation_dimension`, `action`
 (`test_fix` | `escalate` | `await_artifacts`), `selector_changes`,
-`wait_changes`, and `tracker_ref`.
+`wait_changes`, `tracker_ref`, `causal_chain_depth`,
+`causal_chain_stop_reason`
+(`evidence_exhausted` | `actionable_root` | `depth_cap`
+| `insufficient_evidence`), `unevidenced_links_count`,
+`anti_pattern_match` (signature ID or `null`), and
+`anti_pattern_proposed` (boolean — true when a new signature was
+proposed for user confirmation).
+
+## Anti-Patterns appendix
+
+The skill's long-term memory. Each row is a reusable failure
+signature with its evidence-backed root cause and a diagnostic
+shortcut for future invocations. Rows are added **only with user
+confirmation** (see step 10 and the Self-update discipline section).
+Recurrence increments may be applied automatically on a clear match
+but must be surfaced in the response.
+
+| Signature | Root cause | Diagnostic shortcut | First seen | Last seen | Recurrences |
+| --- | --- | --- | --- | --- | --- |
+| _(empty — seeded by user-confirmed captures from step 10)_ | | | | | |

@@ -95,6 +95,20 @@ editing required.
    `.assert-iq/config.yaml > flake_analysis.report_path`. (Structured
    QI signal emission is separate — see the `signals` section in
    `.assert-iq/config.yaml`.)
+
+10. **Five Whys discipline** — `.assert-iq/config.yaml >
+    flake_analysis.five_whys`:
+    - `max_depth` (default `7`) — runaway guard only. A short chain
+      that reaches an evidence-exhausted root is correct.
+    - `require_evidence_per_link` (default `true`, recommended locked)
+      — every "why" must cite a concrete fact: metric, cluster
+      correlation, log line, commit SHA, runner config, environment
+      variable, query result, code line. Unevidenced links are marked
+      `[ASSUMPTION]` and pause the chain.
+    - `anti_pattern_capture` (default `ask`) — `ask` prompts before
+      appending to the Anti-Patterns appendix below; `off` disables
+      capture. `auto` is deliberately not offered — silent self-edits
+      to the skill are forbidden.
 -->
 
 # Analyze flaky test
@@ -132,7 +146,61 @@ customization block above).
    - Co-failure correlation (does it flake alongside other tests?)
    - First-seen / last-seen and trend (worsening, stable, recovering)
 
-3. **Classify the flake pattern**:
+3. **Run the Five Whys causal chain — MANDATORY on every analysis,
+   including obvious patterns.** Non-skippable. Discipline over depth.
+   A short chain that terminates early at a genuine root is correct;
+   skipping is not. The chain prevents pattern-match-to-known-fix drift.
+
+   Before starting, check the **Anti-Patterns** appendix at the bottom
+   of this skill for a matching flake signature. If a match is found,
+   note the signature ID, then still run a (short) chain to *ratify*
+   the match against the current metrics — never shortcut purely on
+   pattern recognition.
+
+   Chain rules:
+
+   - **Start from the observed pattern** (the dominant metric or
+     cluster from step 2 — e.g. "fails 60% on `runner-eu-1` Mondays
+     08:00–10:00"), not from a hypothesis.
+   - **Each "why" must cite concrete evidence**: a metric value, a
+     cluster correlation, a log line, a commit SHA, a runner config,
+     an environment variable, a query result, or a line of code.
+     Cite inline (`pass_rate=0.42 on shard=3`, `commit abc123 added
+     parallel I/O`, `runner image rebuilt 2024-10-15`).
+   - **Tag each link's confidence**: `evidenced` (artifact cited),
+     `inferred` (reasoned from cited evidence), `assumed` (no
+     evidence — pauses the chain).
+   - **Render the chain inline in the working response**, not only in
+     the final report, so the user can intervene precisely at the
+     drifting link.
+   - **Stop rule = evidence exhaustion**, not layer boundary. Keep
+     asking "why" until the next answer cannot be backed by evidence
+     in the results store, repo, infra config, or wired MCP sources.
+     Test code, production code, infra, third-party services, and
+     team conventions are all in-scope for the chain. The action
+     scope (mitigation vs. escalation) is bounded separately in
+     step 5.
+   - **Runaway guard**: depth cap `flake_analysis.five_whys.max_depth`
+     (default 7). If reached without exhausting evidence, declare
+     insufficient evidence per the Stop conditions.
+   - **Contradictory evidence mid-chain**: single chain only — pick
+     the higher-confidence branch, continue, log the discarded
+     branch in the report. No parallel chains.
+   - **When the user pushes back**: revise the specific challenged
+     link with new evidence. Do **not** restart the chain or swap
+     the classification to please the user. Hold position when every
+     link is `evidenced`; defer or re-investigate only when any link
+     is `inferred` or `assumed`.
+   - **When the user states the root cause**: still produce the chain
+     from the observed pattern to validate or contradict. No
+     shortcutting on user authority.
+
+   Record the terminal link as the **systemic root cause**. The next
+   step's classification falls out of where evidence ran out.
+
+4. **Classify the flake pattern**. The category must follow from the
+   root cause identified in step 3 — do **not** select a category
+   before the chain terminates.
    - **Timing** — race conditions, animations, async ordering, missing waits
    - **Environment** — flake correlates with environment instability,
      pipeline runner, or specific agent
@@ -143,9 +211,6 @@ customization block above).
      latency or availability
    - **Genuine intermittent bug** — production code has a real race or
      non-determinism
-
-4. **Produce a confidence-weighted root-cause hypothesis.** State your
-   confidence level and what evidence would raise or lower it.
 
 5. **Recommend mitigation** per pattern, preferring the team's idioms
    from `flake_analysis.preferred_mitigations` when set:
@@ -162,10 +227,47 @@ customization block above).
 6. **Output a flake-pattern report** containing:
    - Scope and history window
    - Flake metrics and trend
-   - Pattern classification with confidence
+   - **The full Five Whys chain** with per-link evidence citations,
+     confidence tags (`evidenced` / `inferred` / `assumed`), and the
+     stop reason
+   - Discarded-branch log (if contradictory evidence was encountered)
+   - Pattern classification with confidence, tied to the terminal
+     link of the chain
    - Recommended mitigation, owner, and target sprint
    - Any cross-test pattern detected
    - Traceability reference if the test carries a tracker ID
+   - Anti-Patterns lookup result: matched signature ID, or the
+     proposed-new-signature row awaiting confirmation (see step 7)
+
+7. **Capture learning — update the Anti-Patterns appendix.** After
+   the report is produced:
+   - If the chain matched an existing signature, increment its
+     `Recurrences` count and update `Last seen`. This may be done in
+     the same turn; surface the change in the response.
+   - If the chain produced a **new** signature, draft the proposed
+     row (signature, root cause, diagnostic shortcut, first seen,
+     recurrences = 1) and **ask the user before appending**. Asking
+     is mandatory — `auto` capture is not offered. If the response
+     would end before the append can be performed, include the
+     proposed row and the explicit ask as the final block of the
+     response so the user can approve next turn.
+   - Entries must be paraphrased / pattern-level. **Never** paste
+     raw stack traces, log dumps, PII, secrets, internal URLs, or
+     customer data into the appendix.
+   - The goal is to make the skill sharper over time — a matched
+     signature in step 3 lets future invocations reach the root
+     faster without sacrificing the discipline of the chain.
+
+## Stop conditions
+
+- The Five Whys chain hits an `[ASSUMPTION]` link that cannot be
+  resolved with available evidence — pause the chain, surface the
+  unevidenced link, and recommend the specific data needed (more
+  history, additional dimension, runner config, infra log) before
+  continuing. Do **not** advance the chain by guessing.
+- The chain reaches `max_depth` without exhausting evidence — declare
+  insufficient evidence; recommend escalation rather than acting on a
+  half-formed root.
 
 ## Governance
 
@@ -181,13 +283,50 @@ customization block above).
 - Preserve any existing traceability comments (`AB#`, Jira key, etc.) on
   tests touched by the recommendations.
 
+### Five Whys discipline (anti-drift)
+
+- The chain is **mandatory** on every analysis, including obvious
+  patterns. Skipping is forbidden; short chains are fine when the
+  root is reached early.
+- Every link must be evidenced or explicitly tagged `[ASSUMPTION]`.
+  Unevidenced advancement is forbidden.
+- The classification (step 4) must follow from the terminal link of
+  the chain. **Never** pick a category before the chain terminates.
+- When challenged by the user, revise the specific link with new
+  evidence — do **not** restart the chain or swap the classification
+  to satisfy the user. Hold position when every link is `evidenced`;
+  defer or re-investigate only when any link is `inferred` or
+  `assumed`.
+- When the user states the root cause directly, still produce the
+  chain from the observed pattern to validate or contradict.
+- Contradictory evidence mid-chain: single chain only — pick the
+  higher-confidence branch and log the discarded branch in the
+  report. No parallel chains.
+
+### Self-update discipline (Anti-Patterns appendix)
+
+- Anti-Patterns table edits are **user-gated**. The agent may
+  **never** append, edit, or reorder rows without explicit
+  confirmation in the same turn. `auto` capture mode is not offered.
+- Recurrence increments on a clear signature match may be applied in
+  the same turn, but must be surfaced in the response.
+- Entries are paraphrased and pattern-level. **No** raw stack traces,
+  log dumps, PII, secrets, internal URLs, or customer data.
+- If the response would end before the proposed row can be appended,
+  include the proposed row and the explicit ask as the final block of
+  the response so the user can approve next turn.
+- The appendix is the skill's long-term memory. Prefer updating an
+  existing signature over creating a near-duplicate, and propose
+  retiring rows that have not recurred in 12 months.
+
 ## Output
 
 A `flake-analysis-report.md` artifact (or the path configured in
 `.assert-iq/config.yaml > flake_analysis.report_path`) with the
-sections listed in step 6. No silent edits to test files — recommendations
-are presented for human review unless the maturity tier explicitly allows
-autonomous mitigation.
+sections listed in step 6, including the full Five Whys chain and the
+Anti-Patterns lookup result. No silent edits to test files —
+recommendations are presented for human review unless the maturity tier
+explicitly allows autonomous mitigation.
 
 ## Signals emitted
 
@@ -195,4 +334,23 @@ When the QI signal sink is wired, this skill emits a `test.flake_analysis`
 signal per run conforming to `.assert-iq/signal-schema.json`, carrying:
 `scope`, `history_window_days`, `flake_count`, `pattern_classification`,
 `confidence`, `correlation_dimensions[]`, `recommended_action`,
-`cross_test_pattern_detected`, and `tracker_ref`.
+`cross_test_pattern_detected`, `tracker_ref`, `causal_chain_depth`,
+`causal_chain_stop_reason`
+(`evidence_exhausted` | `actionable_root` | `depth_cap`
+| `insufficient_evidence`), `unevidenced_links_count`,
+`anti_pattern_match` (signature ID or `null`), and
+`anti_pattern_proposed` (boolean — true when a new signature was
+proposed for user confirmation).
+
+## Anti-Patterns appendix
+
+The skill's long-term memory. Each row is a reusable flake signature
+with its evidence-backed systemic root cause and a diagnostic shortcut
+for future invocations. Rows are added **only with user confirmation**
+(see step 7 and the Self-update discipline section). Recurrence
+increments may be applied automatically on a clear match but must be
+surfaced in the response.
+
+| Signature | Root cause | Diagnostic shortcut | First seen | Last seen | Recurrences |
+| --- | --- | --- | --- | --- | --- |
+| _(empty — seeded by user-confirmed captures from step 7)_ | | | | | |
