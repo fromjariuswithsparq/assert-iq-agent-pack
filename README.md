@@ -34,7 +34,7 @@ The immediate impact:
 
 Assert.IQ is the accelerator. It drops a QI reasoning layer directly into **GitHub Copilot Chat** and **Claude Code** so teams don't have to learn a new tool or change their workflow. The IDE they already use becomes QI-aware.
 
-- **22 skills** covering the full QE lifecycle — test generation, code review, risk assessment, traceability matrices, release confidence, escaped-defect analysis, exploratory charters, and more.
+- **23 skills** covering the full QE lifecycle — test generation, code review, risk assessment, hotspot mapping, traceability matrices, release confidence, escaped-defect analysis, exploratory charters, and more.
 - **Two agents** (`Assert-IQ` for full execution, `Assert-IQ-PLAN` for plan-first workflows) with a built-in handoff button between them.
 - **Maturity-aware behavior** — a one-file config scales the pack from "early / manual generation only" to "higher / autonomous healing," meeting teams where they are.
 - **MCP wiring** to GitHub, ADO, Jira, Sentry, Grafana, Playwright, Slack, and 13 more tool surfaces — configured in one file, credentials kept in your OS keychain.
@@ -63,7 +63,7 @@ QI is the operating model. Assert.IQ is how teams act on it — from day one, in
 /plugin install fromjariuswithsparq/assert-iq-agent-pack@v0.9.0
 ```
 
-This installs the 22 skills and both agents globally. Nothing is written to your codebase yet — that's the next step.
+This installs the 23 skills and both agents globally. Nothing is written to your codebase yet — that's the next step.
 
 ---
 
@@ -125,7 +125,7 @@ Bootstrap copies instruction files, `.assert-iq/` config, `.vscode/settings.json
 .github/
   copilot-instructions.md     ← always-on QI reasoning rules for Copilot
   instructions/               ← scoped rule sheets (tests, C#/XAML, CI, etc.)
-  skills/                     ← 22 QI skills, one subfolder each
+  skills/                     ← 23 QI skills, one subfolder each
   agents/                     ← Assert-IQ and Assert-IQ-PLAN agent definitions
 .claude/
   agents/                     ← Claude Code subagent counterparts

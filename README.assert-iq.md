@@ -24,7 +24,7 @@ The pack operationalizes Sparq's Quality Intelligence framework:
 
 - The four-layer signal model (Change → Protection → Trust → Outcome →
   Decision Confidence) is loaded as Copilot's reasoning lens on every interaction.
-- 22 skills cover the QE lifecycle: planning, development, review, execution,
+- 23 skills cover the QE lifecycle: planning, development, review, execution,
   decision, and post-incident learning.
 - A QI Advisor chat mode provides maturity-aware coaching.
 - MCP wiring connects to ADO or Jira and to GitHub for first-class
@@ -116,7 +116,7 @@ later — re-running the install is always safe.
 **Important — what travels with the install, and what doesn't:**
 
 The plugin install ships the **capability layer** globally regardless of
-scope: 22 skills, the `Assert-IQ` / `Assert-IQ-PLAN` (Copilot) and
+scope: 23 skills, the `Assert-IQ` / `Assert-IQ-PLAN` (Copilot) and
 `@assert-iq` / `@assert-iq-plan` (Claude) subagents, and the hooks.
 
 The **QI discipline layer** is intentionally **per-repo** and only
@@ -203,7 +203,7 @@ git commit -m "chore: adopt Assert.IQ agent pack"
 
 4. Pick **`assert-iq`** from the plugin list and confirm. Copilot clones
    the repo, registers the two agents (`Assert-IQ`, `Assert-IQ-PLAN`)
-   and the 22 skills.
+   and the 23 skills.
 
 5. Reload the window so Copilot picks up the new agents and skills:
    `⇧⌘P` → **`Developer: Reload Window`**.
@@ -283,7 +283,7 @@ still handles hooks wiring and the `.claude/skills` symlink.
 
 The installer creates `.claude/skills` as a **directory symlink** pointing
 at `../.github/skills/`, so Copilot and Claude share one canonical copy of
-the 22 skills. Behavior varies by platform:
+the 23 skills. Behavior varies by platform:
 
 | Platform | What happens | What you need to do |
 |---|---|---|

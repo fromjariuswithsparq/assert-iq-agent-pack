@@ -963,6 +963,106 @@ coverage_analysis:
   # high_churn_commits: 10        # commits in churn_lookback_days
   # high_escape_count: 2          # escapes in escape_lookback_days
 
+  # hotspot_tier_input: optional fourth blend input from the hotspot map.
+  # When set, check-test-coverage reads hotspot_map.registry_json_path and
+  # multiplies the risk weight on rows whose module is CRITICAL/MEDIUM tier.
+  # Defaults off (no behaviour change for existing users). Registry must be
+  # fresh per hotspot_map.max_staleness_days, otherwise treated as UNGRADED.
+  hotspot_tier_input: false
+  # hotspot_tier_multipliers: { critical: 1.5, medium: 1.2, low: 1.0 }
+
+
+# -----------------------------------------------------------------------------
+# HOTSPOT MAP  — used by the generate-hotspot-map skill
+# -----------------------------------------------------------------------------
+# Operationalizes Layer 1 (Change Risk Surface) of the QI four-layer model.
+# Produces a per-module Hotspot Risk Index (HRI) registry from churn,
+# structural complexity, and historical defect density. Consumer skills
+# (risk-assess-pr, check-test-coverage, release-confidence) read the JSON
+# registry to weight Change-layer risk. Advisory only; never gates merges.
+# -----------------------------------------------------------------------------
+hotspot_map:
+  enabled: true
+
+  # refresh_cadence: when the registry should be regenerated.
+  #   on_demand | sprint | both
+  # The skill is stateless on cadence; this documents intent and feeds
+  # consumer staleness checks (max_staleness_days).
+  refresh_cadence: "both"
+
+  # max_staleness_days: how old the registry can be before consumer skills
+  # treat hotspot input as UNGRADED rather than silently using stale data.
+  max_staleness_days: 30
+
+  # module_granularity: row aggregation level.
+  #   directory (default) | file | service
+  module_granularity: "directory"
+
+  # module_globs / module_excludes: scope for the audit. Defaults below
+  # cover common layouts; override per repo.
+  module_globs:
+    - "src/**"
+    - "lib/**"
+    - "app/**"
+    - "services/**"
+    - "packages/**"
+  module_excludes:
+    - "**/node_modules/**"
+    - "**/dist/**"
+    - "**/build/**"
+    - "**/.venv/**"
+    - "**/vendor/**"
+    - "**/generated/**"
+    # Runtime-generated hook output (not engineering churn)
+    - "hooks/sessions/**"
+    - "hooks/logs/**"
+    - "hooks/state/**"
+
+  # --- Volatility (V) signal ------------------------------------------------
+  volatility:
+    lookback_days: 90        # rolling window for git churn aggregation
+    weight: 0.40             # weight in HRI formula
+
+  # --- Complexity (C) signal -------------------------------------------------
+  complexity:
+    # source: which static analysis report to read. "none" → UNGRADED with
+    # reason complexity_source_unset (expected at early tier).
+    #   sonarqube | sonarcloud | codeclimate | eslint_complexity |
+    #   radon | gocyclo | lizard | pmd | none
+    source: "none"
+    # report_path: "./complexity-report.json"   # local artifact path
+    # host: "sonarcloud"                        # for hosted services
+    weight: 0.35
+
+  # --- Defect density (D) signal --------------------------------------------
+  defect_density:
+    lookback_days: 180        # two quarters per QI playbook
+    weight: 0.25
+    # query: optional override of the tracker-specific filter. Defaults
+    # are applied based on tracker.type (see SKILL.md customization point 6).
+    # query: "is:issue label:bug closed:>=<since> involves:<path>"
+    severity_weights:
+      critical: 4
+      high: 3
+      medium: 2
+      low: 1
+
+  # tier_thresholds: HRI bands. Tiers are only assigned when at least two
+  # of V / C / D are GRADED — single-signal rows surface on the
+  # Volatility Watchlist with no tier (integrity rule from qi-foundation).
+  tier_thresholds:
+    critical_min: 7.5
+    medium_min: 5.0
+
+  # early_tier_mode: how the skill behaves when maturity.tier == early.
+  #   churn_only (default at early) → Volatility Watchlist only, no HRI tiers
+  #   full                          → full registry regardless of tier
+  early_tier_mode: "churn_only"
+
+  # Output sinks.
+  registry_path: "./hotspot-map.md"
+  registry_json_path: "./hotspot-map.json"
+
 
 # -----------------------------------------------------------------------------
 # AC REVIEW  — used by the review-acceptance-criteria skill

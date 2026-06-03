@@ -2,13 +2,54 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "QI Outcome Signal Payload",
   "type": "object",
-  "required": ["run_id", "commit_sha", "maturity_tier", "layers"],
+  "required": ["run_id", "commit_sha", "maturity_tier"],
   "properties": {
     "run_id": { "type": "string" },
     "commit_sha": { "type": "string" },
     "branch": { "type": "string" },
     "pr_id": { "type": ["string", "null"] },
     "maturity_tier": { "enum": ["early", "mid", "higher"] },
+    "signal_type": {
+      "description": "Optional discriminator. When present and equal to 'hotspot.map_generated', the payload is a per-repo periodic registry signal and the 'hotspot' object is required instead of 'layers'.",
+      "enum": ["pr.risk_assessed", "coverage.analysis", "release.confidence", "hotspot.map_generated"]
+    },
+    "hotspot": {
+      "description": "Per-repo Hotspot Risk Registry signal emitted by generate-hotspot-map.",
+      "type": "object",
+      "properties": {
+        "refresh_trigger": { "enum": ["sprint", "on_demand"] },
+        "module_count": { "type": "integer" },
+        "tier_counts": {
+          "type": "object",
+          "properties": {
+            "critical": { "type": "integer" },
+            "medium": { "type": "integer" },
+            "low": { "type": "integer" },
+            "watchlist": { "type": "integer" }
+          }
+        },
+        "hri_basis_distribution": {
+          "type": "object",
+          "description": "Count of rows by which signals were GRADED (e.g. V+C+D, V+C, V_only).",
+          "additionalProperties": { "type": "integer" }
+        },
+        "ungraded_signals": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["signal", "reason"],
+            "properties": {
+              "signal": { "enum": ["volatility", "complexity", "defect_density"] },
+              "reason": { "type": "string" }
+            }
+          }
+        },
+        "registry_path": { "type": "string" },
+        "registry_json_path": { "type": "string" },
+        "volatility_lookback_days": { "type": "integer" },
+        "defect_density_lookback_days": { "type": "integer" }
+      }
+    },
     "layers": {
       "type": "object",
       "required": ["change", "protection", "trust", "outcome", "decision"],

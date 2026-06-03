@@ -45,6 +45,13 @@ fabricates.
      notifications: low, ... }`)
    - Reversibility hints at `release.irreversible_paths` (e.g.
      migrations, schema changes, public API removals)
+   - **Hotspot tier (optional)** — when
+     `hotspot_map.registry_json_path` is fresh (within
+     `hotspot_map.max_staleness_days`, default 30), the per-module
+     CRITICAL / MEDIUM tier supplements (does not replace) the
+     manual `service_criticality` map. Stale or missing registry
+     is UNGRADED for hotspot input; manual map alone still applies.
+     Generate via `/generate-hotspot-map`.
 
 5. **Protection inputs** — inherits `coverage_analysis.*` and
    `traceability.*`. The skill reuses whatever sink those skills

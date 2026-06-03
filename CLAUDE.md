@@ -91,8 +91,8 @@ inside each file.
   subagent, full tools) and `.claude/agents/assert-iq-plan.md`
   (read-only planning sibling).
 - **Skills** — `.github/skills/` (canonical) is mirrored at `.claude/skills`
-  so Claude auto-discovers all 22 QI skills (code review, test generation,
-  bug reports, traceability matrix, release confidence, etc.).
+  so Claude auto-discovers all 23 QI skills (code review, test generation,
+  bug reports, traceability matrix, release confidence, hotspot map, etc.).
 - **Hooks** — wired through `.claude/settings.json`, sourced from
   `hooks/hooks.json` (Claude plugin format). Run `bash install.sh` (or `install.ps1` on
   Windows) after dropping the pack into a repo to sync hooks and create the

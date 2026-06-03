@@ -126,6 +126,18 @@ editing required.
     UNGRADED with `reason: "companion_repo_unset"`; partial reports
     that cannot resolve a source path mark those files
     `coverage_resolution: unresolved` rather than inferring 0%.
+
+12. **Hotspot tier input** — when
+    `coverage_analysis.hotspot_tier_input: true` and the registry
+    at `hotspot_map.registry_json_path` is fresh (within
+    `hotspot_map.max_staleness_days`, default 30), the risk-weight
+    blend gains a fourth multiplier from
+    `coverage_analysis.hotspot_tier_multipliers` (default
+    `{critical: 1.5, medium: 1.2, low: 1.0}`). Defaults to off so
+    existing users see no change. A stale or missing registry is
+    UNGRADED for hotspot input; the existing three-signal blend
+    runs unchanged. Generate the registry with
+    `/generate-hotspot-map`.
 -->
 
 # Check test coverage

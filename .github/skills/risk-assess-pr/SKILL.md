@@ -122,6 +122,18 @@ per the integrity rule — the skill never fabricates positive signal.
     reported as UNGRADED with `reason: "companion_repo_unset"`
     (or `"companion_repo_unreachable"`); never fabricate it from
     the local checkout. `monorepo` users see no change.
+
+15. **Hotspot map input** — when
+    `hotspot_map.registry_json_path` exists and is fresh (modified
+    within `hotspot_map.max_staleness_days`, default 30), the
+    Change layer reads the per-module tier and bumps materiality
+    one band on any file touching a CRITICAL-tier module (e.g.
+    behaviour change → critical for that file's blast-radius
+    line). MEDIUM-tier modules are noted but do not auto-bump.
+    A stale or missing registry is treated as UNGRADED for hotspot
+    input — it does **not** weaken the Change layer; existing
+    late-change logic still applies. Generate the registry with
+    `/generate-hotspot-map` at sprint planning or on demand.
 -->
 
 # PR risk assessment

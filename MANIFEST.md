@@ -60,6 +60,7 @@ is there — your file browser is filtering it.
 | 31 | `.github/skills/review-acceptance-criteria/SKILL.md` | Skill: `/review-acceptance-criteria` |
 | 32 | `.github/skills/review-test-quality/SKILL.md` | Skill: `/review-test-quality` |
 | 33 | `.github/skills/risk-assess-pr/SKILL.md` | Skill: `/risk-assess-pr` |
+| 33b | `.github/skills/generate-hotspot-map/SKILL.md` | Skill: `/generate-hotspot-map` — audits churn, structural complexity, and historical defect density to produce a Hotspot Risk Index registry consumed by `/risk-assess-pr`, `/check-test-coverage`, `/release-confidence`. Mid+ tier full registry; Early tier degrades to a churn-only Volatility Watchlist. |
 | 33a | `.github/skills/assert-iq-bootstrap/SKILL.md` | Skill: `/assert-iq-bootstrap` — cross-platform bootstrap for new workspaces. Three install modes (`trial` / `committed` / `ask`), per-file conflict resolver with SHA256 fast-path, manifest tracking, `--graduate` to reverse trial mode. |
 | 34 | `.vscode/mcp.json` | MCP wiring for 20 servers: GitHub, ADO, Jira/Atlassian, git, GitLab, Bitbucket, filesystem, Postgres, SQLite, AWS, Sentry, Grafana, Datadog, Honeycomb, Playwright, Puppeteer, Notion, Confluence, Slack, Teams. All credentials via `${input:…}` prompts — file is safe to commit. |
 | 34a | `.vscode/MCP.md` | Per-server setup guide: prerequisites (`uv`, `node`), VS Code quick start, Claude Code / Claude Desktop equivalents, credential sourcing, and troubleshooting for every MCP server in `mcp.json`. |

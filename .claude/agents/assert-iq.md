@@ -58,6 +58,7 @@ via its slash command. Map intent first; don't reinvent.
 | Coverage check | `/check-test-coverage` |
 | Merge gate check | `/check-merge` |
 | Traceability matrix | `/generate-traceability-matrix` |
+| Hotspot map / churn audit / sprint-zero risk audit | `/generate-hotspot-map` |
 | AC review (testability) | `/review-acceptance-criteria` |
 | Test design quality review | `/review-test-quality` |
 | File a bug | `/generate-bug-report` |
