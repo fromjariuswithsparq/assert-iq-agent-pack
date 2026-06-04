@@ -13,6 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 si_enabled || exit 0
 
 si_read_stdin SI_RAW
+si_dedup_or_exit "SessionStart" "$SI_RAW"
 SID="$(si_session_id "$SI_RAW")"
 SDIR="$(si_session_dir "$SID")"
 
@@ -20,7 +21,7 @@ python3 - "$SI_RAW" "$SDIR" <<'PY' 2>/dev/null
 import json, os, sys, glob, fnmatch, datetime
 
 raw, sdir = sys.argv[1], sys.argv[2]
-cfg_path = os.path.expanduser("~/.agents/hooks/config/skill-improve.config.json")
+cfg_path = os.environ.get("SKILL_IMPROVE_CONFIG") or os.path.expanduser("~/.agents/hooks/config/skill-improve.config.json")
 try:
     with open(cfg_path) as f: c = json.load(f)
 except Exception:

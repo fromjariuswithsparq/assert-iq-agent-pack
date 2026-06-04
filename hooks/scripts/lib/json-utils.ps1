@@ -1,7 +1,13 @@
 # Shared helpers for skill-improve hooks (PowerShell side).
 # Dot-sourced by other scripts: . "$PSScriptRoot\lib\json-utils.ps1"
 
-$Script:SkillImproveRoot     = Join-Path $env:USERPROFILE '.agents\hooks'
+# Resolve hook root from env var (set by hooks.json wrapper based on install
+# scope). Default = $env:USERPROFILE\.agents\hooks for backwards compatibility.
+if ($env:SKILL_IMPROVE_ROOT) {
+    $Script:SkillImproveRoot = $env:SKILL_IMPROVE_ROOT
+} else {
+    $Script:SkillImproveRoot = Join-Path $env:USERPROFILE '.agents\hooks'
+}
 $Script:SkillImproveConfig   = Join-Path $Script:SkillImproveRoot 'config\skill-improve.config.json'
 $Script:SkillImproveLog      = Join-Path $Script:SkillImproveRoot 'logs\skill-improve.log'
 $Script:SkillImproveSessions = Join-Path $Script:SkillImproveRoot 'sessions'
@@ -84,6 +90,44 @@ function Get-SiSessionDir {
     return $dir
 }
 
+# Suppress double-fires of the same hook event for the same session within
+# $env:SKILL_IMPROVE_DEDUP_WINDOW_SECONDS (default 5). Atomic claim via
+# FileMode.CreateNew which throws IOException if the marker already exists.
+# Marker files are pruned by Invoke-SiJanitor.
+function Invoke-SiDedupOrExit {
+    param([string]$Event, [string]$Raw)
+    $window = if ($env:SKILL_IMPROVE_DEDUP_WINDOW_SECONDS) {
+        try { [int]$env:SKILL_IMPROVE_DEDUP_WINDOW_SECONDS } catch { 5 }
+    } else { 5 }
+    if ($window -le 0) { return }
+
+    $sid = Get-SiSessionId -Raw $Raw
+    $sigInput = "$sid-$Event"
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($sigInput))
+        $sig = (-join ($bytes[0..7] | ForEach-Object { $_.ToString('x2') }))
+    } finally { $sha.Dispose() }
+    $marker = Join-Path $Script:SkillImproveState ".dedup-$sig"
+
+    try {
+        $fs = [System.IO.File]::Open($marker, [System.IO.FileMode]::CreateNew)
+        $fs.Close()
+        return  # We're first.
+    } catch [System.IO.IOException] {
+        try {
+            $age = (Get-Date) - (Get-Item -LiteralPath $marker).LastWriteTime
+            if ($age.TotalSeconds -lt $window) {
+                Write-SiLog "dedup $Event sid=$sid (skipped duplicate within ${window}s)"
+                Send-SiContinue
+                exit 0
+            }
+        } catch {}
+        # Stale marker — refresh.
+        try { (Get-Item -LiteralPath $marker).LastWriteTime = Get-Date } catch {}
+    }
+}
+
 # Janitor: prune silent session, trim edit-frequency, rotate log, sweep old session dirs.
 function Invoke-SiJanitor {
     param([string]$SessionId, [bool]$HadCorrections)
@@ -156,6 +200,16 @@ function Invoke-SiJanitor {
             Where-Object { $_.LastWriteTimeUtc -lt $cutoffDate } |
             ForEach-Object {
                 try { Remove-Item -Recurse -Force -Path $_.FullName -ErrorAction SilentlyContinue } catch {}
+            }
+    } catch {}
+
+    # Layer 3: prune stale dedup markers (>1 hour old).
+    try {
+        $cutoffDedup = $now.AddHours(-1)
+        Get-ChildItem -Path $Script:SkillImproveState -Filter '.dedup-*' -File -Force -ErrorAction SilentlyContinue |
+            Where-Object { $_.LastWriteTime -lt $cutoffDedup } |
+            ForEach-Object {
+                try { Remove-Item -Force -LiteralPath $_.FullName -ErrorAction SilentlyContinue } catch {}
             }
     } catch {}
 

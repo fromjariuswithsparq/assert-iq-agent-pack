@@ -582,6 +582,11 @@ uninstall_run() {
   for d in "$WORKSPACE/hooks/state" "$WORKSPACE/hooks/logs" "$WORKSPACE/hooks/sessions"; do
     [[ -e "$d" ]] && remove_path "$d"
   done
+  if [[ $UNINSTALL_USER -eq 1 ]]; then
+    for d in "$HOME/.agents/hooks/state" "$HOME/.agents/hooks/logs" "$HOME/.agents/hooks/sessions"; do
+      [[ -e "$d" ]] && remove_path "$d"
+    done
+  fi
 
   # Remove now-empty parent dirs (bottom-up). Safe: rmdir refuses non-empty.
   if [[ $DRY_RUN -eq 0 ]]; then
@@ -598,6 +603,7 @@ uninstall_run() {
       tree_roots+=(
         "$USER_VSCODE_SKILLS"
         "$USER_CLAUDE_SKILLS"
+        "$HOME/.agents/hooks"
         "$USER_ASSERT_IQ"
       )
     fi
@@ -1117,8 +1123,49 @@ process_hooks() {
         rm -f "$rendered"
       fi
       ;;
+    user)
+      # User-global install: pack lives at $HOME/.agents/hooks/. Power users
+      # who want hooks to fire across all VS Code workspaces register the
+      # rendered hooks.json from their VS Code USER settings.json (printed
+      # below). The wrapper exports SKILL_IMPROVE_ROOT so the scripts route
+      # to ~/.agents/hooks/ regardless of which workspace VS Code opens.
+      if [[ ! -d "$SOURCE/hooks" ]]; then
+        record "hooks/ (user)" "missing-source" "$SOURCE/hooks"
+        return
+      fi
+      local user_hooks="$HOME/.agents/hooks"
+      if [[ -d "$SOURCE/hooks/scripts" ]]; then
+        copy_tree "hooks/scripts" "$SOURCE/hooks/scripts" "$user_hooks/scripts" "user"
+      fi
+      if [[ -d "$SOURCE/hooks/lib" ]]; then
+        copy_tree "hooks/lib" "$SOURCE/hooks/lib" "$user_hooks/lib" "user"
+      fi
+      if [[ -d "$SOURCE/hooks/config" ]]; then
+        copy_tree "hooks/config" "$SOURCE/hooks/config" "$user_hooks/config" "user"
+      fi
+      if [[ -d "$SOURCE/hooks/state" ]]; then
+        copy_tree "hooks/state" "$SOURCE/hooks/state" "$user_hooks/state" "user"
+      fi
+      if [[ -d "$SOURCE/hooks/logs" ]]; then
+        copy_tree "hooks/logs" "$SOURCE/hooks/logs" "$user_hooks/logs" "user"
+      fi
+      mkdir -p "$user_hooks/sessions"
+      manifest_add "created" "$user_hooks/sessions" "user"
+      record "hooks/sessions/ (user)" "created" "$user_hooks/sessions"
+      # Render hooks.json with __PACK_ROOT__ = $HOME/.agents (so $R/hooks =
+      # $HOME/.agents/hooks at runtime).
+      local rendered
+      rendered="$(render_hooks_json "$HOME/.agents")"
+      if [[ -z "$rendered" ]]; then
+        record "hooks/hooks.json (user)" "missing-template" "$SOURCE/hooks/hooks.template.json"
+      else
+        copy_file "hooks/hooks.json" "$rendered" "$user_hooks/hooks.json" "user"
+        rm -f "$rendered"
+      fi
+      USER_HOOKS_INSTALLED=1
+      ;;
     skip) record "hooks/" "skipped (user choice)" "-" ;;
-    *) echo "ERROR: invalid --hooks value '$HOOKS'" >&2; exit 2 ;;
+    *) echo "ERROR: invalid --hooks value '$HOOKS' (workspace|user|skip)" >&2; exit 2 ;;
   esac
 }
 
@@ -1328,6 +1375,28 @@ if [[ $sidecar_count -gt 0 ]]; then
 fi
 if [[ $kept_count -gt 0 ]]; then
   echo "NOTE: $kept_count existing file(s) kept untouched (you chose 'keep')."
+fi
+
+if [[ "${USER_HOOKS_INSTALLED:-0}" == "1" ]]; then
+  cat <<'EOF'
+
+─── USER-GLOBAL HOOKS INSTALLED ───
+Hooks are at ~/.agents/hooks/ and will fire across every VS Code workspace
+once you register them in your VS Code USER settings.json.
+
+  1. Cmd/Ctrl + Shift + P → "Preferences: Open User Settings (JSON)"
+  2. Add or merge this block:
+
+    "chat.hookFilesLocations": {
+      "~/.agents/hooks/hooks.json": true
+    }
+
+  3. Reload the VS Code window.
+
+This is one-time setup. To uninstall the user-global hooks later, run:
+  scripts/bootstrap.sh --uninstall --user
+───
+EOF
 fi
 
 echo "Reload your editor window so the new instructions and config are picked up:"

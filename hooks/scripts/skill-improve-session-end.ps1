@@ -11,6 +11,7 @@ try {
     if (-not (Test-SiEnabled)) { Write-Output $emit; exit 0 }
 
     $raw = Read-SiStdin
+    Invoke-SiDedupOrExit -Event 'Stop' -Raw $raw
     $sid = Get-SiSessionId -Raw $raw
     $sdir = Get-SiSessionDir -SessionId $sid
 

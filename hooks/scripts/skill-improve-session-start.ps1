@@ -8,6 +8,7 @@ try {
     if (-not (Test-SiEnabled)) { Send-SiContinue; exit 0 }
 
     $raw = Read-SiStdin
+    Invoke-SiDedupOrExit -Event 'SessionStart' -Raw $raw
     $sid = Get-SiSessionId -Raw $raw
     $sdir = Get-SiSessionDir -SessionId $sid
 

@@ -565,6 +565,15 @@ function Invoke-Uninstall {
             (Join-Path $Workspace 'hooks\sessions'))) {
         if (Test-Path -LiteralPath $d) { Remove-PathOrDir $d }
     }
+    if ($User) {
+        $userHooksRuntime = Join-Path $env:USERPROFILE '.agents\hooks'
+        foreach ($d in @(
+                (Join-Path $userHooksRuntime 'state'),
+                (Join-Path $userHooksRuntime 'logs'),
+                (Join-Path $userHooksRuntime 'sessions'))) {
+            if (Test-Path -LiteralPath $d) { Remove-PathOrDir $d }
+        }
+    }
 
     if (-not $DryRun) {
         # First, clean nested empty subdirectories left by tree-style copies
@@ -575,7 +584,7 @@ function Invoke-Uninstall {
             (Join-Path $Workspace '.claude\agents'),
             (Join-Path $Workspace 'hooks'))
         if ($User) {
-            $treeRoots += @($userVscodeSkills, $userClaudeSkills, $userAssertIq)
+            $treeRoots += @($userVscodeSkills, $userClaudeSkills, $userAssertIq, (Join-Path $env:USERPROFILE '.agents\hooks'))
         }
         foreach ($tree in $treeRoots) {
             if ((Test-Path -LiteralPath $tree -PathType Container) -and `
@@ -1097,8 +1106,53 @@ function Step-Hooks {
                 Remove-Item -LiteralPath $rendered -Force -ErrorAction SilentlyContinue
             }
         }
+        'user' {
+            # User-global install: pack at $env:USERPROFILE\.agents\hooks\.
+            # Hooks fire across every VS Code workspace once registered in
+            # USER settings.json (instructions printed at end of run).
+            $hooksSrcDir = Join-Path $Source 'hooks'
+            if (-not (Test-Path -LiteralPath $hooksSrcDir -PathType Container)) {
+                Record 'hooks/ (user)' 'missing-source' $hooksSrcDir
+                return
+            }
+            $userHooksRoot = Join-Path $env:USERPROFILE '.agents\hooks'
+            $scriptsSrc = Join-Path $hooksSrcDir 'scripts'
+            if (Test-Path -LiteralPath $scriptsSrc) {
+                Copy-TreeScoped 'hooks/scripts' $scriptsSrc (Join-Path $userHooksRoot 'scripts') 'user'
+            }
+            $libSrc = Join-Path $hooksSrcDir 'lib'
+            if (Test-Path -LiteralPath $libSrc) {
+                Copy-TreeScoped 'hooks/lib' $libSrc (Join-Path $userHooksRoot 'lib') 'user'
+            }
+            $cfgSrc = Join-Path $hooksSrcDir 'config'
+            if (Test-Path -LiteralPath $cfgSrc) {
+                Copy-TreeScoped 'hooks/config' $cfgSrc (Join-Path $userHooksRoot 'config') 'user'
+            }
+            $stateSrc = Join-Path $hooksSrcDir 'state'
+            if (Test-Path -LiteralPath $stateSrc) {
+                Copy-TreeScoped 'hooks/state' $stateSrc (Join-Path $userHooksRoot 'state') 'user'
+            }
+            $logsSrc = Join-Path $hooksSrcDir 'logs'
+            if (Test-Path -LiteralPath $logsSrc) {
+                Copy-TreeScoped 'hooks/logs' $logsSrc (Join-Path $userHooksRoot 'logs') 'user'
+            }
+            $sessionsDst = Join-Path $userHooksRoot 'sessions'
+            New-Item -ItemType Directory -Path $sessionsDst -Force | Out-Null
+            Add-ManifestEntry 'created' $sessionsDst 'user'
+            Record 'hooks/sessions/ (user)' 'created' $sessionsDst
+            # Render hooks.json with __PACK_ROOT__ = $env:USERPROFILE\.agents
+            $userPackRoot = Join-Path $env:USERPROFILE '.agents'
+            $rendered = Get-RenderedHooksJson -PackRoot $userPackRoot
+            if (-not $rendered) {
+                Record 'hooks/hooks.json (user)' 'missing-template' (Join-Path $hooksSrcDir 'hooks.template.json')
+            } else {
+                Copy-FileScoped 'hooks/hooks.json' $rendered (Join-Path $userHooksRoot 'hooks.json') 'user'
+                Remove-Item -LiteralPath $rendered -Force -ErrorAction SilentlyContinue
+            }
+            $Script:UserHooksInstalled = $true
+        }
         'skip' { Record 'hooks/' 'skipped (user choice)' '-' }
-        default { throw "Invalid -Hooks: '$Hooks'" }
+        default { throw "Invalid -Hooks: '$Hooks' (workspace|user|skip)" }
     }
 }
 
@@ -1312,6 +1366,26 @@ if ($sidecarCount -gt 0) {
 }
 if ($keptCount -gt 0) {
     Write-Host "NOTE: $keptCount existing file(s) kept untouched (you chose 'keep')."
+}
+
+if ($Script:UserHooksInstalled) {
+    Write-Host ''
+    Write-Host '─── USER-GLOBAL HOOKS INSTALLED ───'
+    Write-Host 'Hooks are at ~/.agents/hooks/ and will fire across every VS Code workspace'
+    Write-Host 'once you register them in your VS Code USER settings.json.'
+    Write-Host ''
+    Write-Host '  1. Ctrl+Shift+P -> "Preferences: Open User Settings (JSON)"'
+    Write-Host '  2. Add or merge this block:'
+    Write-Host ''
+    Write-Host '    "chat.hookFilesLocations": {'
+    Write-Host '      "~/.agents/hooks/hooks.json": true'
+    Write-Host '    }'
+    Write-Host ''
+    Write-Host '  3. Reload the VS Code window.'
+    Write-Host ''
+    Write-Host 'This is one-time setup. To uninstall the user-global hooks later, run:'
+    Write-Host '  scripts/bootstrap.ps1 -Uninstall -User'
+    Write-Host '───'
 }
 
 Write-Host ''

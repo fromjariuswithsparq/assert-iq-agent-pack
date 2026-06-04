@@ -2,12 +2,17 @@
 # Shared helpers for skill-improve hooks (bash side).
 # Sourced by other scripts; not executed directly.
 
-# Resolve hook root and standard paths.
-SKILL_IMPROVE_ROOT="$HOME/.agents/hooks"
+# Resolve hook root from env var (set by hooks.json wrapper based on install
+# scope). Default = $HOME/.agents/hooks for backwards compatibility / user
+# installs that don't go through the wrapper.
+SKILL_IMPROVE_ROOT="${SKILL_IMPROVE_ROOT:-$HOME/.agents/hooks}"
 SKILL_IMPROVE_CONFIG="$SKILL_IMPROVE_ROOT/config/skill-improve.config.json"
 SKILL_IMPROVE_LOG="$SKILL_IMPROVE_ROOT/logs/skill-improve.log"
 SKILL_IMPROVE_SESSIONS="$SKILL_IMPROVE_ROOT/sessions"
 SKILL_IMPROVE_STATE="$SKILL_IMPROVE_ROOT/state"
+# Export so child python processes (heredocs without explicit argv) can resolve
+# the same paths via os.environ.
+export SKILL_IMPROVE_ROOT SKILL_IMPROVE_CONFIG SKILL_IMPROVE_LOG SKILL_IMPROVE_SESSIONS SKILL_IMPROVE_STATE
 
 mkdir -p "$SKILL_IMPROVE_ROOT/logs" "$SKILL_IMPROVE_SESSIONS" "$SKILL_IMPROVE_STATE" 2>/dev/null
 
@@ -88,6 +93,46 @@ si_session_dir() {
     local dir="$SKILL_IMPROVE_SESSIONS/$sid"
     mkdir -p "$dir" 2>/dev/null
     printf '%s' "$dir"
+}
+
+# si_dedup_or_exit <event_name> <raw_envelope>
+#   Suppress double-fires of the same hook event for the same session within
+#   SKILL_IMPROVE_DEDUP_WINDOW_SECONDS (default 5). VS Code + Claude Code +
+#   Insiders can all register the same hooks.json and fire in parallel.
+#   Atomic claim via O_EXCL (set -o noclobber). Marker files are pruned by
+#   the janitor sweep. Set the env var to 0 to disable dedup entirely.
+si_dedup_or_exit() {
+    local event="$1" raw="$2"
+    local window="${SKILL_IMPROVE_DEDUP_WINDOW_SECONDS:-5}"
+    [ "$window" = "0" ] && return 0
+
+    local sid sig marker now mtime hasher
+    sid=$(si_session_id "$raw")
+    if command -v shasum >/dev/null 2>&1; then
+        sig=$(printf '%s-%s' "$sid" "$event" | shasum -a 256 | cut -c1-16)
+    elif command -v sha256sum >/dev/null 2>&1; then
+        sig=$(printf '%s-%s' "$sid" "$event" | sha256sum | cut -c1-16)
+    else
+        return 0  # No hasher available; degrade to no dedup.
+    fi
+    [ -z "$sig" ] && return 0
+    marker="$SKILL_IMPROVE_STATE/.dedup-${sig}"
+
+    # Atomic claim via noclobber. If we're first, the file is created and we
+    # continue. If another invocation already created it, check age.
+    if ( set -o noclobber; : > "$marker" ) 2>/dev/null; then
+        return 0
+    fi
+    now=$(date +%s 2>/dev/null || echo 0)
+    mtime=$(stat -f %m "$marker" 2>/dev/null || stat -c %Y "$marker" 2>/dev/null || echo 0)
+    if [ "$((now - mtime))" -lt "$window" ]; then
+        si_log "dedup $event sid=$sid (skipped duplicate within ${window}s)"
+        echo '{"continue":true}'
+        exit 0
+    fi
+    # Stale marker — refresh by overwriting.
+    : > "$marker" 2>/dev/null || true
+    return 0
 }
 
 # Janitor: prune silent session, trim edit-frequency, rotate log, sweep old session dirs.
@@ -172,6 +217,18 @@ try:
         try:
             if os.path.getmtime(d) < cutoff_t:
                 shutil.rmtree(d)
+        except Exception:
+            pass
+except Exception:
+    pass
+
+# Layer 3: prune stale dedup markers (anything older than 1 hour).
+try:
+    cutoff_dedup = now - 3600
+    for m in glob.glob(os.path.join(state_dir, ".dedup-*")):
+        try:
+            if os.path.getmtime(m) < cutoff_dedup:
+                os.unlink(m)
         except Exception:
             pass
 except Exception:

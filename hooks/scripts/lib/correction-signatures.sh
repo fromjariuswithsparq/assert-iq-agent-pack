@@ -22,7 +22,7 @@ si_scan_assistant_text() {
     python3 - "$transcript" <<'PY' 2>/dev/null
 import json, re, sys, os
 path = sys.argv[1]
-cfg_path = os.path.expanduser("~/.agents/hooks/config/skill-improve.config.json")
+cfg_path = os.environ.get("SKILL_IMPROVE_CONFIG") or os.path.expanduser("~/.agents/hooks/config/skill-improve.config.json")
 patterns = []  # list of (compiled_regex, weight, raw_pattern)
 try:
     with open(cfg_path) as f: c = json.load(f)
@@ -76,7 +76,7 @@ si_scan_tool_log() {
     python3 - "$log" <<'PY' 2>/dev/null
 import json, sys, os
 path = sys.argv[1]
-cfg_path = os.path.expanduser("~/.agents/hooks/config/skill-improve.config.json")
+cfg_path = os.environ.get("SKILL_IMPROVE_CONFIG") or os.path.expanduser("~/.agents/hooks/config/skill-improve.config.json")
 try:
     with open(cfg_path) as f: c = json.load(f)
     tp = c.get("correction_signatures", {}).get("tool_patterns", {})
@@ -170,7 +170,7 @@ si_scan_proactive_insights() {
     python3 - "$transcript" <<'PY' 2>/dev/null
 import json, re, sys, os
 path = sys.argv[1]
-cfg_path = os.path.expanduser("~/.agents/hooks/config/skill-improve.config.json")
+cfg_path = os.environ.get("SKILL_IMPROVE_CONFIG") or os.path.expanduser("~/.agents/hooks/config/skill-improve.config.json")
 patterns = []
 require_file = True
 try:

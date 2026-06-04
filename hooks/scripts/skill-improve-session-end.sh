@@ -18,6 +18,7 @@ trap 'echo "$EMIT_PAYLOAD"' EXIT
 si_enabled || exit 0
 
 si_read_stdin SI_RAW
+si_dedup_or_exit "Stop" "$SI_RAW"
 SID="$(si_session_id "$SI_RAW")"
 SDIR="$(si_session_dir "$SID")"
 
@@ -59,7 +60,7 @@ u = json.loads(sys.argv[2] or '[]')
 p = json.loads(sys.argv[3] or '[]')
 trigger_any = os.environ.get('SKILL_IMPROVE_TRIGGER_ANY') == '1'
 try:
-    c = json.load(open(os.path.expanduser('~/.agents/hooks/config/skill-improve.config.json')))
+    c = json.load(open(os.environ.get('SKILL_IMPROVE_CONFIG') or os.path.expanduser('~/.agents/hooks/config/skill-improve.config.json')))
 except Exception:
     c = {}
 trig = (c.get('correction_signatures', {}) or {}).get('trigger', {}) or {}
@@ -99,7 +100,7 @@ fi
 
 SILENT=$(python3 -c "import json,os
 try:
-    c=json.load(open(os.path.expanduser('~/.agents/hooks/config/skill-improve.config.json')))
+    c=json.load(open(os.environ.get('SKILL_IMPROVE_CONFIG') or os.path.expanduser('~/.agents/hooks/config/skill-improve.config.json')))
     print('1' if c.get('behavior',{}).get('silent_on_zero_corrections', True) else '0')
 except: print('1')")
 
