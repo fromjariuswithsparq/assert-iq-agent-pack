@@ -135,10 +135,12 @@ function Get-ToolInputPath {
 # === STEP 2: Determine what to track for azmcp ===
 
 # Azure-skills path patterns per client (used for SKILL.md and file-reference matching)
-$pathPatternCopilot = '\.copilot/installed-plugins/azure-skills/azure/skills/'
-$pathPatternClaude = '\.claude/plugins/cache/azure-skills/azure/[0-9.]+/skills/'
-$pathPatternVscodeAgentPlugins = 'agent-plugins/github\.com/microsoft/azure-skills/\.github/plugins/azure-skills/skills/'
+$pathPatternCopilot = '\.copilot/installed-plugins/assert-iq-agent-pack/skills/'
+$pathPatternClaude = '\.claude/plugins/cache/assert-iq-agent-pack/[0-9.]+/skills/'
+$pathPatternVscodeAgentPlugins = 'agent-plugins/github\.com/fromjariuswithsparq/assert-iq-agent-pack/\.github/plugins/assert-iq-agent-pack/skills/'
 $pathPatternAgentsSkills = '\.agents/skills/'
+$pathPatternGithubSkills = '\.github/skills/'
+$pathPatternClaudeSkills = '\.claude/skills/'
 
 $shouldTrack = $false
 $eventType = $null
@@ -168,7 +170,7 @@ if ($toolName -eq "view" -or $toolName -eq "Read" -or $toolName -eq "read_file")
         # Normalize path: convert to lowercase, replace backslashes, and squeeze consecutive slashes
         $pathLower = $pathToCheck.ToLower() -replace '\\', '/' -replace '/+', '/'
 
-        # Check for SKILL.md pattern — only match azure-skills paths (see path patterns above)
+        # Check for SKILL.md pattern — only match tracked paths (see path patterns above)
         $isAzureSkillMd = $false
         if ($pathLower -match "${pathPatternCopilot}[^/]+/skill\.md") {
             $isAzureSkillMd = $true
@@ -177,6 +179,10 @@ if ($toolName -eq "view" -or $toolName -eq "Read" -or $toolName -eq "read_file")
         } elseif ($pathLower -match "${pathPatternVscodeAgentPlugins}[^/]+/skill\.md") {
             $isAzureSkillMd = $true
         } elseif ($pathLower -match "${pathPatternAgentsSkills}[^/]+/skill\.md") {
+            $isAzureSkillMd = $true
+        } elseif ($pathLower -match "${pathPatternGithubSkills}[^/]+/skill\.md") {
+            $isAzureSkillMd = $true
+        } elseif ($pathLower -match "${pathPatternClaudeSkills}[^/]+/skill\.md") {
             $isAzureSkillMd = $true
         }
 
@@ -219,7 +225,7 @@ if (-not $filePath -and -not $skillName) {
             # Extract relative path after 'skills/'
             $pathNormalized = $pathToCheck -replace '\\', '/' -replace '/+', '/'
 
-            if ($pathNormalized -match '(?:azure/(?:[0-9]+\.[0-9]+\.[0-9]+/)?skills|azure-skills/skills|\.agents/skills)/(.+)$') {
+            if ($pathNormalized -match '(?:azure/(?:[0-9]+\.[0-9]+\.[0-9]+/)?skills|azure-skills/skills|\.agents/skills|\.github/skills|\.claude/skills)/(.+)$') {
                 $filePath = $Matches[1]
 
                 if (-not $shouldTrack) {

@@ -167,12 +167,14 @@ fi
 
 # Check if a path matches any known azure-skills folder structure
 # Returns 0 (true) if matched, 1 (false) otherwise
-is_azure_skills_path() {
+is_tracked_skills_path() {
     local p="$1"
-    [[ "$p" == *".copilot/installed-plugins/azure-skills/azure/skills/"* ]] && return 0
-    [[ "$p" == *".claude/plugins/cache/azure-skills/azure/"*"/skills/"* ]] && return 0
-    [[ "$p" == *"agent-plugins/github.com/microsoft/azure-skills/.github/plugins/azure-skills/skills/"* ]] && return 0
+    [[ "$p" == *".copilot/installed-plugins/assert-iq-agent-pack/skills/"* ]] && return 0
+    [[ "$p" == *".claude/plugins/cache/assert-iq-agent-pack/"*"/skills/"* ]] && return 0
+    [[ "$p" == *"agent-plugins/github.com/fromjariuswithsparq/assert-iq-agent-pack/.github/plugins/assert-iq-agent-pack/skills/"* ]] && return 0
     [[ "$p" == *".agents/skills/"* ]] && return 0
+    [[ "$p" == *".github/skills/"* ]] && return 0
+    [[ "$p" == *".claude/skills/"* ]] && return 0
     return 1
 }
 
@@ -203,7 +205,7 @@ if [ "$toolName" = "view" ] || [ "$toolName" = "Read" ] || [ "$toolName" = "read
         pathLower=$(echo "$pathToCheck" | tr '[:upper:]' '[:lower:]' | tr '\\' '/' | sed 's|//*|/|g')
 
         # Check for SKILL.md pattern — only match azure-skills paths
-        if is_azure_skills_path "$pathLower" && [[ "$pathLower" == *"/skill.md" ]]; then
+        if is_tracked_skills_path "$pathLower" && [[ "$pathLower" == *"/skill.md" ]]; then
             pathNormalized=$(echo "$pathToCheck" | tr '\\' '/' | sed 's|//*|/|g')
             if [[ "$pathNormalized" =~ /skills/([^/]+)/SKILL\.md$ ]]; then
                 skillName="${BASH_REMATCH[1]}"
@@ -235,11 +237,11 @@ if [ -z "$filePath" ] && [ -z "$skillName" ]; then
         pathLower=$(echo "$pathToCheck" | tr '[:upper:]' '[:lower:]' | tr '\\' '/' | sed 's|//*|/|g')
 
         # Check if path matches azure skills folder structure
-        if is_azure_skills_path "$pathLower"; then
+        if is_tracked_skills_path "$pathLower"; then
             # Extract relative path after 'skills/'
             pathNormalized=$(echo "$pathToCheck" | tr '\\' '/' | sed 's|//*|/|g')
 
-            if [[ "$pathNormalized" =~ (azure/([0-9]+\.[0-9]+\.[0-9]+/)?skills|azure-skills/skills|\.agents/skills)/(.+)$ ]]; then
+            if [[ "$pathNormalized" =~ (azure/([0-9]+\.[0-9]+\.[0-9]+/)?skills|azure-skills/skills|\.agents/skills|\.github/skills|\.claude/skills)/(.+)$ ]]; then
                 filePath="${BASH_REMATCH[3]}"
 
                 if [ "$shouldTrack" = false ]; then

@@ -212,7 +212,7 @@ $(if ($insightGate) { @"
         flow through the standard reflect gates and can be auto-applied.
       - "kind":"create" — the observation describes a recurring concern that
         does NOT fit any existing customization. Suggest a target path under
-        ~/.agents/skills/<slug>/SKILL.md (or a new .instructions.md). These are
+        .github/skills/<slug>/SKILL.md (or a new .instructions.md). These are
         ALWAYS routed to needs_human; reflect will not validate them for write.
 
     Write insight-candidates.json to: $sdir\insight-candidates.json
