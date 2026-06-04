@@ -5,6 +5,11 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.8] — 2026-06-04
+
+### Added
+- Added a "Compare the Presets" table to all documentation files to explicitly disambiguate `--preset=pod`, `--preset=solo`, and `--preset=portable` regarding where instructions and skills land permanently.
+
 ## [1.1.7] — 2026-06-04
 
 ### Fixed

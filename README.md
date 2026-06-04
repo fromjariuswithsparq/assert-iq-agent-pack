@@ -118,6 +118,17 @@ Bootstrap writes twelve surfaces into the workspace: `.assert-iq/`, `.github/ins
 | **Reverse with** | `bash install.sh --uninstall` | `bash scripts/bootstrap.sh --uninstall` |
 | **Best for** | Evaluating the pack, demos, the curious | Real adoption — solo, then team |
 
+#### Compare the Presets
+
+To avoid confusion regarding what files land globally versus locally, here is a breakdown of the three installation presets:
+
+| Preset | Instructions & Rules | Skills / Commands | Workspace Footprint | Best used for... |
+|---|---|---|---|---|
+| `--preset=pod` (default) | **Workspace** (`.github/instructions/`) | **Workspace** (`.github/skills/`) | Full (12 configuration surfaces) | The entire team adopting Assert.IQ simultaneously in a shared repository. |
+| `--preset=solo` | **User-global** (`~/Library/..`) | **Workspace** (`.github/skills/`) | High (Skills & config, no instructions) | A single developer who wants the core QI reasoning rules active *everywhere*, but skills isolated strictly to this project. |
+| `--preset=portable` | *(Not installed)* | **User-global** (`~/.agents/skills/`) | Minimal (Chat agents & manifest only) | A developer who wants the 24 QI skills available in *any* repository without writing configs into the codebase. |
+
+
 ---
 
 ### 2 · Customize and wire everything in

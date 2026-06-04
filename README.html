@@ -390,7 +390,7 @@
 
 <section class="hero">
   <div class="hero-content">
-    <div class="badge"><span class="badge-dot"></span>v1.1.7 · Internal Sparq asset</div>
+    <div class="badge"><span class="badge-dot"></span>v1.1.8 · Internal Sparq asset</div>
     <h1 id="assert-iq-agent-pack">Assert.IQ Agent Pack</h1>
     <p class="tagline">Quality Intelligence for every IDE, every sprint, every team.</p>
     <div class="hero-cta">
@@ -542,6 +542,19 @@ bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
           <tr><td>Hides from team git?</td><td>N/A</td><td>Yes via <code>.git/info/exclude</code></td></tr>
           <tr><td>Reverse with</td><td><code>install.sh --uninstall</code></td><td><code>bootstrap.sh --uninstall</code></td></tr>
           <tr><td>Best for</td><td>Evaluating, demos, the curious</td><td>Real adoption — solo, then team</td></tr>
+
+      <h4>Compare the presets</h4>
+      <p style="font-size:0.92em;">To avoid confusion regarding what files land globally versus locally, here is a breakdown of the three installation presets:</p>
+      <table>
+        <thead>
+          <tr><th>Preset</th><th>Instructions &amp; Rules</th><th>Skills / Commands</th><th>Workspace Footprint</th><th>Best used for...</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>--preset=pod</code> (default)</td><td><strong>Workspace</strong> (<code>.github/instructions/</code>)</td><td><strong>Workspace</strong> (<code>.github/skills/</code>)</td><td>Full (12 config surfaces)</td><td>The entire team adopting Assert.IQ simultaneously in a shared repository.</td></tr>
+          <tr><td><code>--preset=solo</code></td><td><strong>User-global</strong> (OS config dir)</td><td><strong>Workspace</strong></td><td>High (Skills &amp; config)</td><td>A single developer who wants core QI rules active everywhere, but skills isolated dynamically.</td></tr>
+          <tr><td><code>--preset=portable</code></td><td><em>(Not installed)</em></td><td><strong>User-global</strong> (<code>~/.agents/skills/</code>)</td><td>Minimal (Manifest &amp; agents only)</td><td>A developer who wants the 24 QI skills available in <em>any</em> repository without writing configs into the codebase.</td></tr>
+        </tbody>
+      </table>
         </tbody>
       </table>
     </div>
@@ -638,7 +651,7 @@ bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
 </div>
 
 <footer>
-  <div>Assert.IQ Agent Pack · v1.1.7 · Owned by <a href="https://github.com/fromjariuswithsparq">Jarius Hayes</a> · Sparq Intelligence Studio</div>
+  <div>Assert.IQ Agent Pack · v1.1.8 · Owned by <a href="https://github.com/fromjariuswithsparq">Jarius Hayes</a> · Sparq Intelligence Studio</div>
   <div style="margin-top:12px;">
     <a href="README.md">Markdown README</a>
     <a href="README.assert-iq.html">Full Docs</a>
