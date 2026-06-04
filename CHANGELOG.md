@@ -5,6 +5,33 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] — 2026-06-04
+
+Patch release. Hides Hindsight Hooks runtime artifacts from git so
+workspaces that install the pack don't see hook state files appear as
+untracked changes.
+
+### Fixed
+
+- `hooks/state/.dedup-<hash>` markers (atomic locks created by
+  `si_dedup_or_exit` to suppress double-fires) and `hooks/state/.last-janitor`
+  no longer surface in `git status` after install. Per-directory
+  `.gitignore` files now ship inside `hooks/state/`, `hooks/logs/`, and
+  `hooks/sessions/` at the pack source. `copy_tree()` in
+  `scripts/bootstrap.{sh,ps1}` already copies dotfiles, so the ignore
+  rules propagate verbatim into every workspace install — no mutation of
+  the workspace `.gitignore` required (consistent with the design rule
+  that bootstrap never touches the user's `.gitignore`).
+- Untracked the previously-committed runtime seeds
+  `hooks/logs/skill-improve.log` and `hooks/state/.last-janitor`. The
+  structural seeds `hooks/state/dismissed-lessons.json` and
+  `hooks/state/edit-frequency.json` remain tracked.
+
+### Verified
+
+- `tests/_qi/automated/e2e-hooks.sh`: 15/15 PASS.
+- `tests/_qi/automated/e2e-bootstrap.sh`: 23/23 PASS.
+
 ## [1.1.0] — 2026-06-04
 
 Hindsight Hooks become scope-aware and double-fire-safe. Power users can
@@ -139,6 +166,7 @@ change in incompatible ways without a major-version bump.
 
 See git history (`git log v0.8.0`). Releases prior to 1.0.0 are pre-stable.
 
+[1.1.1]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v0.9.0...v1.0.0
 [0.9.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v0.8.0...v0.9.0
