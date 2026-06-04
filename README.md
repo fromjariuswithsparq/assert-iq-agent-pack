@@ -128,6 +128,13 @@ To avoid confusion regarding what files land globally versus locally, here is a 
 | `--preset=solo` | **User-global** (`~/Library/..`) | **Workspace** (`.github/skills/`) | High (Skills & config, no instructions) | A single developer who wants the core QI reasoning rules active *everywhere*, but skills isolated strictly to this project. |
 | `--preset=portable` | *(Not installed)* | **User-global** (`~/.agents/skills/`) | Minimal (Chat agents & manifest only) | A developer who wants the 24 QI skills available in *any* repository without writing configs into the codebase. |
 
+> **Presets vs. Modes: What's the difference?**
+> - **Presets (`--preset`) control _Placement_:** Where do the files physically go on your hard drive? (Global OS directories vs. local workspace folders).
+> - **Modes (`--mode`) control _Git Visibility_:** For the files that *do* land in your workspace, how does git treat them?
+> 
+> You mix and match them. For example, `--preset=pod --mode=trial` means *"Put everything in my workspace (`pod`), but hide them in `.git/info/exclude` so I can evaluate them locally without bothering my team (`trial`)."* 
+> Once you're ready to share with the team, you use `--mode=committed` (or run `--graduate`), meaning *"Keep the files in the workspace, but now let git track them so my team sees them."*
+
 
 ---
 
