@@ -1,0 +1,4 @@
+# Per-session subdirs (loaded-customizations.json, tool-log.jsonl, etc.) are
+# runtime artifacts. Track only this .gitignore so the dir stays in source.
+*
+!.gitignore

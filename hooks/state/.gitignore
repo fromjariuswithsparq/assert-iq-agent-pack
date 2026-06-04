@@ -1,0 +1,4 @@
+# Runtime artifacts written by the hook scripts.
+# Seed files (dismissed-lessons.json, edit-frequency.json) remain tracked.
+.dedup-*
+.last-janitor
