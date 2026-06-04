@@ -5,6 +5,60 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-06-04
+
+Hindsight Hooks become scope-aware and double-fire-safe. Power users can
+now install hooks once at the user level (`~/.agents/hooks/`) and have
+them fire across every VS Code workspace; the existing per-workspace
+install path is unchanged and remains the default.
+
+### Added
+
+- **`--hooks=user` / `-Hooks user` install mode** in
+  `scripts/bootstrap.{sh,ps1}`. Copies hook scripts, lib, config, state,
+  and logs to `$HOME/.agents/hooks/`, creates `sessions/`, renders
+  `hooks.json` so the wrapper resolves `__PACK_ROOT__` to the user-global
+  pack root, and prints the VS Code USER `settings.json` block needed to
+  register the hook file across all workspaces. Manifest entries scoped
+  `user`, with full uninstall support via `--uninstall --user`.
+- **`si_dedup_or_exit` / `Invoke-SiDedupOrExit`** helpers in the shared
+  hook lib. Suppress double-fires of the same `(session_id, event)`
+  pair within `SKILL_IMPROVE_DEDUP_WINDOW_SECONDS` (default 5; set to 0
+  to disable). Atomic claim via `set -o noclobber` (bash) /
+  `FileMode.CreateNew` (PowerShell). Wired into SessionStart and Stop
+  only — PostToolUse legitimately fires once per tool call.
+- **Hooks E2E suite** (`tests/_qi/automated/e2e-hooks.sh`) — 15 cases
+  covering workspace + user install layouts, SessionStart routing,
+  PostToolUse telemetry + detect, Stop log entry,
+  `config.enabled=false` no-op, `SKILL_IMPROVE_DISABLED=1` no-op,
+  double-fire dedup, dedup-window-disabled override, per-event dedup
+  independence, marker creation under `state/`, workspace/user install
+  isolation, and user uninstall. Workspace and `$HOME` are
+  mktemp-isolated.
+
+### Changed
+
+- Hook scripts resolve `SKILL_IMPROVE_ROOT` from the environment (set by
+  the `hooks.json` wrapper based on install scope) instead of hardcoding
+  `$HOME/.agents/hooks`. Default falls back to `$HOME/.agents/hooks` for
+  back-compat with existing installs.
+- `hooks/hooks.template.json` wrappers now `export SKILL_IMPROVE_ROOT`
+  before invoking the script so workspace installs route to
+  `<workspace>/hooks/` and user installs route to `~/.agents/hooks/`
+  deterministically.
+- Five hardcoded `~/.agents/hooks/config/skill-improve.config.json`
+  lookups (in `skill-improve-session-start.sh`,
+  `skill-improve-session-end.sh`, `lib/correction-signatures.sh`)
+  replaced with env-var fallbacks.
+- Janitor sweep now prunes stale `.dedup-*` markers older than 1 hour
+  in addition to its existing session and log retention passes.
+- `VERSION` bumped to `1.1.0`.
+
+### Verified
+
+- `tests/_qi/automated/e2e-hooks.sh`: 15/15 PASS on macOS bash.
+- `tests/_qi/automated/e2e-bootstrap.sh`: 23/23 PASS (no regressions).
+
 ## [1.0.0] — 2026-06-04
 
 First stable release. The pack is now considered API-stable: bootstrap CLI
@@ -85,5 +139,6 @@ change in incompatible ways without a major-version bump.
 
 See git history (`git log v0.8.0`). Releases prior to 1.0.0 are pre-stable.
 
+[1.1.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v0.9.0...v1.0.0
 [0.9.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v0.8.0...v0.9.0
