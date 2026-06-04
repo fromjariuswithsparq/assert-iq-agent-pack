@@ -1,6 +1,6 @@
 # Assert.IQ Agent Pack — File Manifest
 
-**Version**: v1.1.2
+**Version**: v1.1.3
 **Generated**: 2026-05-20
 **Total files (top-level inventory)**: 53 + hooks tree + tests scaffolding
 
