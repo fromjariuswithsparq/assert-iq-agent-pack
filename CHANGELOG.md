@@ -5,10 +5,34 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.4] — 2026-06-04
+
+### Changed
+- Fixed hooks configuration and telemetry logic to correctly fall back to workspace-relative artifacts directories (`.github/skills` and `.claude/skills`) rather than exclusively tracking user-global `~/.agents/skills`.
+
+
+## [1.1.4] — 2026-06-04
+
+### Changed
+- Fixed hooks configuration and telemetry logic to correctly fall back to workspace-relative artifacts directories (`.github/skills` and `.claude/skills`) rather than exclusively tracking user-global `~/.agents/skills`.
+
+
 ## [1.1.3] — 2026-06-04
 
 ### Fixed
 - Fixed CSS grid overflow issue causing `Path A / Path B` comparison cards to slightly overflow offscreen.
+
+
+## [1.1.4] — 2026-06-04
+
+### Changed
+- Fixed hooks configuration and telemetry logic to correctly fall back to workspace-relative artifacts directories (`.github/skills` and `.claude/skills`) rather than exclusively tracking user-global `~/.agents/skills`.
+
+
+## [1.1.4] — 2026-06-04
+
+### Changed
+- Fixed hooks configuration and telemetry logic to correctly fall back to workspace-relative artifacts directories (`.github/skills` and `.claude/skills`) rather than exclusively tracking user-global `~/.agents/skills`.
 
 
 ## [1.1.3] — 2026-06-04
