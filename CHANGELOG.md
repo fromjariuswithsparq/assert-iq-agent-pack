@@ -5,6 +5,11 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.10] — 2026-06-04
+
+### Fixed
+- Fixed an accidental HTML structure malformation in `README.html` introduced during the previous documentation injections, which broke the rendering of both comparison tables on that page.
+
 ## [1.1.9] — 2026-06-04
 
 ### Added

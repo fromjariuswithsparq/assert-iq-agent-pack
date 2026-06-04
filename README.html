@@ -390,7 +390,7 @@
 
 <section class="hero">
   <div class="hero-content">
-    <div class="badge"><span class="badge-dot"></span>v1.1.9 · Internal Sparq asset</div>
+    <div class="badge"><span class="badge-dot"></span>v1.1.10 · Internal Sparq asset</div>
     <h1 id="assert-iq-agent-pack">Assert.IQ Agent Pack</h1>
     <p class="tagline">Quality Intelligence for every IDE, every sprint, every team.</p>
     <div class="hero-cta">
@@ -542,6 +542,8 @@ bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
           <tr><td>Hides from team git?</td><td>N/A</td><td>Yes via <code>.git/info/exclude</code></td></tr>
           <tr><td>Reverse with</td><td><code>install.sh --uninstall</code></td><td><code>bootstrap.sh --uninstall</code></td></tr>
           <tr><td>Best for</td><td>Evaluating, demos, the curious</td><td>Real adoption — solo, then team</td></tr>
+        </tbody>
+      </table>
 
       <h4>Compare the presets</h4>
       <p style="font-size:0.92em;">To avoid confusion regarding what files land globally versus locally, here is a breakdown of the three installation presets:</p>
@@ -554,6 +556,8 @@ bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
           <tr><td><code>--preset=solo</code></td><td><strong>User-global</strong> (OS config dir)</td><td><strong>Workspace</strong></td><td>High (Skills &amp; config)</td><td>A single developer who wants core QI rules active everywhere, but skills isolated dynamically.</td></tr>
           <tr><td><code>--preset=portable</code></td><td><em>(Not installed)</em></td><td><strong>User-global</strong> (<code>~/.agents/skills/</code>)</td><td>Minimal (Manifest &amp; agents only)</td><td>A developer who wants the 24 QI skills available in <em>any</em> repository without writing configs into the codebase.</td></tr>
         </tbody>
+      </table>
+
       <div class="callout" style="margin-top:16px;">
         <strong>Presets vs. Modes: What's the difference?</strong>
         <ul style="margin-top:8px;padding-left:20px;font-size:0.92em;color:var(--text-dim);">
@@ -563,18 +567,6 @@ bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
         <p style="margin:8px 0 0 0;font-size:0.92em;">You mix and match them. For example, <code>--preset=pod --mode=trial</code> means <em>"Put everything in my workspace (pod), but hide them in `.git/info/exclude` so I can evaluate them locally without bothering my team (trial)."</em></p>
         <p style="margin:8px 0 0 0;font-size:0.92em;">Once you're ready to share with the team, you use <code>--mode=committed</code> (or run <code>--graduate</code>), meaning <em>"Keep the files in the workspace, but now let git track them so my team sees them."</em></p>
       </div>
-      </table>
-        </tbody>
-      <div class="callout" style="margin-top:16px;">
-        <strong>Presets vs. Modes: What's the difference?</strong>
-        <ul style="margin-top:8px;padding-left:20px;font-size:0.92em;color:var(--text-dim);">
-          <li style="margin-bottom:6px;"><strong>Presets (<code>--preset</code>) control <em>Placement</em>:</strong> Where do the files physically go on your hard drive? (Global OS directories vs. local workspace folders).</li>
-          <li><strong>Modes (<code>--mode</code>) control <em>Git Visibility</em>:</strong> For the files that <em>do</em> land in your workspace, how does git treat them?</li>
-        </ul>
-        <p style="margin:8px 0 0 0;font-size:0.92em;">You mix and match them. For example, <code>--preset=pod --mode=trial</code> means <em>"Put everything in my workspace (pod), but hide them in `.git/info/exclude` so I can evaluate them locally without bothering my team (trial)."</em></p>
-        <p style="margin:8px 0 0 0;font-size:0.92em;">Once you're ready to share with the team, you use <code>--mode=committed</code> (or run <code>--graduate</code>), meaning <em>"Keep the files in the workspace, but now let git track them so my team sees them."</em></p>
-      </div>
-      </table>
     </div>
 
     <div class="step">
@@ -678,7 +670,7 @@ bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
 </div>
 
 <footer>
-  <div>Assert.IQ Agent Pack · v1.1.9 · Owned by <a href="https://github.com/fromjariuswithsparq">Jarius Hayes</a> · Sparq Intelligence Studio</div>
+  <div>Assert.IQ Agent Pack · v1.1.10 · Owned by <a href="https://github.com/fromjariuswithsparq">Jarius Hayes</a> · Sparq Intelligence Studio</div>
   <div style="margin-top:12px;">
     <a href="README.md">Markdown README</a>
     <a href="README.assert-iq.html">Full Docs</a>
