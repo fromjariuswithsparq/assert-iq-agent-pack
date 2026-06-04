@@ -43,7 +43,7 @@ matching file(s) for the user's current task.
 
 ## Skills
 
-The pack ships 23 QI skills under `.github/skills/`. Each has a `SKILL.md`
+The pack ships 24 QI skills under `.github/skills/`. Each has a `SKILL.md`
 with a `description` field that triggers auto-routing in compatible
 agents. Examples: `code-review`, `generate-automated-unit-test`,
 `risk-assess-pr`, `release-confidence`, `analyze-flaky-test`,

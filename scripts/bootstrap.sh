@@ -2,7 +2,7 @@
 # Assert.IQ Agent Pack — workspace bootstrap (macOS / Linux)
 #
 # Copies workspace-loaded surfaces (instructions, .assert-iq/, CLAUDE.md,
-# copilot-instructions.md, AGENTS.md) from a plugin install into the
+# copilot-instructions.md, AGENTS.md) from the cloned pack into the
 # user's workspace or user-global slots.
 #
 # Three install modes:
@@ -16,6 +16,12 @@
 # Other modes:
 #   --graduate / --untrial   Reverse trial mode: remove pack entries from
 #                            .git/info/exclude. Files stay on disk.
+#   --uninstall              Reverse install: delete pack-created files,
+#                            restore pre-install backups for files we modified,
+#                            strip the trial-mode exclude block, and remove
+#                            the manifest. Use --user to also remove user-scope
+#                            copies. --yes skips the confirmation prompt;
+#                            --dry-run shows what would happen without changing.
 #
 # See .github/skills/assert-iq-bootstrap/SKILL.md for full docs.
 
@@ -34,12 +40,29 @@ CLAUDE_SETTINGS=""
 WORKSPACE="$PWD"
 MODE=""
 GRADUATE=0
+UNINSTALL=0
+UNINSTALL_USER=0
+ASSUME_YES=0
+DRY_RUN=0
 CONFLICT_BULK_CHOICE=""   # K|O|S once user picks an "-all" shortcut
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE="${CLAUDE_PLUGIN_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 
 EXCLUDE_BEGIN="# >>> assert-iq trial mode (managed) >>>"
 EXCLUDE_END="# <<< assert-iq trial mode (managed) <<<"
+
+# Manifest action vocabulary — kept here so adding a new action only touches
+# one place. REMOVABLE_ACTIONS are deleted on uninstall; EXCLUDABLE_ACTIONS
+# get emitted into .git/info/exclude in trial mode.
+REMOVABLE_ACTIONS="created unchanged_owned overwritten rendered sidecar"
+EXCLUDABLE_ACTIONS="created unchanged_owned overwritten merged_hooks_key merged_settings rendered sidecar"
+MERGED_ACTIONS="merged_settings merged_hooks_key"
+
+_in_action_set() {
+  # $1 = action, $2 = space-separated set
+  case " $2 " in *" $1 "*) return 0 ;; esac
+  return 1
+}
 
 # ---- Parse flags ------------------------------------------------------------
 for arg in "$@"; do
@@ -59,6 +82,10 @@ for arg in "$@"; do
     --trial)             MODE="trial" ;;
     --committed)         MODE="committed" ;;
     --graduate|--untrial) GRADUATE=1 ;;
+    --uninstall)        UNINSTALL=1 ;;
+    --user)             UNINSTALL_USER=1 ;;
+    --yes|-y)           ASSUME_YES=1 ;;
+    --dry-run)          DRY_RUN=1 ;;
     --help|-h)
       sed -n '2,20p' "${BASH_SOURCE[0]}"
       exit 0
@@ -100,6 +127,21 @@ sha256_of() {
   fi
 }
 
+backup_if_user_owned() {
+  # Snapshot a pre-existing user file before we modify or overwrite it, so
+  # --uninstall can restore the original. No-op if no destination file
+  # exists yet, or if a backup is already on disk (idempotent across re-runs).
+  # Args: dst scope
+  local dst="$1" scope="$2"
+  [[ -f "$dst" ]] || return 0
+  local backup="$dst.assert-iq.pre-install"
+  if [[ -e "$backup" ]]; then
+    return 0
+  fi
+  cp -p "$dst" "$backup"
+  manifest_add "pre_install_backup" "$backup" "$scope"
+}
+
 declare -a MANIFEST_ENTRIES=()
 
 manifest_add() {
@@ -114,8 +156,9 @@ manifest_write() {
   out_dir="$(dirname "$MANIFEST_PATH")"
   mkdir -p "$out_dir"
   local pack_version="unknown"
-  if [[ -f "$SOURCE/.claude-plugin/plugin.json" ]] && command -v jq >/dev/null 2>&1; then
-    pack_version="$(jq -r '.version // "unknown"' "$SOURCE/.claude-plugin/plugin.json" 2>/dev/null || echo unknown)"
+  if [[ -f "$SOURCE/VERSION" ]]; then
+    pack_version="$(head -n1 "$SOURCE/VERSION" | tr -d '[:space:]')"
+    [[ -n "$pack_version" ]] || pack_version="unknown"
   fi
   local now
   now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
@@ -156,6 +199,7 @@ manifest_write() {
       s="${s//$'\t'/\\t}"
       printf '%s' "$s"
     }
+    local mtmp="$MANIFEST_PATH.tmp"
     {
       printf '{\n  "version": "%s",\n  "installed_at": "%s",\n  "mode": "%s",\n  "paths": [\n' \
         "$(json_escape "$pack_version")" "$(json_escape "$now")" "$(json_escape "$MODE")"
@@ -169,7 +213,7 @@ manifest_write() {
           "$(json_escape "$a")" "$(json_escape "$p")" "$(json_escape "$s")" "$sep"
       done
       printf '  ]\n}\n'
-    } > "$MANIFEST_PATH"
+    } > "$mtmp" && mv "$mtmp" "$MANIFEST_PATH"
   fi
 }
 
@@ -192,10 +236,27 @@ exclude_file_path() {
   fi
 }
 
-is_tracked() {
-  # $1 = absolute path inside workspace. Returns 0 if tracked.
-  local rel="${1#$WORKSPACE/}"
-  ( cd "$WORKSPACE" && git ls-files --error-unmatch -- "$rel" >/dev/null 2>&1 )
+# Strip the managed begin..end block from $1 in place. Sets global
+# _STRIP_REMOVED=1 if a block was found, 0 otherwise. Used by both
+# write_exclude_block (to clear stale block before re-append) and
+# strip_exclude_block (to remove permanently).
+_strip_managed_block() {
+  local file="$1"
+  local tmp="$file.tmp"
+  if awk -v b="$EXCLUDE_BEGIN" -v e="$EXCLUDE_END" '
+    BEGIN { skip=0; removed=0 }
+    {
+      if ($0 == b) { skip=1; removed=1; next }
+      if (skip && $0 == e) { skip=0; next }
+      if (!skip) print
+    }
+    END { exit (removed?0:1) }
+  ' "$file" > "$tmp"; then
+    _STRIP_REMOVED=1
+  else
+    _STRIP_REMOVED=0
+  fi
+  mv "$tmp" "$file"
 }
 
 write_exclude_block() {
@@ -211,6 +272,13 @@ write_exclude_block() {
   mkdir -p "$(dirname "$excl")"
   touch "$excl"
 
+  # Preload tracked files once — hoisting the per-entry git invocation out
+  # of the loop. macOS ships bash 3.2 which has no associative arrays, so
+  # we use a sorted file + grep -Fxq, which is plenty fast for our scale.
+  local tracked_list
+  tracked_list="$(mktemp)"
+  ( cd "$WORKSPACE" && git ls-files 2>/dev/null ) > "$tracked_list" || true
+
   # Collect workspace-scoped manifest paths, relative to workspace root.
   # Filter out already-tracked files (we don't auto-untrack).
   local -a rels=() skipped_tracked=()
@@ -218,9 +286,9 @@ write_exclude_block() {
   for e in "${MANIFEST_ENTRIES[@]}"; do
     IFS='|' read -r a p s <<< "$e"
     [[ "$s" == "workspace" ]] || continue
-    [[ "$a" == "created" || "$a" == "unchanged_owned" || "$a" == "overwritten" || "$a" == "merged_hooks_key" || "$a" == "merged_settings" || "$a" == "rendered" || "$a" == "sidecar" ]] || continue
-    rel="${p#$WORKSPACE/}"
-    if is_tracked "$p"; then
+    _in_action_set "$a" "$EXCLUDABLE_ACTIONS" || continue
+    rel="${p#"$WORKSPACE/"}"
+    if grep -Fxq "$rel" "$tracked_list" 2>/dev/null; then
       skipped_tracked+=("$rel")
       continue
     fi
@@ -228,23 +296,17 @@ write_exclude_block() {
   done
 
   # Always exclude the manifest itself so it doesn't leak into git status.
-  local manifest_rel="${MANIFEST_PATH#$WORKSPACE/}"
-  if ! is_tracked "$MANIFEST_PATH"; then
+  local manifest_rel="${MANIFEST_PATH#"$WORKSPACE/"}"
+  if ! grep -Fxq "$manifest_rel" "$tracked_list" 2>/dev/null; then
     rels+=("$manifest_rel")
   fi
+  rm -f "$tracked_list"
 
-  # Atomic block replace.
+  # Atomic block replace via shared helper, then append a fresh block.
+  _strip_managed_block "$excl"
   local tmp="$excl.tmp"
-  awk -v b="$EXCLUDE_BEGIN" -v e="$EXCLUDE_END" '
-    BEGIN { skip=0 }
-    {
-      if ($0 == b) { skip=1; next }
-      if (skip && $0 == e) { skip=0; next }
-      if (!skip) print
-    }
-  ' "$excl" > "$tmp"
   {
-    cat "$tmp"
+    cat "$excl"
     printf '%s\n' "$EXCLUDE_BEGIN"
     printf '# Managed by scripts/bootstrap.sh — do not edit by hand.\n'
     printf '# Remove with: scripts/bootstrap.sh --graduate\n'
@@ -253,9 +315,8 @@ write_exclude_block() {
       printf '%s\n' "$r"
     done
     printf '%s\n' "$EXCLUDE_END"
-  } > "$tmp.2"
-  mv "$tmp.2" "$excl"
-  rm -f "$tmp"
+  } > "$tmp"
+  mv "$tmp" "$excl"
 
   echo ""
   echo "Trial mode active. ${#rels[@]} path(s) added to .git/info/exclude."
@@ -278,18 +339,8 @@ strip_exclude_block() {
   local excl
   excl="$(exclude_file_path)"
   [[ -n "$excl" && -f "$excl" ]] || { echo "No .git/info/exclude found — nothing to do."; return; }
-  local tmp="$excl.tmp"
-  awk -v b="$EXCLUDE_BEGIN" -v e="$EXCLUDE_END" '
-    BEGIN { skip=0; removed=0 }
-    {
-      if ($0 == b) { skip=1; removed=1; next }
-      if (skip && $0 == e) { skip=0; next }
-      if (!skip) print
-    }
-    END { exit (removed?0:1) }
-  ' "$excl" > "$tmp" && removed=1 || removed=0
-  mv "$tmp" "$excl"
-  if [[ $removed -eq 1 ]]; then
+  _strip_managed_block "$excl"
+  if [[ "${_STRIP_REMOVED:-0}" -eq 1 ]]; then
     echo "Removed Assert.IQ managed block from $excl"
   else
     echo "No Assert.IQ managed block found in $excl — nothing to remove."
@@ -312,6 +363,241 @@ if [[ $GRADUATE -eq 1 ]]; then
   echo "  git status                       # confirm pack files are untracked"
   echo "  git add .assert-iq .claude .github CLAUDE.md AGENTS.md"
   echo "  git commit -m \"chore: adopt Assert.IQ agent pack\""
+  exit 0
+fi
+
+# =============================================================================
+# --uninstall short-circuit
+# =============================================================================
+
+uninstall_run() {
+  local prefix=""
+  [[ $DRY_RUN -eq 1 ]] && prefix="[dry-run] "
+
+  echo "=== Assert.IQ uninstall ==="
+  echo "Workspace: $WORKSPACE"
+  echo "Manifest:  $MANIFEST_PATH"
+  if [[ $UNINSTALL_USER -eq 1 ]]; then
+    echo "Scope:     workspace + user-global slots"
+  else
+    echo "Scope:     workspace only (use --user to also remove user-global copies)"
+  fi
+  [[ $DRY_RUN -eq 1 ]] && echo "Mode:      DRY RUN (no files will be changed)"
+  echo ""
+
+  if [[ ! -f "$MANIFEST_PATH" ]]; then
+    echo "No manifest found at $MANIFEST_PATH."
+    echo "Nothing to uninstall (or this workspace was not bootstrapped)."
+    exit 0
+  fi
+
+  # Confirmation prompt (skip if --yes or non-interactive).
+  if [[ $DRY_RUN -eq 0 && $ASSUME_YES -eq 0 && -t 0 ]]; then
+    echo "This will:"
+    echo "  - delete files the bootstrap created in this workspace"
+    echo "  - restore originals where the bootstrap modified your files (from .assert-iq.pre-install backups)"
+    echo "  - strip the trial-mode block from .git/info/exclude (if any)"
+    echo "  - clear hooks/state/, hooks/logs/, hooks/sessions/ runtime data"
+    if [[ $UNINSTALL_USER -eq 1 ]]; then
+      echo "  - also remove user-scope copies in ~/.assert-iq, ~/.claude, ~/Library or ~/.config prompts dir"
+    fi
+    echo "  - delete $MANIFEST_PATH"
+    echo ""
+    local ans=""
+    read -r -p "Proceed? [y/N] " ans </dev/tty || ans=""
+    case "$ans" in
+      y|Y|yes|YES) ;;
+      *) echo "Aborted."; exit 1 ;;
+    esac
+  fi
+
+  # Strip trial-mode exclude block first (always safe).
+  strip_exclude_block || true
+  echo ""
+
+  # Walk manifest entries. Need jq to read JSON safely; fall back to a simple
+  # line-by-line parse for the no-jq case.
+  local removed=0 restored=0 preserved=0 skipped=0
+
+  remove_path() {
+    # Args: path (file or dir)
+    local p="$1"
+    if [[ ! -e "$p" && ! -L "$p" ]]; then
+      skipped=$((skipped+1))
+      return 0
+    fi
+    if [[ $DRY_RUN -eq 1 ]]; then
+      echo "${prefix}rm: $p"
+      removed=$((removed+1))
+      return 0
+    fi
+    if [[ -d "$p" && ! -L "$p" ]]; then
+      rm -rf -- "$p"
+    else
+      rm -f -- "$p"
+    fi
+    removed=$((removed+1))
+  }
+
+  restore_backup() {
+    # Args: backup_path
+    local backup="$1"
+    local original="${backup%.assert-iq.pre-install}"
+    if [[ ! -f "$backup" ]]; then
+      echo "${prefix}WARN: backup not found, skipping restore: $backup" >&2
+      skipped=$((skipped+1))
+      return 0
+    fi
+    if [[ $DRY_RUN -eq 1 ]]; then
+      echo "${prefix}restore: $original  (from $backup)"
+      restored=$((restored+1))
+      return 0
+    fi
+    # If user has edited the merged file post-install, save current state
+    # before restoring so nothing is silently lost.
+    if [[ -f "$original" ]]; then
+      cp -p "$original" "$original.assert-iq.uninstall-saved" 2>/dev/null || true
+    fi
+    cp -p "$backup" "$original"
+    rm -f -- "$backup"
+    restored=$((restored+1))
+  }
+
+  process_entry() {
+    # Args: action path scope
+    local action="$1" path="$2" scope="$3"
+    # Honor --user gate: skip user-scope entries unless requested.
+    if [[ "$scope" == "user" && $UNINSTALL_USER -eq 0 ]]; then
+      preserved=$((preserved+1))
+      return 0
+    fi
+    case "$action" in
+      pre_install_backup)
+        restore_backup "$path"
+        ;;
+      created|unchanged_owned|overwritten|rendered|sidecar)
+        remove_path "$path"
+        ;;
+      merged_settings|merged_hooks_key)
+        # Restoration is handled by the corresponding pre_install_backup
+        # entry. If the backup was missing (e.g. install pre-dated backup
+        # support), leave the file in place so we don't destroy user data.
+        if [[ -f "$path.assert-iq.pre-install" ]]; then
+          # Will be restored when we hit the pre_install_backup entry.
+          :
+        else
+          echo "preserved (no pre-install backup): $path" >&2
+          preserved=$((preserved+1))
+        fi
+        ;;
+      *)
+        # Unknown action — surface to the user instead of silently skipping;
+        # a manifest from a newer pack version may include actions we don't
+        # know how to clean up, and orphans on disk are worse than a warning.
+        echo "WARN: unknown manifest action '$action' for $path — skipping (manifest may be from a newer pack version)" >&2
+        skipped=$((skipped+1))
+        ;;
+    esac
+  }
+
+  if command -v jq >/dev/null 2>&1; then
+    # Process pre_install_backup entries FIRST so they restore originals
+    # before the merged_* / overwritten entries try to clean up.
+    while IFS=$'\t' read -r action path scope; do
+      [[ -n "$path" ]] || continue
+      process_entry "$action" "$path" "$scope"
+    done < <(jq -r '.paths[] | select(.action == "pre_install_backup") | [.action, .path, .scope] | @tsv' "$MANIFEST_PATH" 2>/dev/null)
+
+    while IFS=$'\t' read -r action path scope; do
+      [[ -n "$path" ]] || continue
+      [[ "$action" == "pre_install_backup" ]] && continue
+      process_entry "$action" "$path" "$scope"
+    done < <(jq -r '.paths[] | [.action, .path, .scope] | @tsv' "$MANIFEST_PATH" 2>/dev/null)
+  else
+    # Best-effort no-jq parser. Manifest is written by us, one path per line.
+    local action="" path="" scope=""
+    while IFS= read -r line; do
+      case "$line" in
+        *'"action":'*) action="$(echo "$line" | sed -E 's/.*"action": *"([^"]*)".*/\1/')" ;;
+      esac
+      case "$line" in
+        *'"path":'*)   path="$(echo "$line" | sed -E 's/.*"path": *"([^"]*)".*/\1/')" ;;
+      esac
+      case "$line" in
+        *'"scope":'*)  scope="$(echo "$line" | sed -E 's/.*"scope": *"([^"]*)".*/\1/')" ;;
+      esac
+      if [[ -n "$action" && -n "$path" && -n "$scope" ]]; then
+        process_entry "$action" "$path" "$scope"
+        action=""; path=""; scope=""
+      fi
+    done < "$MANIFEST_PATH"
+  fi
+
+  # Hooks runtime state — regenerated on next install, safe to clear.
+  for d in "$WORKSPACE/hooks/state" "$WORKSPACE/hooks/logs" "$WORKSPACE/hooks/sessions"; do
+    [[ -e "$d" ]] && remove_path "$d"
+  done
+
+  # Remove now-empty parent dirs (bottom-up). Safe: rmdir refuses non-empty.
+  if [[ $DRY_RUN -eq 0 ]]; then
+    # First, clean nested empty subdirectories left by tree-style copies
+    # (.github/skills/<skill>/, eval-optimizer/references/, etc.).
+    local tree
+    for tree in \
+      "$WORKSPACE/.github/skills" \
+      "$WORKSPACE/.github/agents" \
+      "$WORKSPACE/.claude/agents" \
+      "$WORKSPACE/hooks" ; do
+      [[ -d "$tree" && ! -L "$tree" ]] && find "$tree" -depth -type d -empty -delete 2>/dev/null || true
+    done
+    local d
+    for d in \
+      "$WORKSPACE/hooks" \
+      "$WORKSPACE/.vscode" \
+      "$WORKSPACE/.claude/agents" \
+      "$WORKSPACE/.claude/skills" \
+      "$WORKSPACE/.claude" \
+      "$WORKSPACE/.github/instructions" \
+      "$WORKSPACE/.github/agents" \
+      "$WORKSPACE/.github/skills" \
+      "$WORKSPACE/.github" \
+      "$WORKSPACE/.assert-iq" ; do
+      [[ -d "$d" && ! -L "$d" ]] && rmdir "$d" 2>/dev/null || true
+    done
+  fi
+
+  # Remove the manifest last.
+  if [[ $DRY_RUN -eq 0 ]]; then
+    rm -f -- "$MANIFEST_PATH"
+    rmdir "$(dirname "$MANIFEST_PATH")" 2>/dev/null || true
+  else
+    echo "${prefix}rm: $MANIFEST_PATH"
+  fi
+
+  echo ""
+  echo "Summary: $removed removed, $restored restored from backup, $preserved preserved, $skipped skipped."
+  if [[ $UNINSTALL_USER -eq 0 ]]; then
+    # Quick check: did the manifest contain user-scope entries we left behind?
+    if command -v jq >/dev/null 2>&1; then
+      local user_count
+      user_count="$(jq -r '[.paths[] | select(.scope == "user")] | length' "$MANIFEST_PATH" 2>/dev/null || echo 0)"
+      if [[ "${user_count:-0}" -gt 0 ]]; then
+        echo ""
+        echo "Note: $user_count user-scope path(s) were preserved."
+        echo "      Re-run with --user to also remove user-global copies."
+      fi
+    fi
+  fi
+  echo ""
+  if [[ $DRY_RUN -eq 1 ]]; then
+    echo "Dry run complete. Re-run without --dry-run to apply."
+  else
+    echo "Uninstall complete."
+  fi
+}
+
+if [[ $UNINSTALL -eq 1 ]]; then
+  uninstall_run
   exit 0
 fi
 
@@ -467,6 +753,7 @@ copy_file() {
       record "$label" "skipped (user kept existing)" "$dst"
       ;;
     overwrite)
+      backup_if_user_owned "$dst" "$scope"
       cp "$src" "$dst"
       manifest_add "overwritten" "$dst" "$scope"
       record "$label" "overwritten" "$dst"
@@ -490,7 +777,7 @@ copy_tree() {
   fi
   local f rel
   while IFS= read -r -d '' f; do
-    rel="${f#$src_dir/}"
+    rel="${f#"$src_dir/"}"
     copy_file "$label/$rel" "$f" "$dst_dir/$rel" "$scope"
   done < <(find "$src_dir" -type f -print0)
 }
@@ -530,6 +817,7 @@ merge_json_file() {
     return
   fi
   # Deep merge: pack first, user second -> user wins on scalar conflicts.
+  backup_if_user_owned "$dst" "$scope"
   local tmp
   tmp="$(mktemp)"
   if jq -s '.[0] * .[1]' "$src" "$dst" > "$tmp" 2>/dev/null; then
@@ -552,13 +840,17 @@ render_hooks_json() {
   local pack_root="$1"
   local template="$SOURCE/hooks/hooks.template.json"
   [[ -f "$template" ]] || { echo ""; return; }
+  local lib="$SOURCE/hooks/scripts/lib/render-hooks.sh"
+  [[ -f "$lib" ]] || { echo ""; return; }
+  # shellcheck source=../hooks/scripts/lib/render-hooks.sh
+  source "$lib"
   local tmp
   tmp="$(mktemp)"
-  # Escape '&' and backslashes for sed replacement safety.
-  local escaped_root
-  escaped_root="$(printf '%s' "$pack_root" | sed -e 's/[\\/&]/\\&/g')"
-  # Use '|' delimiter since filesystem paths normally don't contain it.
-  sed "s|__PACK_ROOT__|$escaped_root|g" "$template" > "$tmp"
+  if ! render_hooks_template "$template" "$tmp" "$pack_root"; then
+    rm -f "$tmp"
+    echo ""
+    return
+  fi
   echo "$tmp"
 }
 
@@ -738,6 +1030,7 @@ process_claude_settings() {
         record ".claude/settings.json" "copied" "$dst"
       elif command -v jq >/dev/null 2>&1; then
         # Replace only the .hooks key, preserve everything else.
+        backup_if_user_owned "$dst" "workspace"
         local tmp
         tmp="$(mktemp)"
         if jq -s '.[0] as $existing | .[1] as $new | $existing + {hooks: $new.hooks}' \
@@ -765,6 +1058,72 @@ process_claude_settings() {
   esac
 }
 
+process_github_skills() {
+  # Skills must live in the workspace for VS Code Copilot to discover them.
+  copy_tree ".github/skills" "$SOURCE/.github/skills" "$WORKSPACE/.github/skills" "workspace"
+}
+
+process_github_agents() {
+  # Custom chat modes (e.g. Assert-IQ.agent.md) read from .github/agents.
+  if [[ -d "$SOURCE/.github/agents" ]]; then
+    copy_tree ".github/agents" "$SOURCE/.github/agents" "$WORKSPACE/.github/agents" "workspace"
+  fi
+}
+
+process_claude_agents() {
+  # Claude Code subagents must live in .claude/agents within the workspace.
+  if [[ -d "$SOURCE/.claude/agents" ]]; then
+    copy_tree ".claude/agents" "$SOURCE/.claude/agents" "$WORKSPACE/.claude/agents" "workspace"
+  fi
+}
+
+process_claude_skills_link() {
+  # Mirror install.sh: prefer a relative symlink .claude/skills -> ../.github/skills
+  # so Claude Code auto-discovers the same skills Copilot uses. Falls back to a
+  # recursive copy on filesystems / OSes where symlinks are unavailable.
+  local dst="$WORKSPACE/.claude/skills"
+  local target_rel="../.github/skills"
+  local target_abs="$WORKSPACE/.github/skills"
+
+  if [[ -L "$dst" ]]; then
+    local current
+    current="$(readlink "$dst" 2>/dev/null || echo "")"
+    if [[ "$current" == "$target_rel" ]]; then
+      manifest_add "unchanged_owned" "$dst" "workspace"
+      record ".claude/skills" "unchanged (pack-owned symlink)" "$dst"
+      return
+    fi
+    # User-owned symlink pointing elsewhere — write a sidecar, never overwrite.
+    local side="$dst.assert-iq-new"
+    rm -f "$side"
+    ln -s "$target_rel" "$side" 2>/dev/null || cp -R "$target_abs" "$side"
+    manifest_add "sidecar" "$side" "workspace"
+    record ".claude/skills" "sidecar (existing symlink) -> .assert-iq-new" "$side"
+    return
+  fi
+
+  if [[ -e "$dst" ]]; then
+    local side="$dst.assert-iq-new"
+    rm -rf "$side"
+    ln -s "$target_rel" "$side" 2>/dev/null || cp -R "$target_abs" "$side"
+    manifest_add "sidecar" "$side" "workspace"
+    record ".claude/skills" "sidecar (path exists) -> .assert-iq-new" "$side"
+    return
+  fi
+
+  mkdir -p "$(dirname "$dst")"
+  if ln -s "$target_rel" "$dst" 2>/dev/null; then
+    manifest_add "created" "$dst" "workspace"
+    record ".claude/skills" "linked -> $target_rel" "$dst"
+  elif [[ -d "$target_abs" ]]; then
+    cp -R "$target_abs" "$dst"
+    manifest_add "created" "$dst" "workspace"
+    record ".claude/skills" "copied (symlink unavailable)" "$dst"
+  else
+    record ".claude/skills" "missing-source" "$target_abs"
+  fi
+}
+
 process_assert_iq
 process_instructions
 process_claude
@@ -773,6 +1132,10 @@ process_agents
 process_vscode
 process_hooks
 process_claude_settings
+process_github_skills
+process_github_agents
+process_claude_agents
+process_claude_skills_link
 
 # =============================================================================
 # Finalize: manifest + git-exclude wiring (trial mode only)

@@ -1,6 +1,6 @@
 # /assert-iq-bootstrap
 
-Bootstrap an Assert.IQ plugin install into a workspace. Walks the user
+Bootstrap the Assert.IQ Agent Pack into a workspace. Walks the user
 through choosing — per workspace-loaded surface — whether each goes to
 the workspace, the user-global slot (where supported), or is skipped.
 Then invokes the appropriate script with explicit flags. Cross-platform
@@ -8,22 +8,40 @@ Then invokes the appropriate script with explicit flags. Cross-platform
 
 ## When to use
 
-- User just installed the Assert.IQ pack as a plugin and the agent
-  found `.assert-iq/maturity-profile.md` is missing from both the
-  workspace and `~/.assert-iq/`.
+This is the **codebase-install** path. Run it when the user wants the
+pack to live inside their target repository (any workspace that is not
+the pack repo itself).
+
+If the user instead wants to play with Assert.IQ inside the pack repo
+itself — without touching their team's codebase — direct them to
+`bash install.sh` (or `pwsh ./install.ps1`) at the root of the cloned
+pack and stop. That path opens the pack folder as the workspace; this
+skill is for everything else.
+
+Trigger conditions for this skill:
+
+- User just brought the Assert.IQ pack onto their machine (cloned the
+  repo) and wants it installed into a target codebase.
 - User explicitly typed `/assert-iq-bootstrap`.
-- User opened the pack in a new repo and asked anything that requires
-  maturity-tier or governance context.
+- The agent found `.assert-iq/maturity-profile.md` is missing from both
+  the workspace and `~/.assert-iq/` and the user wants quality/release
+  reasoning grounded in that config.
 
 ## What it copies
 
-Eight workspace-loaded surfaces that the plugin install delivers to disk
-but does **not** wire into the tool automatically:
+Twelve workspace-loaded surfaces. Bootstrap is the **complete codebase
+install** — Copilot and Claude Code can't auto-discover skills or
+agents that aren't physically present in the workspace, so all of them
+ship into the target repo.
 
 | Surface | What it is |
 |---|---|
 | `.assert-iq/` | Per-client config: `config.yaml`, `governance.md`, `maturity-profile.md`, `signal-schema.json` |
 | `.github/instructions/*.instructions.md` | Five QI rule sheets that load via `applyTo` globs |
+| `.github/skills/` | All 24 QI skills — Copilot Chat reads them from this workspace path |
+| `.github/agents/` | `Assert-IQ.agent.md` and `Assert-IQ-PLAN.agent.md` custom chat modes |
+| `.claude/agents/` | Claude Code subagent counterparts (`assert-iq.md`, `assert-iq-plan.md`) |
+| `.claude/skills` | Symlink to `../.github/skills` (copy fallback when symlinks unavailable) so Claude Code discovers the same skills |
 | `CLAUDE.md` | Always-on QI guidance for Claude Code |
 | `.github/copilot-instructions.md` | Always-on QI guidance for Copilot |
 | `AGENTS.md` | Generic agent-spec pointer (Codex, Cursor, Aider) |
@@ -54,7 +72,7 @@ disk are untouched.
 1. **Greet and explain**. "I'll set up the Assert.IQ pack in this
    workspace. First — do you want to **trial** it (files local-only,
    ignored by `.git/info/exclude`) or **commit** it (visible to git)?
-   Then I'll ask where each of five surfaces goes."
+   Then I'll ask where each of the configurable surfaces goes."
 
 2. **Decide trial vs committed.** Always pass `--mode=` explicitly to
    the script — the chat is the prompt surface, not the script. This
@@ -81,9 +99,9 @@ disk are untouched.
      `scripts/bootstrap.sh` elsewhere.
 
 5. **Resolve the source dir**. Prefer `$CLAUDE_PLUGIN_ROOT` if set
-   (plugin install). Fall back to the pack root if running from a
-   drop-in checkout. The script handles this automatically when
-   `--source` is omitted.
+   (Claude Code surfaces it for installed packs). Fall back to the pack
+   root if running from a cloned checkout. The script handles this
+   automatically when `--source` is omitted.
 
 6. **Invoke the script** with explicit flags (always pass `--mode=`
    from the chat to avoid double-prompting the user):
@@ -126,6 +144,20 @@ disk are untouched.
    pwsh -File scripts/bootstrap.ps1 -Graduate
    ```
 
+   **Removing the pack from a workspace:**
+   ```bash
+   bash scripts/bootstrap.sh --uninstall              # macOS / Linux
+   bash scripts/bootstrap.sh --uninstall --user       # also remove user-global copies
+   bash scripts/bootstrap.sh --uninstall --dry-run    # preview without changes
+   pwsh -File scripts/bootstrap.ps1 -Uninstall        # Windows
+   ```
+   The uninstall reads `.assert-iq/.install-manifest.json`, restores
+   any pre-existing files from their `<file>.assert-iq.pre-install`
+   snapshots (preserving the post-install copy at
+   `<file>.assert-iq.uninstall-saved` if it changed), removes
+   pack-owned files, and strips the trial-mode block from
+   `.git/info/exclude`.
+
 7. **Show the summary table the script prints** verbatim. It tells the
    user what was copied, what was skipped (already present), what was
    skipped by user choice, and what was skipped because no user-global
@@ -144,6 +176,10 @@ disk are untouched.
 | `--committed` / `-Committed` | (switch) | shorthand for `--mode=committed` |
 | `--graduate` / `-Graduate` | (switch) | reverses trial mode; exits after |
 | `--untrial` / `-Untrial` | (switch) | alias for `--graduate` |
+| `--uninstall` / `-Uninstall` | (switch) | removes the pack from this workspace; exits after |
+| `--user` / `-User` | (switch, with `--uninstall`) | also remove user-global copies |
+| `--yes` / `-Yes` (`-y`) | (switch, with `--uninstall`) | skip the confirmation prompt |
+| `--dry-run` / `-DryRun` | (switch, with `--uninstall`) | preview operations without changing files |
 | `--preset` / `-Preset` | `solo`, `pod` | (none — falls back to `pod` if no per-surface flags given) |
 | `--assert-iq` / `-AssertIq` | `workspace`, `user`, `skip` | preset default |
 | `--instructions` / `-Instructions` | `workspace`, `user`, `skip` | preset default |

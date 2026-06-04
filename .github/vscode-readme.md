@@ -49,35 +49,49 @@ and hooks.
 
 ## Uninstalling the pack
 
-**If you installed the pack as a plugin** (via `Chat: Install Plugin From
-Source` or `@agentPlugins`):
+There are exactly two install paths and each has a matching uninstall.
 
-1. Open the Extensions view (`⇧⌘X`) and search `@agentPlugins`.
-2. In the **Agent Plugins — Installed** section, right-click `assert-iq`
-   and choose **Uninstall** (or **Disable** to keep it on disk).
-3. Or, from the Chat view: gear icon → **Plugins** → uninstall.
-4. If anything sticks, manually delete the cached clone at
-   `~/Library/Application Support/Code/agentPlugins/...` (macOS),
-   `~/.config/Code/agentPlugins/...` (Linux), or
-   `%APPDATA%\Code\agentPlugins\...` (Windows).
+**Path A — pack-as-workspace** (`bash install.sh` / `pwsh ./install.ps1`
+at the root of the cloned pack):
 
-**If you installed via `chat.pluginLocations` in `settings.json`**, just
-remove the entry (or set its value to `false` to disable).
+```bash
+bash install.sh --uninstall          # macOS / Linux / WSL
+pwsh ./install.ps1 -Uninstall        # Windows
+```
 
-**If you dropped the pack into the repo as files** (the "drop-in"
-model — no plugin install), simply delete `.github/`, `.vscode/mcp.json`,
-`.vscode/settings.json`, `hooks/`, `.claude-plugin/`, `.assert-iq/`,
-`MANIFEST.md`, `README.assert-iq.md`, `AGENTS.md`, and `CLAUDE.md` from
-the repo root.
+That removes `.claude/skills`, the rendered `hooks/hooks.json`, and the
+`hooks` key from `.claude/settings.json` (preserving any other keys you
+had). The committed pack files (`.github/`, `CLAUDE.md`, `AGENTS.md`,
+the `hooks/` scripts and template) remain — delete them or `git rm`
+them when you're done with the clone.
+
+**Path B — codebase install** (`/assert-iq-bootstrap` or
+`bash scripts/bootstrap.sh --mode=trial` inside your target repo):
+
+```bash
+bash scripts/bootstrap.sh --uninstall            # macOS / Linux
+bash scripts/bootstrap.sh --uninstall --user     # also remove user-global copies
+bash scripts/bootstrap.sh --uninstall --dry-run  # preview without changes
+pwsh -File scripts/bootstrap.ps1 -Uninstall      # Windows
+```
+
+The uninstall reads `.assert-iq/.install-manifest.json`, restores any
+pre-existing files from their `<file>.assert-iq.pre-install` snapshots,
+removes pack-owned files (including `.github/skills/`, `.github/agents/`,
+`.claude/agents/`, and the `.claude/skills` symlink), strips the
+trial-mode block from `.git/info/exclude`, and clears `hooks/state`,
+`hooks/logs`, and `hooks/sessions`. Files you edited post-install are
+preserved at `<file>.assert-iq.uninstall-saved` so nothing is silently
+lost.
 
 ---
 
-## What the plugin install does **not** auto-wire — and how to fix it
+## What the bootstrap does **not** auto-wire — and how to fix it
 
-The plugin install delivers **every file in the pack to disk**, but VS
-Code and Copilot only auto-load some of them from the plugin install
-directory. Eight surfaces have to live in the **workspace** (or a
-user-global slot) to be picked up:
+The bootstrap delivers **every file in the pack to disk** at the right
+location, but VS Code and Copilot only auto-load some of them from a
+specific set of paths. Eight surfaces have to live in the **workspace**
+(or a user-global slot) to be picked up:
 
 - `.github/copilot-instructions.md` — the always-on QI house rules
 - `.github/instructions/qi-*.instructions.md` — the five `applyTo`
@@ -105,9 +119,10 @@ user-global slot) to be picked up:
 **Run `/assert-iq-bootstrap` once per new workspace.** The skill walks
 you through where each surface should live (workspace / user-global /
 skip), supports `solo` and `pod` presets, and copies the templates
-from the plugin install directory into the right places. Cross-platform
+from the cloned pack into the right places. Cross-platform
 (macOS, Linux, Windows). Pre-existing files are preserved (SHA256
-compare + interactive resolver); JSON settings files are deep-merged.
+compare + interactive resolver); JSON settings files are deep-merged
+and snapshotted to `<file>.assert-iq.pre-install` for clean uninstall.
 Safe to re-run.
 
 ---

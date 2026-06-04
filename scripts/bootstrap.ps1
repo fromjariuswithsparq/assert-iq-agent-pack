@@ -1,7 +1,7 @@
 # Assert.IQ Agent Pack — workspace bootstrap (Windows / PowerShell)
 #
 # Copies workspace-loaded surfaces (instructions, .assert-iq/, CLAUDE.md,
-# copilot-instructions.md, AGENTS.md) from a plugin install into the
+# copilot-instructions.md, AGENTS.md) from the cloned pack into the
 # user's workspace or user-global slots.
 #
 # Three install modes:
@@ -57,7 +57,12 @@ param(
     [switch]$Trial,
     [switch]$Committed,
     [switch]$Graduate,
-    [switch]$Untrial
+    [switch]$Untrial,
+    [switch]$Uninstall,
+    [switch]$User,
+    [Alias('y')]
+    [switch]$Yes,
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = 'Stop'
@@ -65,7 +70,8 @@ $ErrorActionPreference = 'Stop'
 # Resolve mode shorthand switches.
 if ($Trial)     { $Mode = 'trial' }
 if ($Committed) { $Mode = 'committed' }
-$doGraduate = $Graduate -or $Untrial
+$doGraduate  = $Graduate -or $Untrial
+$doUninstall = [bool]$Uninstall
 
 $ExcludeBegin = '# >>> assert-iq trial mode (managed) >>>'
 $ExcludeEnd   = '# <<< assert-iq trial mode (managed) <<<'
@@ -110,7 +116,14 @@ function Get-Sha256($path) {
     return (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLower()
 }
 
-function Manifest-Add($action, $path, $scope) {
+# Manifest action sets — kept here so adding a new action only touches one
+# place. RemovableActions are deleted on uninstall; ExcludableActions are
+# emitted into .git/info/exclude in trial mode.
+$script:RemovableActions  = @('created','unchanged_owned','overwritten','rendered','sidecar')
+$script:ExcludableActions = @('created','unchanged_owned','overwritten','merged_hooks_key','merged_settings','rendered','sidecar')
+$script:MergedActions     = @('merged_settings','merged_hooks_key')
+
+function Add-ManifestEntry($action, $path, $scope) {
     $script:ManifestEntries.Add([pscustomobject]@{
         action = $action
         path   = $path
@@ -118,19 +131,71 @@ function Manifest-Add($action, $path, $scope) {
     }) | Out-Null
 }
 
-function Manifest-Write {
+function Backup-IfUserOwned {
+    # Snapshot a pre-existing user file before we modify or overwrite it,
+    # so -Uninstall can restore the original. No-op if the destination does
+    # not exist yet, or if a backup already exists (idempotent across re-runs).
+    param(
+        [Parameter(Mandatory)] [string] $Path,
+        [Parameter(Mandatory)] [string] $Scope
+    )
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return }
+    $backup = "$Path.assert-iq.pre-install"
+    if (Test-Path -LiteralPath $backup) { return }
+    Copy-Item -LiteralPath $Path -Destination $backup -Force
+    Add-ManifestEntry 'pre_install_backup' $backup $Scope
+}
+
+# Atomically write $Content to $Path: stage to a sibling temp file, validate
+# non-empty, then Move-Item -Force. Prevents truncation of user files on
+# interrupt or partial-write.
+function Write-AtomicFile {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [string] $Path,
+        [Parameter(Mandatory)] [string] $Content,
+        [string] $Encoding = 'UTF8'
+    )
+    if ([string]::IsNullOrWhiteSpace($Content)) {
+        throw "Write-AtomicFile: refusing to write empty content to $Path"
+    }
+    $parent = Split-Path -Parent $Path
+    if ($parent -and -not (Test-Path -LiteralPath $parent)) {
+        New-Item -ItemType Directory -Force -Path $parent | Out-Null
+    }
+    $tmp = "$Path.$([guid]::NewGuid().ToString('N')).tmp"
+    try {
+        Set-Content -LiteralPath $tmp -Value $Content -Encoding $Encoding
+        # Use FileInfo for the size check: Get-Item skips hidden/dotfiles
+        # without -Force, and the staged tmp basename can begin with '.'.
+        $info = New-Object System.IO.FileInfo($tmp)
+        if (-not $info.Exists -or $info.Length -eq 0) {
+            throw "Write-AtomicFile: staged file is empty: $tmp"
+        }
+        Move-Item -LiteralPath $tmp -Destination $Path -Force
+        $tmp = $null
+    } finally {
+        if ($tmp -and (Test-Path -LiteralPath $tmp)) {
+            Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Write-Manifest {
     $outDir = Split-Path -Parent $manifestPath
     if (-not (Test-Path -LiteralPath $outDir)) {
         New-Item -ItemType Directory -Force -Path $outDir | Out-Null
     }
 
     $packVersion = 'unknown'
-    $pluginJson = Join-Path $Source '.claude-plugin\plugin.json'
-    if (Test-Path -LiteralPath $pluginJson) {
+    $versionFile = Join-Path $Source 'VERSION'
+    if (Test-Path -LiteralPath $versionFile -PathType Leaf) {
         try {
-            $pv = (Get-Content -LiteralPath $pluginJson -Raw | ConvertFrom-Json).version
+            $pv = (Get-Content -LiteralPath $versionFile -TotalCount 1).Trim()
             if ($pv) { $packVersion = $pv }
-        } catch {}
+        } catch {
+            Write-Verbose "bootstrap: could not read VERSION: $_"
+        }
     }
     $now = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
@@ -145,7 +210,9 @@ function Manifest-Write {
                 $preserved = $existing.paths | Where-Object { $newPathSet -notcontains $_.path }
                 $allPaths = @($preserved) + @($newPaths)
             }
-        } catch {}
+        } catch {
+            Write-Verbose "bootstrap: could not merge existing manifest: $_"
+        }
     }
 
     $manifest = [pscustomobject]@{
@@ -154,7 +221,7 @@ function Manifest-Write {
         mode         = $Mode
         paths        = $allPaths
     }
-    $manifest | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $manifestPath -Encoding UTF8
+    Write-AtomicFile -Path $manifestPath -Content ($manifest | ConvertTo-Json -Depth 10)
 }
 
 function Get-GitDir {
@@ -172,13 +239,34 @@ function Get-ExcludeFilePath {
     return (Join-Path $gd 'info\exclude')
 }
 
-function Is-Tracked($absPath) {
-    $rel = $absPath
-    if ($absPath.StartsWith($Workspace)) {
-        $rel = $absPath.Substring($Workspace.Length).TrimStart('\','/')
+function ConvertTo-WorkspaceRelative([string]$absPath) {
+    # Windows paths are case-insensitive; .NET String.StartsWith defaults to
+    # ordinal/case-sensitive. Use OrdinalIgnoreCase so a manifest entry written
+    # via different casing still relativizes correctly.
+    if ($absPath.StartsWith($Workspace, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $absPath.Substring($Workspace.Length).TrimStart('\','/')
     }
+    return $absPath
+}
+
+function Test-Tracked($absPath) {
+    $rel = ConvertTo-WorkspaceRelative $absPath
     git -C $Workspace ls-files --error-unmatch -- $rel 2>$null | Out-Null
     return ($LASTEXITCODE -eq 0)
+}
+
+# Strip a managed begin..end block from an array of lines. Returns the
+# kept lines; sets $script:_StripRemoved = $true if any block was found.
+function Remove-ManagedBlockLines([string[]]$Lines) {
+    $script:_StripRemoved = $false
+    $kept = New-Object System.Collections.Generic.List[string]
+    $skip = $false
+    foreach ($line in $Lines) {
+        if ($line -eq $ExcludeBegin) { $skip = $true; $script:_StripRemoved = $true; continue }
+        if ($skip -and $line -eq $ExcludeEnd) { $skip = $false; continue }
+        if (-not $skip) { $kept.Add($line) | Out-Null }
+    }
+    return ,$kept.ToArray()
 }
 
 function Write-ExcludeBlock {
@@ -200,13 +288,9 @@ function Write-ExcludeBlock {
     $skippedTracked = New-Object System.Collections.Generic.List[string]
     foreach ($e in $script:ManifestEntries) {
         if ($e.scope -ne 'workspace') { continue }
-        if (@('created','unchanged_owned','overwritten','merged_hooks_key','merged_settings','rendered','sidecar') -notcontains $e.action) { continue }
-        $rel = $e.path
-        if ($e.path.StartsWith($Workspace)) {
-            $rel = $e.path.Substring($Workspace.Length).TrimStart('\','/')
-        }
-        $rel = $rel -replace '\\','/'
-        if (Is-Tracked $e.path) {
+        if ($script:ExcludableActions -notcontains $e.action) { continue }
+        $rel = (ConvertTo-WorkspaceRelative $e.path) -replace '\\','/'
+        if (Test-Tracked $e.path) {
             $skippedTracked.Add($rel) | Out-Null
         } else {
             $rels.Add($rel) | Out-Null
@@ -214,25 +298,15 @@ function Write-ExcludeBlock {
     }
 
     # Always exclude the manifest itself.
-    $manifestRel = $manifestPath
-    if ($manifestPath.StartsWith($Workspace)) {
-        $manifestRel = $manifestPath.Substring($Workspace.Length).TrimStart('\','/')
-    }
-    $manifestRel = $manifestRel -replace '\\','/'
-    if (-not (Is-Tracked $manifestPath)) {
+    $manifestRel = (ConvertTo-WorkspaceRelative $manifestPath) -replace '\\','/'
+    if (-not (Test-Tracked $manifestPath)) {
         $rels.Add($manifestRel) | Out-Null
     }
 
     # Read current exclude, strip any prior managed block, then append fresh block.
     $existing = Get-Content -LiteralPath $excl -ErrorAction SilentlyContinue
     if ($null -eq $existing) { $existing = @() }
-    $kept = New-Object System.Collections.Generic.List[string]
-    $skip = $false
-    foreach ($line in $existing) {
-        if ($line -eq $ExcludeBegin) { $skip = $true; continue }
-        if ($skip -and $line -eq $ExcludeEnd) { $skip = $false; continue }
-        if (-not $skip) { $kept.Add($line) | Out-Null }
-    }
+    $kept = Remove-ManagedBlockLines $existing
 
     $newLines = New-Object System.Collections.Generic.List[string]
     foreach ($l in $kept) { $newLines.Add($l) | Out-Null }
@@ -260,23 +334,16 @@ function Write-ExcludeBlock {
     Write-Host "  scripts\bootstrap.ps1 -Graduate"
 }
 
-function Strip-ExcludeBlock {
+function Remove-ExcludeBlock {
     $excl = Get-ExcludeFilePath
     if (-not $excl -or -not (Test-Path -LiteralPath $excl)) {
         Write-Host "No .git/info/exclude found — nothing to do."
         return
     }
     $existing = Get-Content -LiteralPath $excl
-    $kept = New-Object System.Collections.Generic.List[string]
-    $skip = $false
-    $removed = $false
-    foreach ($line in $existing) {
-        if ($line -eq $ExcludeBegin) { $skip = $true; $removed = $true; continue }
-        if ($skip -and $line -eq $ExcludeEnd) { $skip = $false; continue }
-        if (-not $skip) { $kept.Add($line) | Out-Null }
-    }
+    $kept = Remove-ManagedBlockLines $existing
     Set-Content -LiteralPath $excl -Value $kept -Encoding UTF8
-    if ($removed) {
+    if ($script:_StripRemoved) {
         Write-Host "Removed Assert.IQ managed block from $excl"
     } else {
         Write-Host "No Assert.IQ managed block found in $excl — nothing to remove."
@@ -289,12 +356,12 @@ function Strip-ExcludeBlock {
 
 if ($doGraduate) {
     Write-Host '=== Assert.IQ graduate: trial -> committed ==='
-    Strip-ExcludeBlock
+    Remove-ExcludeBlock
     if (Test-Path -LiteralPath $manifestPath) {
         try {
             $m = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
             $m.mode = 'committed'
-            $m | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $manifestPath -Encoding UTF8
+            Write-AtomicFile -Path $manifestPath -Content ($m | ConvertTo-Json -Depth 10)
             Write-Host "Updated ${manifestPath}: mode -> committed"
         } catch {
             Write-Warning "Could not update manifest mode: $_"
@@ -305,6 +372,223 @@ if ($doGraduate) {
     Write-Host '  git status                       # confirm pack files are untracked'
     Write-Host '  git add .assert-iq .claude .github CLAUDE.md AGENTS.md'
     Write-Host '  git commit -m "chore: adopt Assert.IQ agent pack"'
+    exit 0
+}
+
+# =============================================================================
+# -Uninstall short-circuit
+# =============================================================================
+
+function Invoke-Uninstall {
+    $prefix = if ($DryRun) { '[dry-run] ' } else { '' }
+
+    Write-Host '=== Assert.IQ uninstall ==='
+    Write-Host "Workspace: $Workspace"
+    Write-Host "Manifest:  $manifestPath"
+    if ($User) {
+        Write-Host 'Scope:     workspace + user-global slots'
+    } else {
+        Write-Host 'Scope:     workspace only (use -User to also remove user-global copies)'
+    }
+    if ($DryRun) { Write-Host 'Mode:      DRY RUN (no files will be changed)' }
+    Write-Host ''
+
+    if (-not (Test-Path -LiteralPath $manifestPath)) {
+        Write-Host "No manifest found at $manifestPath."
+        Write-Host 'Nothing to uninstall (or this workspace was not bootstrapped).'
+        return
+    }
+
+    if (-not $DryRun -and -not $Yes) {
+        $isInteractive = [Environment]::UserInteractive -and -not [Console]::IsInputRedirected
+        if ($isInteractive) {
+            Write-Host 'This will:'
+            Write-Host '  - delete files the bootstrap created in this workspace'
+            Write-Host '  - restore originals where the bootstrap modified your files (from .assert-iq.pre-install backups)'
+            Write-Host '  - strip the trial-mode block from .git/info/exclude (if any)'
+            Write-Host '  - clear hooks/state, hooks/logs, hooks/sessions runtime data'
+            if ($User) {
+                Write-Host '  - also remove user-scope copies in ~/.assert-iq, ~/.claude, and the user prompts dir'
+            }
+            Write-Host "  - delete $manifestPath"
+            Write-Host ''
+            $ans = Read-Host 'Proceed? [y/N]'
+            if ($ans -notmatch '^[yY]') { Write-Host 'Aborted.'; exit 1 }
+        }
+    }
+
+    Remove-ExcludeBlock | Out-Null
+    Write-Host ''
+
+    $script:UninstallStats = [pscustomobject]@{
+        Removed = 0; Restored = 0; Preserved = 0; Skipped = 0
+    }
+
+    function Remove-PathOrDir([string]$p) {
+        if (-not (Test-Path -LiteralPath $p)) {
+            $script:UninstallStats.Skipped++
+            return
+        }
+        if ($DryRun) {
+            Write-Host "${prefix}rm: $p"
+            $script:UninstallStats.Removed++
+            return
+        }
+        $item = Get-Item -LiteralPath $p -Force
+        # Symlinks (including directory symlinks) must be unlinked, never recursed.
+        if ($item.LinkType -in @('SymbolicLink','Junction')) {
+            try {
+                if ($item.PSIsContainer) {
+                    [System.IO.Directory]::Delete($p)
+                } else {
+                    [System.IO.File]::Delete($p)
+                }
+            } catch {
+                Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue
+            }
+        } elseif ($item.PSIsContainer) {
+            Remove-Item -LiteralPath $p -Recurse -Force -ErrorAction SilentlyContinue
+        } else {
+            Remove-Item -LiteralPath $p -Force -ErrorAction SilentlyContinue
+        }
+        $script:UninstallStats.Removed++
+    }
+
+    function Restore-Backup([string]$backup) {
+        $original = $backup -replace '\.assert-iq\.pre-install$',''
+        if (-not (Test-Path -LiteralPath $backup -PathType Leaf)) {
+            Write-Warning "${prefix}backup not found, skipping restore: $backup"
+            $script:UninstallStats.Skipped++
+            return
+        }
+        if ($DryRun) {
+            Write-Host "${prefix}restore: $original  (from $backup)"
+            $script:UninstallStats.Restored++
+            return
+        }
+        if (Test-Path -LiteralPath $original -PathType Leaf) {
+            Copy-Item -LiteralPath $original -Destination "$original.assert-iq.uninstall-saved" -Force -ErrorAction SilentlyContinue
+        }
+        Copy-Item -LiteralPath $backup -Destination $original -Force
+        Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
+        $script:UninstallStats.Restored++
+    }
+
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    $entries  = @($manifest.paths)
+
+    function Invoke-Entry($e) {
+        if ($e.scope -eq 'user' -and -not $User) {
+            $script:UninstallStats.Preserved++
+            return
+        }
+        switch ($e.action) {
+            'pre_install_backup' { Restore-Backup $e.path }
+            { $script:RemovableActions -contains $_ } {
+                Remove-PathOrDir $e.path
+            }
+            { $script:MergedActions -contains $_ } {
+                if (Test-Path -LiteralPath ($e.path + '.assert-iq.pre-install') -PathType Leaf) {
+                    # Will be restored by the corresponding pre_install_backup entry.
+                } else {
+                    Write-Host "preserved (no pre-install backup): $($e.path)"
+                    $script:UninstallStats.Preserved++
+                }
+            }
+            default {
+                Write-Warning "unknown manifest action '$($e.action)' for $($e.path) — skipping (manifest may be from a newer pack version)"
+                $script:UninstallStats.Skipped++
+            }
+        }
+    }
+
+    # Restore backups first so the original files exist before we try to clean up modified copies.
+    foreach ($e in $entries | Where-Object { $_.action -eq 'pre_install_backup' }) {
+        Invoke-Entry $e
+    }
+    foreach ($e in $entries | Where-Object { $_.action -ne 'pre_install_backup' }) {
+        Invoke-Entry $e
+    }
+
+    foreach ($d in @(
+            (Join-Path $Workspace 'hooks\state'),
+            (Join-Path $Workspace 'hooks\logs'),
+            (Join-Path $Workspace 'hooks\sessions'))) {
+        if (Test-Path -LiteralPath $d) { Remove-PathOrDir $d }
+    }
+
+    if (-not $DryRun) {
+        # First, clean nested empty subdirectories left by tree-style copies
+        # (.github/skills/<skill>/, eval-optimizer/references/, etc.).
+        foreach ($tree in @(
+                (Join-Path $Workspace '.github\skills'),
+                (Join-Path $Workspace '.github\agents'),
+                (Join-Path $Workspace '.claude\agents'),
+                (Join-Path $Workspace 'hooks'))) {
+            if ((Test-Path -LiteralPath $tree -PathType Container) -and `
+                ((Get-Item -LiteralPath $tree -Force).LinkType -notin @('SymbolicLink','Junction'))) {
+                Get-ChildItem -LiteralPath $tree -Recurse -Force -Directory -ErrorAction SilentlyContinue |
+                    Sort-Object -Property FullName -Descending |
+                    ForEach-Object {
+                        if (-not (Get-ChildItem -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue)) {
+                            Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue
+                        }
+                    }
+            }
+        }
+        foreach ($d in @(
+                (Join-Path $Workspace 'hooks'),
+                (Join-Path $Workspace '.vscode'),
+                (Join-Path $Workspace '.claude\agents'),
+                (Join-Path $Workspace '.claude\skills'),
+                (Join-Path $Workspace '.claude'),
+                (Join-Path $Workspace '.github\instructions'),
+                (Join-Path $Workspace '.github\agents'),
+                (Join-Path $Workspace '.github\skills'),
+                (Join-Path $Workspace '.github'),
+                (Join-Path $Workspace '.assert-iq'))) {
+            if ((Test-Path -LiteralPath $d -PathType Container) -and `
+                ((Get-Item -LiteralPath $d -Force).LinkType -notin @('SymbolicLink','Junction')) -and `
+                -not (Get-ChildItem -LiteralPath $d -Force -ErrorAction SilentlyContinue)) {
+                Remove-Item -LiteralPath $d -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    if ($DryRun) {
+        Write-Host "${prefix}rm: $manifestPath"
+    } else {
+        Remove-Item -LiteralPath $manifestPath -Force -ErrorAction SilentlyContinue
+        $mDir = Split-Path -Parent $manifestPath
+        if ((Test-Path -LiteralPath $mDir) -and `
+            -not (Get-ChildItem -LiteralPath $mDir -Force -ErrorAction SilentlyContinue)) {
+            Remove-Item -LiteralPath $mDir -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    Write-Host ''
+    Write-Host ("Summary: {0} removed, {1} restored from backup, {2} preserved, {3} skipped." -f `
+        $script:UninstallStats.Removed, $script:UninstallStats.Restored, `
+        $script:UninstallStats.Preserved, $script:UninstallStats.Skipped)
+
+    if (-not $User) {
+        $userCount = @($entries | Where-Object { $_.scope -eq 'user' }).Count
+        if ($userCount -gt 0) {
+            Write-Host ''
+            Write-Host "Note: $userCount user-scope path(s) were preserved."
+            Write-Host '      Re-run with -User to also remove user-global copies.'
+        }
+    }
+    Write-Host ''
+    if ($DryRun) {
+        Write-Host 'Dry run complete. Re-run without -DryRun to apply.'
+    } else {
+        Write-Host 'Uninstall complete.'
+    }
+}
+
+if ($doUninstall) {
+    Invoke-Uninstall
     exit 0
 }
 
@@ -435,7 +719,7 @@ function Copy-FileScoped {
             New-Item -ItemType Directory -Force -Path $parent | Out-Null
         }
         Copy-Item -LiteralPath $Src -Destination $Dst -Force:$false
-        Manifest-Add 'created' $Dst $Scope
+        Add-ManifestEntry 'created' $Dst $Scope
         Record $Label 'copied' $Dst
         return
     }
@@ -443,7 +727,7 @@ function Copy-FileScoped {
     $shSrc = Get-Sha256 $Src
     $shDst = Get-Sha256 $Dst
     if ($shSrc -and ($shSrc -eq $shDst)) {
-        Manifest-Add 'unchanged_owned' $Dst $Scope
+        Add-ManifestEntry 'unchanged_owned' $Dst $Scope
         Record $Label 'unchanged (pack-owned)' $Dst
         return
     }
@@ -454,14 +738,15 @@ function Copy-FileScoped {
             Record $Label 'skipped (user kept existing)' $Dst
         }
         'overwrite' {
+            Backup-IfUserOwned -Path $Dst -Scope $Scope
             Copy-Item -LiteralPath $Src -Destination $Dst -Force
-            Manifest-Add 'overwritten' $Dst $Scope
+            Add-ManifestEntry 'overwritten' $Dst $Scope
             Record $Label 'overwritten' $Dst
         }
         'sidecar' {
             $side = "$Dst.assert-iq-new"
             Copy-Item -LiteralPath $Src -Destination $side -Force
-            Manifest-Add 'sidecar' $side $Scope
+            Add-ManifestEntry 'sidecar' $side $Scope
             Record $Label 'sidecar -> .assert-iq-new' $side
         }
     }
@@ -524,7 +809,7 @@ function Merge-JsonFile {
     $shSrc = Get-Sha256 $Src
     $shDst = Get-Sha256 $Dst
     if ($shSrc -and ($shSrc -eq $shDst)) {
-        Manifest-Add 'unchanged_owned' $Dst $Scope
+        Add-ManifestEntry 'unchanged_owned' $Dst $Scope
         Record $Label 'unchanged (pack-owned)' $Dst
         return
     }
@@ -532,31 +817,28 @@ function Merge-JsonFile {
         $packJson = Get-Content -LiteralPath $Src -Raw | ConvertFrom-Json
         $userJson = Get-Content -LiteralPath $Dst -Raw | ConvertFrom-Json
         $merged   = Merge-Hashtables -Pack $packJson -User $userJson
-        $merged | ConvertTo-Json -Depth 32 | Set-Content -LiteralPath $Dst -Encoding UTF8
-        Manifest-Add 'merged_settings' $Dst $Scope
+        Backup-IfUserOwned -Path $Dst -Scope $Scope
+        Write-AtomicFile -Path $Dst -Content ($merged | ConvertTo-Json -Depth 32)
+        Add-ManifestEntry 'merged_settings' $Dst $Scope
         Record $Label 'merged (additive, yours wins)' $Dst
     } catch {
         # Parse or write failed — sidecar.
         $side = "$Dst.assert-iq-new"
         Copy-Item -LiteralPath $Src -Destination $side -Force
-        Manifest-Add 'sidecar' $side $Scope
+        Add-ManifestEntry 'sidecar' $side $Scope
         Record $Label 'sidecar (merge failed) -> .assert-iq-new' $side
     }
 }
 
-function Render-HooksJson {
+function Get-RenderedHooksJson {
     param([string]$PackRoot)
     $template = Join-Path $Source 'hooks\hooks.template.json'
     if (-not (Test-Path -LiteralPath $template)) { return '' }
+    $lib = Join-Path $Source 'hooks\scripts\lib\render-hooks.ps1'
+    if (-not (Test-Path -LiteralPath $lib)) { return '' }
+    . $lib
     $tmp = [System.IO.Path]::GetTempFileName()
-    # __PACK_ROOT__ in the template is used both as a POSIX path (bash side)
-    # and a Windows path (PowerShell side, single-quoted). Substitute both.
-    $content = Get-Content -LiteralPath $template -Raw
-    # __PACK_ROOT__ appears inside JSON strings; escape JSON-sensitive chars
-    # so Windows paths like C:\repo remain valid JSON.
-    $packRootJson = $PackRoot.Replace('\', '\\').Replace('"', '\"')
-    $content = $content.Replace('__PACK_ROOT__', $packRootJson)
-    Set-Content -LiteralPath $tmp -Value $content -Encoding UTF8 -NoNewline
+    Render-HooksTemplate -Template $template -Out $tmp -PackRoot $PackRoot
     return $tmp
 }
 
@@ -564,7 +846,7 @@ function Render-HooksJson {
 # Per-surface handlers
 # =============================================================================
 
-function Process-AssertIq {
+function Step-AssertIq {
     switch ($AssertIq) {
         'workspace' { Copy-TreeScoped '.assert-iq' (Join-Path $Source '.assert-iq') (Join-Path $Workspace '.assert-iq') 'workspace' }
         'user'      { Copy-TreeScoped '.assert-iq' (Join-Path $Source '.assert-iq') $userAssertIq 'user' }
@@ -573,7 +855,7 @@ function Process-AssertIq {
     }
 }
 
-function Process-Instructions {
+function Step-Instructions {
     $src = Join-Path $Source '.github\instructions'
     if (-not (Test-Path -LiteralPath $src)) {
         Record 'instructions' 'missing-source' $src
@@ -596,7 +878,7 @@ function Process-Instructions {
     }
 }
 
-function Process-Claude {
+function Step-Claude {
     $src = Join-Path $Source 'CLAUDE.md'
     switch ($Claude) {
         'workspace' { Copy-FileScoped 'CLAUDE.md' $src (Join-Path $Workspace 'CLAUDE.md') 'workspace' }
@@ -606,7 +888,7 @@ function Process-Claude {
     }
 }
 
-function Process-Copilot {
+function Step-Copilot {
     $src = Join-Path $Source '.github\copilot-instructions.md'
     switch ($Copilot) {
         'workspace' {
@@ -621,7 +903,7 @@ function Process-Copilot {
     }
 }
 
-function Process-Agents {
+function Step-Agents {
     $src = Join-Path $Source 'AGENTS.md'
     switch ($Agents) {
         'workspace' { Copy-FileScoped 'AGENTS.md' $src (Join-Path $Workspace 'AGENTS.md') 'workspace' }
@@ -634,7 +916,7 @@ function Process-Agents {
     }
 }
 
-function Process-VSCode {
+function Step-VSCode {
     # Wires VS Code Copilot to read instructions/prompts/hooks from the workspace.
     switch ($VSCode) {
         'workspace' {
@@ -659,7 +941,7 @@ function Process-VSCode {
     }
 }
 
-function Process-Hooks {
+function Step-Hooks {
     # Workspace-root hooks/ is what .vscode/settings.json's chat.hookFilesLocations
     # points at ("./hooks/hooks.json"). Renders hooks.json with __PACK_ROOT__ =
     # $Workspace so scripts resolve to the workspace copies.
@@ -695,9 +977,9 @@ function Process-Hooks {
             }
             $sessionsDst = Join-Path $Workspace 'hooks\sessions'
             New-Item -ItemType Directory -Path $sessionsDst -Force | Out-Null
-            Manifest-Add 'created' $sessionsDst 'workspace'
+            Add-ManifestEntry 'created' $sessionsDst 'workspace'
             Record 'hooks/sessions/' 'created' $sessionsDst
-            $rendered = Render-HooksJson -PackRoot $Workspace
+            $rendered = Get-RenderedHooksJson -PackRoot $Workspace
             if (-not $rendered) {
                 Record 'hooks/hooks.json' 'missing-template' (Join-Path $hooksSrcDir 'hooks.template.json')
             } else {
@@ -710,13 +992,13 @@ function Process-Hooks {
     }
 }
 
-function Process-ClaudeSettings {
+function Step-ClaudeSettings {
     # Merge only the .hooks key into .claude/settings.json; preserve everything
     # else. Copilot side disables this file via chat.hookFilesLocations to
     # avoid double-fire.
     switch ($ClaudeSettings) {
         'workspace' {
-            $rendered = Render-HooksJson -PackRoot $Workspace
+            $rendered = Get-RenderedHooksJson -PackRoot $Workspace
             if (-not $rendered) {
                 Record '.claude/settings.json' 'missing-template' (Join-Path $Source 'hooks\hooks.template.json')
                 return
@@ -728,7 +1010,7 @@ function Process-ClaudeSettings {
             }
             if (-not (Test-Path -LiteralPath $dst)) {
                 Copy-Item -LiteralPath $rendered -Destination $dst -Force
-                Manifest-Add 'created' $dst 'workspace'
+                Add-ManifestEntry 'created' $dst 'workspace'
                 Record '.claude/settings.json' 'copied' $dst
             } else {
                 try {
@@ -740,13 +1022,14 @@ function Process-ClaudeSettings {
                         if ($prop.Name -ne 'hooks') { $out[$prop.Name] = $prop.Value }
                     }
                     $out['hooks'] = $new.hooks
-                    [pscustomobject]$out | ConvertTo-Json -Depth 32 | Set-Content -LiteralPath $dst -Encoding UTF8
-                    Manifest-Add 'merged_hooks_key' $dst 'workspace'
+                    Backup-IfUserOwned -Path $dst -Scope 'workspace'
+                    Write-AtomicFile -Path $dst -Content ([pscustomobject]$out | ConvertTo-Json -Depth 32)
+                    Add-ManifestEntry 'merged_hooks_key' $dst 'workspace'
                     Record '.claude/settings.json' 'merged hooks key' $dst
                 } catch {
                     $side = "$dst.assert-iq-new"
                     Copy-Item -LiteralPath $rendered -Destination $side -Force
-                    Manifest-Add 'sidecar' $side 'workspace'
+                    Add-ManifestEntry 'sidecar' $side 'workspace'
                     Record '.claude/settings.json' 'sidecar (merge failed)' $side
                 }
             }
@@ -757,20 +1040,112 @@ function Process-ClaudeSettings {
     }
 }
 
-Process-AssertIq
-Process-Instructions
-Process-Claude
-Process-Copilot
-Process-Agents
-Process-VSCode
-Process-Hooks
-Process-ClaudeSettings
+function Step-GithubSkills {
+    # Skills must live in the workspace for VS Code Copilot to discover them.
+    Copy-TreeScoped -Label '.github/skills' `
+        -SrcDir (Join-Path $Source '.github\skills') `
+        -DstDir (Join-Path $Workspace '.github\skills') `
+        -Scope 'workspace'
+}
+
+function Step-GithubAgents {
+    # Custom chat modes (e.g. Assert-IQ.agent.md) read from .github/agents.
+    $src = Join-Path $Source '.github\agents'
+    if (Test-Path -LiteralPath $src -PathType Container) {
+        Copy-TreeScoped -Label '.github/agents' `
+            -SrcDir $src `
+            -DstDir (Join-Path $Workspace '.github\agents') `
+            -Scope 'workspace'
+    }
+}
+
+function Step-ClaudeAgents {
+    # Claude Code subagents must live in .claude/agents within the workspace.
+    $src = Join-Path $Source '.claude\agents'
+    if (Test-Path -LiteralPath $src -PathType Container) {
+        Copy-TreeScoped -Label '.claude/agents' `
+            -SrcDir $src `
+            -DstDir (Join-Path $Workspace '.claude\agents') `
+            -Scope 'workspace'
+    }
+}
+
+function Step-ClaudeSkillsLink {
+    # Mirror install.ps1: create .claude/skills as a symlink to ../.github/skills
+    # so Claude Code auto-discovers the same skills Copilot uses. On Windows
+    # without Developer Mode (or filesystems that reject symlinks) fall back to
+    # a recursive copy.
+    $dst       = Join-Path $Workspace '.claude\skills'
+    $targetRel = '..\.github\skills'
+    $targetAbs = Join-Path $Workspace '.github\skills'
+
+    if (Test-Path -LiteralPath $dst) {
+        $existing = Get-Item -LiteralPath $dst -Force
+        # PS 7+ exposes Target as string[] (length-1 for symlinks). Coerce
+        # to an array and use -contains so we get a real bool either way.
+        $targets = @($existing.Target)
+        $matchTargets = @($targetRel, ($targetRel -replace '\\','/'))
+        $isPackOwned = ($existing.LinkType -in @('SymbolicLink','Junction')) -and
+                       (@($targets | Where-Object { $matchTargets -contains $_ }).Count -gt 0)
+        if ($isPackOwned) {
+            Add-ManifestEntry 'unchanged_owned' $dst 'workspace'
+            Record '.claude/skills' 'unchanged (pack-owned symlink)' $dst
+            return
+        }
+        # Anything else — sidecar.
+        $side = "$dst.assert-iq-new"
+        if (Test-Path -LiteralPath $side) {
+            Remove-Item -LiteralPath $side -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        try {
+            New-Item -ItemType SymbolicLink -Path $side -Target $targetRel -Force | Out-Null
+        } catch {
+            if (Test-Path -LiteralPath $targetAbs -PathType Container) {
+                Copy-Item -LiteralPath $targetAbs -Destination $side -Recurse -Force
+            }
+        }
+        Add-ManifestEntry 'sidecar' $side 'workspace'
+        Record '.claude/skills' 'sidecar -> .assert-iq-new' $side
+        return
+    }
+
+    $parent = Split-Path -Parent $dst
+    if (-not (Test-Path -LiteralPath $parent)) {
+        New-Item -ItemType Directory -Force -Path $parent | Out-Null
+    }
+    try {
+        New-Item -ItemType SymbolicLink -Path $dst -Target $targetRel -Force -ErrorAction Stop | Out-Null
+        Add-ManifestEntry 'created' $dst 'workspace'
+        Record '.claude/skills' "linked -> $targetRel" $dst
+    } catch {
+        if (Test-Path -LiteralPath $targetAbs -PathType Container) {
+            Copy-Item -LiteralPath $targetAbs -Destination $dst -Recurse -Force
+            Add-ManifestEntry 'created' $dst 'workspace'
+            Record '.claude/skills' 'copied (symlink unavailable; enable Developer Mode then re-run)' $dst
+        } else {
+            Record '.claude/skills' 'missing-source' $targetAbs
+        }
+    }
+}
+
+Step-AssertIq
+Step-Instructions
+Step-Claude
+Step-Copilot
+Step-Agents
+Step-VSCode
+Step-Hooks
+Step-ClaudeSettings
+Step-GithubSkills
+Step-GithubAgents
+Step-ClaudeAgents
+Step-ClaudeSkillsLink
 
 # =============================================================================
 # Finalize: manifest + git-exclude wiring (trial mode only)
 # =============================================================================
 
-Manifest-Write
+Write-Manifest
 
 if ($Mode -eq 'trial') {
     Write-ExcludeBlock

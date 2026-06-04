@@ -34,7 +34,7 @@ The immediate impact:
 
 Assert.IQ is the accelerator. It drops a QI reasoning layer directly into **GitHub Copilot Chat** and **Claude Code** so teams don't have to learn a new tool or change their workflow. The IDE they already use becomes QI-aware.
 
-- **23 skills** covering the full QE lifecycle — test generation, code review, risk assessment, hotspot mapping, traceability matrices, release confidence, escaped-defect analysis, exploratory charters, and more.
+- **24 skills** covering the full QE lifecycle — test generation, code review, risk assessment, hotspot mapping, traceability matrices, release confidence, escaped-defect analysis, exploratory charters, and more.
 - **Two agents** (`Assert-IQ` for full execution, `Assert-IQ-PLAN` for plan-first workflows) with a built-in handoff button between them.
 - **Maturity-aware behavior** — a one-file config scales the pack from "early / manual generation only" to "higher / autonomous healing," meeting teams where they are.
 - **MCP wiring** to GitHub, ADO, Jira, Sentry, Grafana, Playwright, Slack, and 13 more tool surfaces — configured in one file, credentials kept in your OS keychain.
@@ -46,45 +46,50 @@ QI is the operating model. Assert.IQ is how teams act on it — from day one, in
 
 ## Get started in three steps
 
-### 1 · Install the plugin
+### 1 · Install the pack
 
-**VS Code Copilot Chat**
+There are exactly two install paths. Pick the one that matches how comfortable you are dropping the pack into your team's codebase.
 
-1. `Cmd+Shift+P` → **`Chat: Install Plugin From Source`**
-2. Paste the shorthand — no URL, no `@ref`:
-   ```
-   fromjariuswithsparq/assert-iq-agent-pack
-   ```
-3. Pick **`assert-iq`** from the list → confirm → **`Developer: Reload Window`**.
-
-**Claude Code**
+**Path A — Try it on the pack repo itself.** Best if you want to play with Assert.IQ before touching your team's repository. Clone the pack, run the installer, and open the **pack folder** as your VS Code / Claude Code workspace. Everything runs against the pack's own files — your team's codebase is never modified.
 
 ```bash
-/plugin install fromjariuswithsparq/assert-iq-agent-pack@v0.9.0
+git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack
+cd assert-iq-agent-pack
+bash install.sh           # macOS / Linux / WSL
+# or
+pwsh ./install.ps1        # Windows PowerShell 7+
 ```
 
-This installs the 23 skills and both agents globally. Nothing is written to your codebase yet — that's the next step.
+The installer renders hooks for the pack's own root, wires `.claude/settings.json`, and creates the `.claude/skills` symlink — all inside the pack folder. Re-runnable. Reverse it with `bash install.sh --uninstall` (or `pwsh ./install.ps1 -Uninstall`).
 
----
+**Path B — Install it into your codebase.** This is the real deployment path. Two equivalent ways to invoke it:
 
-### 2 · Bootstrap the plugin to your workspace
-
-Open the **target repo** (not this one), open the chat, and run:
-
-```
+```bash
+# From a chat session inside your target repo:
 /assert-iq-bootstrap
+
+# Or from a terminal inside your target repo:
+bash /path/to/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
+# Windows:
+pwsh /path/to/assert-iq-agent-pack/scripts/bootstrap.ps1 -Mode trial
 ```
 
-The skill asks two questions, then handles everything else:
+`--mode=trial` is the safe default for the first install: every pack file lands in your workspace, but the path is added to `.git/info/exclude`. Your team sees nothing — your codebase's `.gitignore` is **never** touched. Once you're ready for the team to see it, run `bash scripts/bootstrap.sh --graduate` (or use `--mode=committed` from the start).
 
-- **Trial or committed?** Trial hides pack files from git via `.git/info/exclude` — only you see them; your codebase `.gitignore` is never touched. Committed checks files in so the whole team benefits. Graduate from trial to committed any time with `scripts/bootstrap.sh --graduate`.
-- **Solo or pod?** Presets that tune defaults for individual contributors vs. cross-functional teams.
+Bootstrap writes twelve surfaces into the workspace: `.assert-iq/`, `.github/instructions/`, `.github/copilot-instructions.md`, `.github/skills/`, `.github/agents/`, `.claude/agents/`, `.claude/skills` (symlink to `../.github/skills` on macOS/Linux; copy fallback on Windows without Developer Mode), `.claude/settings.json`, `CLAUDE.md`, `AGENTS.md`, `.vscode/settings.json` + `.vscode/mcp.json`, and `hooks/`. Pre-existing user files are snapshotted to `<file>.assert-iq.pre-install` before any modification, so a later `bash scripts/bootstrap.sh --uninstall` can restore them byte-for-byte. Safe to re-run.
 
-Bootstrap copies instruction files, `.assert-iq/` config, `.vscode/settings.json`, `.vscode/mcp.json`, and hooks into the right places. It SHA256-compares before writing — pre-existing files are preserved, never silently overwritten. Safe to re-run.
+| | Path A — pack-as-workspace | Path B — install into codebase |
+|---|---|---|
+| **Command** | `bash install.sh` | `/assert-iq-bootstrap` or `bash scripts/bootstrap.sh --mode=trial` |
+| **Workspace** | The pack folder itself | Your team's repo |
+| **Touches your codebase?** | No — the pack is the workspace | Yes — files go into your repo (hidden from git in trial mode) |
+| **Hides from team git?** | N/A | Yes via `.git/info/exclude` (trial mode) |
+| **Reverse with** | `bash install.sh --uninstall` | `bash scripts/bootstrap.sh --uninstall` |
+| **Best for** | Evaluating the pack, demos, the curious | Real adoption — solo, then team |
 
 ---
 
-### 3 · Customize and wire everything in
+### 2 · Customize and wire everything in
 
 1. **Set your maturity tier** in `.assert-iq/maturity-profile.md` — Early, Mid, or Higher. The agents read this on every quality and release question and scale their behavior accordingly.
 
@@ -111,11 +116,17 @@ Bootstrap copies instruction files, `.assert-iq/` config, `.vscode/settings.json
 
    When the companion is set, cross-repo skills (`risk-assess-pr`, `check-merge`, `release-confidence`, `code-review`, `check-test-coverage`, `generate-traceability-matrix`, `analyze-escaped-defect`) fetch the other half via your VCS MCP, a local checkout, or manual paste. When it isn't set, the affected layer is reported as **UNGRADED** with reason `companion_repo_unset` — never fabricated. Full contract in [.github/instructions/qi-foundation.instructions.md](.github/instructions/qi-foundation.instructions.md). For tight test↔prod feedback loops in a split-repo team, also consider opening both folders as a multi-root VS Code workspace.
 
-6. **Run a skill.** In Copilot Chat, select the `Assert-IQ` agent and try:
-   ```
-   /risk-assess-pr
-   ```
-   The agent pulls context from your connected tools and reasons through all four signal layers.
+---
+
+### 3 · Run a skill
+
+In Copilot Chat, select the `Assert-IQ` agent and try:
+
+```
+/risk-assess-pr
+```
+
+The agent pulls context from your connected tools and reasons through all four signal layers.
 
 ---
 
@@ -125,7 +136,7 @@ Bootstrap copies instruction files, `.assert-iq/` config, `.vscode/settings.json
 .github/
   copilot-instructions.md     ← always-on QI reasoning rules for Copilot
   instructions/               ← scoped rule sheets (tests, C#/XAML, CI, etc.)
-  skills/                     ← 23 QI skills, one subfolder each
+  skills/                     ← 24 QI skills, one subfolder each
   agents/                     ← Assert-IQ and Assert-IQ-PLAN agent definitions
 .claude/
   agents/                     ← Claude Code subagent counterparts
@@ -148,9 +159,10 @@ scripts/
 Upgrades are explicit and intentional:
 
 1. Read the [Releases page](https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases) for what changed and any migration notes.
-2. Uninstall the current version — VS Code: Extensions view → `@agentPlugins` → uninstall `assert-iq`. Claude Code: `claude mcp remove assert-iq`.
-3. Reinstall using the same Step 1 commands with the new tag.
-4. Re-run `/assert-iq-bootstrap` to refresh workspace surfaces.
+2. Uninstall the current version where you installed it:
+   - **Path A** (pack-as-workspace): `bash install.sh --uninstall` (or `pwsh ./install.ps1 -Uninstall`).
+   - **Path B** (codebase install): `bash scripts/bootstrap.sh --uninstall` (or `pwsh scripts/bootstrap.ps1 -Uninstall`) in each target repo.
+3. `git pull` (or re-clone) to the new tag, then re-run the same path to refresh.
 
 ---
 

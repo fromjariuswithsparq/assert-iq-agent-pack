@@ -26,15 +26,21 @@ The instructions ("house rules") that Copilot reads from
 
 1. **Install Claude Code** if you haven't yet — see the
    [Claude Code docs](https://docs.claude.com/claude-code).
-2. **Run the installer once**, from the repo root, to wire up hooks and
-   skills:
-   - macOS / Linux: `./install.sh`
-   - Windows: `pwsh ./install.ps1`
-   The installer is safe to re-run. It only updates this folder.
-3. **Open the repo in Claude Code** and start chatting. Type `/` to see
-   available skills, or `@assert-iq` to use the default Assert.IQ
-   subagent. For plan-first behavior on a larger task, use
-   `@assert-iq-plan` instead.
+2. **Pick an install path.** The pack ships two paths and you only ever
+   need one of them:
+   - **Path A — try it on the pack repo itself.** From the cloned pack
+     root, run `./install.sh` (macOS/Linux) or `pwsh ./install.ps1`
+     (Windows). Then open the **pack folder** itself in Claude Code.
+     Your team's codebase is never touched.
+   - **Path B — install it into your codebase.** Open your target repo
+     in Claude Code and run `/assert-iq-bootstrap`. Choose `trial` to
+     keep the pack invisible to your team via `.git/info/exclude`, or
+     `committed` to check it in. Either way, bootstrap copies skills,
+     agents, instructions, hooks, and config into the workspace.
+   Both installers are safe to re-run.
+3. **Start chatting.** Type `/` to see available skills, or `@assert-iq`
+   to use the default Assert.IQ subagent. For plan-first behavior on a
+   larger task, use `@assert-iq-plan` instead.
 
 ---
 
@@ -51,27 +57,51 @@ hooks.
 
 ## Uninstalling the pack
 
-**If you installed the pack as a Claude Code plugin**, use the
-`/plugin` slash command in Claude Code to list and remove it, or
-manually delete the plugin from `~/.claude/plugins/`.
+Match the uninstall to the install path you used.
 
-**If you installed the pack as files** (the "drop-in" model), just
-delete `.claude/`, `CLAUDE.md`, and any of the shared roots (`.github/`,
-`.vscode/`, `hooks/`, `.claude-plugin/`, `.assert-iq/`,
-`README.assert-iq.md`, `AGENTS.md`, `MANIFEST.md`) you no longer need.
+**Path A — pack-as-workspace** (`bash install.sh` / `pwsh ./install.ps1`
+at the root of the cloned pack):
 
-To disable just the hooks without removing the pack: open
+```bash
+bash install.sh --uninstall          # macOS / Linux / WSL
+pwsh ./install.ps1 -Uninstall        # Windows
+```
+
+That removes `.claude/skills`, the rendered `hooks/hooks.json`, and the
+`hooks` key from `.claude/settings.json` (preserving any other keys you
+had). The committed pack files (`CLAUDE.md`, `.github/`, `AGENTS.md`,
+the `hooks/` scripts and template) remain — delete or `git rm` them
+when you're done with the clone.
+
+**Path B — codebase install** (`/assert-iq-bootstrap` or
+`bash scripts/bootstrap.sh --mode=trial` inside your target repo):
+
+```bash
+bash scripts/bootstrap.sh --uninstall            # macOS / Linux
+bash scripts/bootstrap.sh --uninstall --user     # also remove user-global copies
+bash scripts/bootstrap.sh --uninstall --dry-run  # preview without changes
+pwsh -File scripts/bootstrap.ps1 -Uninstall      # Windows
+```
+
+The uninstall reads `.assert-iq/.install-manifest.json`, restores any
+pre-existing files from their `<file>.assert-iq.pre-install` snapshots,
+removes pack-owned files (including `.github/skills/`, `.github/agents/`,
+`.claude/agents/`, and the `.claude/skills` symlink), and strips the
+trial-mode block from `.git/info/exclude`. Files you edited
+post-install are preserved at `<file>.assert-iq.uninstall-saved` so
+nothing is silently lost.
+
+To disable just the hooks without uninstalling: open
 `.claude/settings.json` and delete the `hooks` block (or set the
-relevant matchers to `[]`). The installer will re-add them next time it
-runs — if you want them gone permanently, also delete `hooks/hooks.json`.
+relevant matchers to `[]`).
 
 ---
 
-## What the plugin install does **not** auto-wire — and how to fix it
+## What the bootstrap does **not** auto-wire — and how to fix it
 
-The Claude plugin install delivers **every file in the pack to disk**,
-but Claude Code only auto-loads some of them from the plugin install
-directory. Several surfaces have to live in the **workspace** (or a
+The bootstrap delivers **every file in the pack to disk** at the right
+location, but Claude Code only auto-loads some of them from a specific
+set of paths. Several surfaces have to live in the **workspace** (or a
 user-global slot) to be picked up:
 
 - `CLAUDE.md` — the always-on QI guidance (and the `@`-imports it
@@ -87,16 +117,16 @@ user-global slot) to be picked up:
   already have in the file.
 - `hooks/` (`scripts/`, `lib/`, `config/`, `hooks.json`) — the hook
   scripts themselves. `hooks.json` is rendered at bootstrap time so
-  the script paths resolve to the workspace copies (not the plugin
-  install dir).
+  the script paths resolve to the workspace copies.
 
 **Run `/assert-iq-bootstrap` once per new workspace.** The skill walks
 you through where each surface should live (workspace / user-global /
 skip), supports `solo` and `pod` presets, and copies the templates
-from the plugin install directory into the right places. Cross-platform
+from the cloned pack into the right places. Cross-platform
 (macOS, Linux, Windows). Pre-existing files are preserved (SHA256
 compare + interactive resolver); JSON settings files are deep-merged
-additively so your existing config is never clobbered. Safe to re-run.
+additively and snapshotted to `<file>.assert-iq.pre-install` for clean
+uninstall. Safe to re-run.
 
 ---
 

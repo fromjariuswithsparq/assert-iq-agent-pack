@@ -10,20 +10,92 @@
 #      filesystems that don't support symlinks.
 #
 # Copilot needs no extra wiring — it reads .github/* natively.
+#
+# Uninstall: pass --uninstall (or -u) to reverse the above. The uninstall
+# step only removes pack-owned artifacts; your other keys in
+# .claude/settings.json are preserved (only the hooks key is stripped).
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Defense-in-depth: refuse to operate at filesystem root if ROOT ever
+# resolves to something dangerous (e.g., script relocated to "/").
+[[ -n "$ROOT" && "$ROOT" != "/" ]] || { printf 'install.sh: refusing to operate at filesystem root (ROOT=%q)\n' "$ROOT" >&2; exit 1; }
+
 HOOKS_TEMPLATE="$ROOT/hooks/hooks.template.json"
 HOOKS_SRC="$ROOT/hooks/hooks.json"
 SETTINGS_DST="$ROOT/.claude/settings.json"
 SKILLS_SRC_REL="../.github/skills"
 SKILLS_DST="$ROOT/.claude/skills"
+RENDER_LIB="$ROOT/hooks/scripts/lib/render-hooks.sh"
 
 say() { printf '%s\n' "$*"; }
 fail() { printf 'install.sh: %s\n' "$*" >&2; exit 1; }
 
-[ -f "$HOOKS_TEMPLATE" ] || fail "missing $HOOKS_TEMPLATE"
+# Accept --yes/-y in any position as a no-op (parity with bootstrap.sh; this
+# installer has no interactive prompts, so the flag is informational only).
+args=()
+for a in "$@"; do
+  case "$a" in --yes|-y) ;; *) args+=("$a") ;; esac
+done
+set -- "${args[@]:-}"
+
+# ---- Uninstall path ------------------------------------------------------
+case "${1:-}" in
+  --uninstall|-u)
+    say "=== Assert.IQ install.sh: uninstall ==="
+    # 1. Remove .claude/skills (symlink or copied dir).
+    if [[ -L "$SKILLS_DST" || -e "$SKILLS_DST" ]]; then
+      rm -rf "$SKILLS_DST"
+      say "[ok] removed $SKILLS_DST"
+    fi
+    # 2. Strip hooks key from .claude/settings.json (preserve other keys).
+    if [[ -f "$SETTINGS_DST" ]]; then
+      if command -v jq >/dev/null 2>&1; then
+        tmp="$(mktemp "$SETTINGS_DST.XXXXXX")"
+        if jq 'del(.hooks)' "$SETTINGS_DST" > "$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
+          # If only "{}" remains (no other keys), drop the file entirely.
+          if [[ "$(jq -r 'keys | length' "$tmp")" == "0" ]]; then
+            rm -f "$SETTINGS_DST" "$tmp"
+            say "[ok] removed $SETTINGS_DST (was hooks-only)"
+          else
+            mv "$tmp" "$SETTINGS_DST"
+            say "[ok] stripped hooks key from $SETTINGS_DST"
+          fi
+        else
+          rm -f "$tmp"
+          say "[skip] could not parse $SETTINGS_DST; left untouched"
+        fi
+      else
+        say "[skip] jq not installed; cannot safely strip hooks key from $SETTINGS_DST"
+      fi
+    fi
+    # 3. Remove rendered hooks.json (committed source is hooks.template.json).
+    if [[ -f "$HOOKS_SRC" ]]; then
+      rm -f "$HOOKS_SRC"
+      say "[ok] removed $HOOKS_SRC"
+    fi
+    # 4. Remove .claude dir if now empty.
+    if [[ -d "$ROOT/.claude" ]] && [[ -z "$(ls -A "$ROOT/.claude")" ]]; then
+      rmdir "$ROOT/.claude"
+      say "[ok] removed empty .claude/"
+    fi
+    say ""
+    say "Uninstall complete."
+    say "Pack source files (.github/, CLAUDE.md, AGENTS.md, etc.) are unchanged."
+    exit 0
+    ;;
+  --help|-h)
+    sed -n '2,18p' "${BASH_SOURCE[0]}"
+    exit 0
+    ;;
+esac
+
+[[ -f "$HOOKS_TEMPLATE" ]] || fail "missing $HOOKS_TEMPLATE"
+[[ -f "$RENDER_LIB" ]] || fail "missing $RENDER_LIB"
+
+# shellcheck source=hooks/scripts/lib/render-hooks.sh
+source "$RENDER_LIB"
 
 mkdir -p "$ROOT/.claude/agents"
 
@@ -32,22 +104,27 @@ mkdir -p "$ROOT/.claude/agents"
 # does not propagate any env var that carries the workspace path to hook
 # commands, so the fallback path must be baked in at install time. Claude
 # Code's CLAUDE_PLUGIN_ROOT still takes precedence at runtime.
-# Escape characters with special replacement semantics in sed.
-ROOT_SED=${ROOT//\\/\\\\}
-ROOT_SED=${ROOT_SED//&/\&}
-ROOT_SED=${ROOT_SED//|/\|}
-sed "s|__PACK_ROOT__|$ROOT_SED|g" "$HOOKS_TEMPLATE" > "$HOOKS_SRC"
+render_hooks_template "$HOOKS_TEMPLATE" "$HOOKS_SRC" "$ROOT" \
+  || fail "failed to render $HOOKS_SRC from template"
 say "[ok] rendered hooks/hooks.json (pack root: $ROOT)"
 
 # ---- 1. sync hooks block -------------------------------------------------
 if command -v jq >/dev/null 2>&1; then
-    if [ -f "$SETTINGS_DST" ]; then
+    if [[ -f "$SETTINGS_DST" ]]; then
         # Merge: replace only the .hooks key, preserve everything else.
-        tmp="$(mktemp)"
-        trap 'rm -f "$tmp"' EXIT
-        jq -s '.[0] as $existing | .[1] as $new | $existing + {hooks: $new.hooks}' \
-            "$SETTINGS_DST" "$HOOKS_SRC" > "$tmp"
+        # Stage the merged JSON next to the destination so the final mv is
+        # atomic on the same filesystem, and gate it on jq's exit code so
+        # a failed merge can never truncate the user's settings.
+        tmp="$(mktemp "$SETTINGS_DST.XXXXXX")"
+        cleanup_tmp() { [[ -n "${tmp:-}" && -e "$tmp" ]] && rm -f "$tmp"; }
+        trap cleanup_tmp EXIT
+        if ! jq -s '.[0] as $existing | .[1] as $new | $existing + {hooks: $new.hooks}' \
+                "$SETTINGS_DST" "$HOOKS_SRC" > "$tmp"; then
+            fail "jq merge failed; $SETTINGS_DST left untouched"
+        fi
+        [[ -s "$tmp" ]] || fail "jq merge produced empty output; $SETTINGS_DST left untouched"
         mv "$tmp" "$SETTINGS_DST"
+        tmp=""
         trap - EXIT
     else
         cp "$HOOKS_SRC" "$SETTINGS_DST"
@@ -55,7 +132,7 @@ if command -v jq >/dev/null 2>&1; then
     say "[ok] synced hooks -> .claude/settings.json"
 else
     # No jq: only safe move is a fresh copy if no settings exist.
-    if [ -f "$SETTINGS_DST" ]; then
+    if [[ -f "$SETTINGS_DST" ]]; then
         fail "jq not installed and .claude/settings.json already exists; install jq or merge manually"
     fi
     cp "$HOOKS_SRC" "$SETTINGS_DST"
@@ -63,13 +140,13 @@ else
 fi
 
 # ---- 2. wire skills ------------------------------------------------------
-if [ -L "$SKILLS_DST" ] || [ -e "$SKILLS_DST" ]; then
+if [[ -L "$SKILLS_DST" || -e "$SKILLS_DST" ]]; then
     rm -rf "$SKILLS_DST"
 fi
 if ln -s "$SKILLS_SRC_REL" "$SKILLS_DST" 2>/dev/null; then
     say "[ok] linked .claude/skills -> $SKILLS_SRC_REL"
 else
-    if [ -d "$ROOT/.github/skills" ]; then
+    if [[ -d "$ROOT/.github/skills" ]]; then
         cp -R "$ROOT/.github/skills" "$SKILLS_DST"
         say "[ok] copied .github/skills -> .claude/skills (symlink unavailable; re-run install.sh after skill changes)"
     else

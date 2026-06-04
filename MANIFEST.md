@@ -28,8 +28,8 @@ is there — your file browser is filtering it.
 | 2 | `.assert-iq/governance.md` | Compliance posture and refusal rules — fill in per client |
 | 3 | `.assert-iq/maturity-profile.md` | QI maturity tier rationale — fill in per client |
 | 4 | `.assert-iq/signal-schema.json` | JSON schema for the QI outcome signal payload |
-| 4a | `.assert-iq/.install-manifest.json` | **Generated at bootstrap time.** Records `{version, installed_at, mode, paths[]}` for the install. Trial mode uses this to wire `.git/info/exclude`; `--graduate` flips `mode` to `committed`. |
-| 5 | `.claude-plugin/plugin.json` | Plugin manifest (Claude plugin format) — makes the pack installable as a cross-tool plugin in VS Code Copilot and Claude Code. Uses `${CLAUDE_PLUGIN_ROOT}` for portable hook paths. |
+| 4a | `.assert-iq/.install-manifest.json` | **Generated at bootstrap time.** Records `{version, installed_at, mode, paths[]}` for the install. Trial mode uses this to wire `.git/info/exclude`; `--graduate` flips `mode` to `committed`; `--uninstall` reads it to drive the reverse. |
+| 5 | `VERSION` | Canonical pack version (read by `scripts/bootstrap.{sh,ps1}` when stamping the install manifest). |
 | 5a | `.github/agents/Assert-IQ.agent.md` | Default front-door agent (Copilot) — full tools, routes to skills |
 | 5b | `.github/agents/Assert-IQ-PLAN.agent.md` | Read-only planning sibling (Copilot) — ends with Start Implementation handoff to Assert-IQ |
 | 6 | `.github/copilot-instructions.md` | Always-on QI guidance loaded by Copilot |
@@ -137,9 +137,29 @@ is there — your file browser is filtering it.
   "Pick your workspace topology" — with a three-row setup table
   (monorepo / prod / tests) and a pointer to multi-root VS Code
   workspaces for split-repo teams who want both halves open at once.
-- **Version metadata bumped to 0.9.0** in `.claude-plugin/plugin.json`,
-  `.claude-plugin/marketplace.json`, `MANIFEST.md`, `README.md`, and
-  `README.assert-iq.md` (version banner, install pins, history row).
+- **Install model reworked into two paths.** Plugin install removed.
+  Path A is pack-as-workspace (clone the pack, run `install.sh` /
+  `install.ps1` at the pack root, open the pack folder as the VS
+  Code / Claude Code workspace); Path B is codebase install
+  (`/assert-iq-bootstrap` or `bash scripts/bootstrap.sh --mode=trial`
+  inside the target repo). The `.claude-plugin/` directory
+  (`plugin.json`, `marketplace.json`) is deleted. Both installers
+  gain `--uninstall` (`-Uninstall` on Windows) with `--user`,
+  `--yes`, `--dry-run`; bootstrap snapshots any pre-existing user
+  files to `<file>.assert-iq.pre-install` so uninstall can restore
+  byte-for-byte. Bootstrap now also delivers four additional
+  workspace surfaces — `.github/skills/`, `.github/agents/`,
+  `.claude/agents/`, and the `.claude/skills` symlink (copy fallback
+  on Windows without Developer Mode) — bringing the total to twelve
+  workspace-loaded surfaces. New `hooks/scripts/lib/render-hooks.{sh,ps1}`
+  shared library renders `hooks/hooks.json` from the template at
+  install time.
+- **Skill count grew from 23 to 24** with the addition of the
+  `assert-iq-bootstrap` skill itself in `.github/skills/`.
+- **Version metadata centralized.** New `VERSION` file at the repo
+  root is the sole source of truth; `scripts/bootstrap.{sh,ps1}`
+  read it when stamping `.assert-iq/.install-manifest.json`. Banners
+  updated in `MANIFEST.md`, `README.md`, and `README.assert-iq.md`.
 
 ## Notes for v0.8.0
 

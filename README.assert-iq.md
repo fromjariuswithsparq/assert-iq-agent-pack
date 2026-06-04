@@ -24,7 +24,7 @@ The pack operationalizes Sparq's Quality Intelligence framework:
 
 - The four-layer signal model (Change → Protection → Trust → Outcome →
   Decision Confidence) is loaded as Copilot's reasoning lens on every interaction.
-- 23 skills cover the QE lifecycle: planning, development, review, execution,
+- 24 skills cover the QE lifecycle: planning, development, review, execution,
   decision, and post-incident learning.
 - A QI Advisor chat mode provides maturity-aware coaching.
 - MCP wiring connects to ADO or Jira and to GitHub for first-class
@@ -73,91 +73,106 @@ Copilot requires no extra wiring — it reads `.github/*` natively.
 
 ## Installation
 
-The pack ships in the **Claude plugin format**
-(`.claude-plugin/plugin.json` + `hooks/hooks.json` with portable
-`${CLAUDE_PLUGIN_ROOT}` paths), so a single install path works for both
-VS Code Copilot and Claude Code.
+The pack supports exactly two install paths. They serve different needs
+— pick based on whether you're evaluating Assert.IQ or actually
+deploying it into a team's repo.
 
-### Source spec
+### Path A — try it on the pack repo itself
 
-The install source is the GitHub repo, referenced as `owner/repo`:
+Best when you want to play with Assert.IQ without touching your team's
+repository. You clone the pack, run the installer, and open the **pack
+folder** as your VS Code / Claude Code workspace. Everything runs
+against the pack's own files.
 
+```bash
+git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack
+cd assert-iq-agent-pack
+bash install.sh        # macOS / Linux / WSL
+# or
+pwsh ./install.ps1     # Windows PowerShell 7+
 ```
-fromjariuswithsparq/assert-iq-agent-pack
+
+What it does (all inside the pack folder):
+
+1. Renders `hooks/hooks.json` from `hooks/hooks.template.json` with the
+   pack root absolute path baked in (VS Code Copilot has no env var
+   equivalent of `CLAUDE_PLUGIN_ROOT`, so the path is resolved at
+   install time).
+2. Merges the rendered `hooks` block into `.claude/settings.json`,
+   preserving any other keys you already have.
+3. Creates `.claude/skills` as a symlink to `../.github/skills` so
+   Claude Code discovers the same skills Copilot does (falls back to a
+   copy on Windows without Developer Mode — re-run after edits in that
+   case).
+
+Idempotent on every platform — safe to re-run any time. Reverse it
+cleanly with `bash install.sh --uninstall` (or `pwsh ./install.ps1
+-Uninstall`).
+
+### Path B — install it into your codebase
+
+This is the real deployment path. Bootstrap copies the full set of
+workspace-loaded surfaces into a target repo so Copilot Chat and Claude
+Code can discover the skills, agents, instructions, hooks, and config
+from that codebase.
+
+Two equivalent ways to invoke it:
+
+```bash
+# From a chat session inside your target repo:
+/assert-iq-bootstrap
+
+# Or from a terminal inside your target repo:
+bash /path/to/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
+# Windows:
+pwsh /path/to/assert-iq-agent-pack/scripts/bootstrap.ps1 -Mode trial
 ```
 
-**Pinning to a tag:**
+`--mode=trial` is the safe default: every pack file lands in your
+workspace, and each path is added to `.git/info/exclude` so your team
+sees nothing. **Your codebase's `.gitignore` is never touched.** When
+you're ready for the team to see it, run
+`bash scripts/bootstrap.sh --graduate` (or use `--mode=committed` from
+the start).
 
-| Tool | Pinning supported? |
-|---|---|
-| **Claude Code** (`/plugin install`) | Yes — append `@v0.9.0`. |
-| **VS Code Copilot** (`Chat: Install Plugin From Source`) | **Not in the current build.** The installer accepts only `owner/repo` shorthand or a clone URL; appending `@ref` returns `not a valid plugin source`. Copilot installs from the default branch (`main`). |
+### Pinning to a tag
 
-`main` only ever fast-forwards to a released tag, so installing from
-`main` is equivalent to installing the latest release. If you need a
-frozen version for VS Code Copilot, vendor the pack via the
-[drop-in path](#drop-in-no-plugin-manager) instead.
-
-Use the latest tag from the
+Use `git checkout v0.9.0` (or `git clone --branch v0.9.0`) on the cloned
+copy. Use the latest tag from the
 [Releases page](https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases).
 `v0.x` releases are marked **pre-release** — the pack is stable, but
 the file layout and frontmatter may evolve before `v1.0.0`.
 
-### Choose your install scope
+### What bootstrap delivers (Path B)
 
-Decide this before running the install command. You can move between scopes
-later — re-running the install is always safe.
-
-| Scope | Where it lives | When to use it |
-|---|---|---|
-| **User-global** | Your machine only (Copilot User `settings.json`; `~/.claude/plugins/` for Claude Code). | Trial mode, personal use, or any repo where you don't (yet) want to commit pack files. The plugin's **capability layer** loads on every workspace you open. |
-| **Workspace** | The repo itself (`.vscode/settings.json` for Copilot; a committed `.claude-plugin/marketplace.json` for Claude Code). | When the team is ready to standardise the pinned version. Everyone who clones the repo gets the same plugin without manual install. |
-
-**Important — what travels with the install, and what doesn't:**
-
-The plugin install ships the **capability layer** globally regardless of
-scope: 23 skills, the `Assert-IQ` / `Assert-IQ-PLAN` (Copilot) and
-`@assert-iq` / `@assert-iq-plan` (Claude) subagents, and the hooks.
-
-The **QI discipline layer** is intentionally **per-repo** and only
-activates in workspaces where these files exist:
+The bootstrap copies the **complete workspace surface** into the target
+repo. Copilot and Claude Code can't auto-discover skills or agents that
+aren't physically present in the workspace, so all of them ship in.
 
 | Surface | Why it's per-repo |
 |---|---|
-| `.assert-iq/config.yaml` | Maturity tier, tracker, framework, signal sink \u2014 varies by repo. |
-| `.assert-iq/governance.md` | Compliance posture \u2014 varies by client / regulatory regime. |
-| `.assert-iq/maturity-profile.md` | Tier rationale \u2014 team-specific. |
+| `.assert-iq/config.yaml` | Maturity tier, tracker, framework, signal sink — varies by repo. |
+| `.assert-iq/governance.md` | Compliance posture — varies by client / regulatory regime. |
+| `.assert-iq/maturity-profile.md` | Tier rationale — team-specific. |
 | `.github/copilot-instructions.md` + `.github/instructions/qi-*.instructions.md` | Copilot reads these only from the workspace; their `applyTo` globs scope to repo files. |
-| `CLAUDE.md` / `AGENTS.md` | Claude and other agent runners read these from the repo root. || `.vscode/settings.json` + `.vscode/mcp.json` | Wires VS Code Copilot to read instructions, prompts, and **hooks** from the workspace; declares optional GitHub / ADO / Jira MCP servers. JSON deep-merged into any pre-existing settings (additive; your values win on conflicts). |
+| `.github/skills/` | All 24 QI skills — Copilot Chat reads them from this workspace path. |
+| `.github/agents/` | `Assert-IQ.agent.md` and `Assert-IQ-PLAN.agent.md` custom chat modes. |
+| `.claude/agents/` | Claude Code subagent counterparts (`assert-iq.md`, `assert-iq-plan.md`). |
+| `.claude/skills` | Symlink to `../.github/skills` (copy fallback on Windows without Developer Mode) so Claude Code discovers the same skills. |
+| `CLAUDE.md` / `AGENTS.md` | Claude and other agent runners read these from the repo root. |
+| `.vscode/settings.json` + `.vscode/mcp.json` | Wires VS Code Copilot to read instructions, prompts, and **hooks** from the workspace; declares optional GitHub / ADO / Jira MCP servers. JSON deep-merged into any pre-existing settings (additive; your values win on conflicts). |
 | `hooks/` (`scripts/`, `lib/`, `config/`, `hooks.json`) | The hook scripts that fire on `SessionStart` / `PostToolUse` / `Stop`. `hooks.json` is rendered at bootstrap time so the script paths resolve to the workspace copies. |
 | `.claude/settings.json` | Claude Code reads the `hooks` block from here. Bootstrap merges only the `hooks` key, preserving any other settings you have. |
-Recommended adoption path:
 
-1. **Trial mode** — install user-global *or* run `/assert-iq-bootstrap`
-   with `--mode=trial`. Files land in the workspace but are added to
-   `.git/info/exclude` (the codebase `.gitignore` is **not** touched).
-   Other contributors see nothing; you get the full QI experience locally.
-
-   > Ready to expose one or more pack files to git before full graduation?
-   > Open `.git/info/exclude`, find the `# Assert-IQ trial mode` block, and
-   > delete the specific path(s) you want to start tracking (or remove the
-   > whole block to expose everything). Verify with `git status --ignored`
-   > and stage only what you intend with `git add <path>`.
-2. **Per-repo onboarding** — when the team is ready, run
-   `scripts/bootstrap.sh --graduate` (or `-Graduate` on Windows). That
-   removes the local-ignore block, flips the manifest to
-   `mode: committed`, and the pack files become visible to git. Then
-   `git add` + commit them.
-
-### Trial vs Committed install (`/assert-iq-bootstrap`)
+### Trial vs Committed (Path B)
 
 Three install modes, all driven by the bootstrap script
 (`scripts/bootstrap.sh` / `scripts/bootstrap.ps1`):
 
 | Mode | What happens | Reverse with |
 |---|---|---|
-| `--mode=trial` | Files land in workspace; their paths added to `.git/info/exclude` (local-only). `.gitignore` untouched. | `--graduate` |
-| `--mode=committed` | Files land in workspace and are visible to git. | (just delete files manually if needed) |
+| `--mode=trial` | Files land in workspace; their paths added to `.git/info/exclude` (local-only). `.gitignore` untouched. | `--graduate` (promote) or `--uninstall` (remove) |
+| `--mode=committed` | Files land in workspace and are visible to git. | `--uninstall` |
 | `--mode=ask` (default in TTY) | Prompts interactively. Non-TTY falls back to `committed`. | — |
 
 **Pre-existing files are preserved.** The script SHA256-compares each
@@ -167,10 +182,18 @@ path, the script falls back to an interactive resolver:
 `[k]eep` / `[o]verwrite` / `[s]idecar (writes .assert-iq-new)` /
 `[d]iff` / `[K/O/S]all` / `[a]bort`. Non-TTY runs auto-keep.
 
+**Pre-install backups for safe uninstall.** Whenever the bootstrap
+overwrites or merges into a file you already had, it first snapshots the
+original to `<file>.assert-iq.pre-install`. A later
+`scripts/bootstrap.sh --uninstall` restores from that snapshot
+byte-for-byte; if the file changed since install, the post-install copy
+is preserved at `<file>.assert-iq.uninstall-saved` so nothing is silently
+lost.
+
 Every install writes `.assert-iq/.install-manifest.json` recording
 `{version, installed_at, mode, paths[]}`. Trial mode uses this manifest
 to know which paths to add to `.git/info/exclude` (and which to remove
-on `--graduate`).
+on `--graduate`). Uninstall reads the same manifest.
 
 **Graduating from trial → committed:**
 
@@ -186,66 +209,17 @@ git add .assert-iq .claude .github CLAUDE.md AGENTS.md
 git commit -m "chore: adopt Assert.IQ agent pack"
 ```
 
-### VS Code Copilot (plugin install)
+**Removing the pack from a workspace:**
 
-1. Open the Command Palette (`⇧⌘P` / `Ctrl+Shift+P`).
-2. Run **`Chat: Install Plugin From Source`**.
-3. Paste the `owner/repo` shorthand — **no `@ref`, no `https://` prefix**:
+```bash
+# macOS / Linux
+scripts/bootstrap.sh --uninstall          # add --user to also remove user-global copies
+scripts/bootstrap.sh --uninstall --dry-run  # preview without changing anything
 
-   ```
-   fromjariuswithsparq/assert-iq-agent-pack
-   ```
-
-   > Common mistakes: pasting the full HTTPS URL returns *Repository not
-   > found*; appending `@v0.9.0` returns *not a valid plugin source*.
-   > The current Copilot build only accepts the bare shorthand and
-   > installs from the repo's default branch.
-
-4. Pick **`assert-iq`** from the plugin list and confirm. Copilot clones
-   the repo, registers the two agents (`Assert-IQ`, `Assert-IQ-PLAN`)
-   and the 23 skills.
-
-5. Reload the window so Copilot picks up the new agents and skills:
-   `⇧⌘P` → **`Developer: Reload Window`**.
-
-6. **Bootstrap the workspace.** Open the target repo in VS Code, open
-   Copilot Chat, and either:
-
-   - Just talk to the front-door agent — it auto-detects missing
-     `.assert-iq/maturity-profile.md` and suggests the bootstrap:
-     ```
-     @Assert-IQ help me onboard this repo
-     ```
-   - Or run the slash command directly:
-     ```
-     /assert-iq-bootstrap
-     ```
-
-   The skill drives `scripts/bootstrap.sh` (or `.ps1` on Windows) for
-   you, asks trial-vs-committed and preset (`pod` / `solo`), and prints
-   a summary. You never need to know where Copilot put the plugin —
-   `$CLAUDE_PLUGIN_ROOT` is resolved automatically.
-
-7. Reload the window one more time so the workspace-loaded
-   instruction files take effect.
-
-### Claude Code (plugin install)
-
-1. In Claude Code, run the plugin install slash command. Claude Code
-   supports pinning to a tag with the `@ref` suffix:
-
-   ```
-   /plugin install fromjariuswithsparq/assert-iq-agent-pack@v0.9.0
-   ```
-
-   Drop the `@v0.9.0` suffix to install from the default branch.
-
-2. After install, bootstrap the workspace the same way as Copilot —
-   either talk to `@assert-iq` and let it auto-route, or run:
-
-   ```
-   /assert-iq-bootstrap
-   ```
+# Windows
+pwsh -File scripts/bootstrap.ps1 -Uninstall
+pwsh -File scripts/bootstrap.ps1 -Uninstall -DryRun
+```
 
 ### Upgrading to a new release
 
@@ -253,37 +227,18 @@ Upgrades are an explicit, intentional act. To move to a later tag:
 
 1. Read the release notes on the
    [Releases page](https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases).
-2. Uninstall the current version (see
-   [.github/vscode-readme.md](.github/vscode-readme.md#uninstalling-the-pack) or
-   [.claude/claude-readme.md](.claude/claude-readme.md#uninstalling-the-pack)).
-3. Reinstall — same command. On Claude Code, bump the `@vX.Y.Z` suffix.
-   On VS Code Copilot, just reinstall from `owner/repo` (the latest
-   release will be on `main`).
-4. Re-run `/assert-iq-bootstrap` to refresh workspace surfaces.
-
-### Drop-in (no plugin manager)
-
-If you can't use the plugin install path — air-gapped environment,
-restricted org policy, or you want the files vendored into your own
-repo — clone the tag directly and copy the contents:
-
-```bash
-git clone --depth 1 --branch v0.9.0 \
-  https://github.com/fromjariuswithsparq/assert-iq-agent-pack.git
-cd assert-iq-agent-pack
-bash install.sh        # macOS / Linux
-.\install.ps1          # Windows PowerShell
-```
-
-The drop-in path expects the files to live at the **root of the target
-repo** (`.github/`, `.claude/`, `.assert-iq/`, etc.). The installer
-still handles hooks wiring and the `.claude/skills` symlink.
+2. Uninstall the path you used:
+   - **Path A:** `bash install.sh --uninstall` in the cloned pack.
+   - **Path B:** `bash scripts/bootstrap.sh --uninstall` in each
+     target repo.
+3. `git pull` (or re-clone) to the new tag, then re-run the same path
+   to refresh.
 
 ### Platform notes (`.claude/skills` symlink)
 
 The installer creates `.claude/skills` as a **directory symlink** pointing
 at `../.github/skills/`, so Copilot and Claude share one canonical copy of
-the 23 skills. Behavior varies by platform:
+the 24 skills. Behavior varies by platform:
 
 | Platform | What happens | What you need to do |
 |---|---|---|
@@ -331,7 +286,6 @@ Copy these directories into the repo root:
 - `MANIFEST.md` (root-level inventory of all files in the pack)
 - `README.assert-iq.md`
 - `CLAUDE.md` + `AGENTS.md`       ← always-on guidance for Claude Code and other `AGENTS.md`-aware tooling
-- `.claude-plugin/`               ← `plugin.json` + `marketplace.json` for plugin-manager installs
 - `.github/copilot-instructions.md`
 - `.github/instructions/`
 - `.github/skills/`               ← each skill is a folder with a `SKILL.md`
@@ -343,7 +297,7 @@ Copy these directories into the repo root:
 - `.assert-iq/`
 - `tests/_qi/` (if not already present)
 
-> **Note on hidden directories.** `.github/`, `.vscode/`, `.claude/`, `.claude-plugin/`, and `.assert-iq/` are dot-prefixed
+> **Note on hidden directories.** `.github/`, `.vscode/`, `.claude/`, and `.assert-iq/` are dot-prefixed
 > and hidden by default in macOS Finder and Windows Explorer. Show hidden files
 > (`Cmd+Shift+.` on macOS; View → Hidden items on Windows) to see them, or open
 > the folder in VS Code which shows all files. The `MANIFEST.md` at the root
@@ -632,7 +586,7 @@ or `qi-traceability.instructions.md` with examples drawn from your codebase.
 | 0.7.0-rc.5 | Hardened bootstrap manifest and hook path rendering (PR #3). Validated apply-selection tokens in `skill-improve-apply` so invalid selections no longer silently dismiss candidates (PR #4). |
 | **0.7.0** | **First official release. Windows verified end-to-end. Fixes since rc.5: escaped `$manifestPath` interpolation in the bootstrap graduate log (PR #5); trial-mode unignore guidance added to README (PR #6); Windows hook commands switched to `pwsh -File` so PS1 hooks fire correctly on Windows (PR #7).** |
 | **0.8.0** | **Expanded MCP server catalog.** `.vscode/mcp.json` now wires 20 MCP servers (was 3): adds `git`, `gitlab`, `bitbucket`, `filesystem`, `postgres`, `sqlite`, `aws`, `sentry`, `grafana`, `datadog`, `honeycomb`, `playwright`, `puppeteer`, `notion`, `confluence`, `slack`, `teams`. All secrets routed through `${input:…}` prompts so the file stays safe to commit. New `.vscode/MCP.md` is a per-server setup guide covering prereqs (`uv`, `node`), VS Code quick start, Claude Code / Claude Desktop equivalents, credential sourcing, and troubleshooting. |
-| **0.9.0** | **Workspace topology + Five Whys discipline.** New `workspace.role` config (`monorepo` default, `prod`, `tests`) plus optional `companion_repo` (`path` / `remote` / `fetch: mcp \| local_path \| manual_paste`) wires split-repo teams whose tests live separate from prod code. Topology contract centralized in `qi-foundation.instructions.md` § Workspace topology with fetch fallback (MCP → local path → manual paste) and UNGRADED degradation (`reason: companion_repo_unset \| companion_repo_unreachable`) per the v0.2 signal-schema `partial_signal_mode` contract — never fabricated. Seven cross-repo skills (`risk-assess-pr`, `check-merge`, `release-confidence`, `code-review`, `check-test-coverage`, `generate-traceability-matrix`, `analyze-escaped-defect`) carry short pointers to the rule. Also lands Five Whys discipline in `debug-ui-tests`, `analyze-flaky-test`, and `analyze-escaped-defect`: mandatory evidence-per-link chains, `max_depth` runaway guard, user-gated Anti-Patterns appendix for cumulative learning. Backward-compatible: single-repo users see zero behavioral change. |
+| **0.9.0** | **Workspace topology + Five Whys discipline + install-model rework.** New `workspace.role` config (`monorepo` default, `prod`, `tests`) plus optional `companion_repo` (`path` / `remote` / `fetch: mcp \| local_path \| manual_paste`) wires split-repo teams whose tests live separate from prod code. Topology contract centralized in `qi-foundation.instructions.md` § Workspace topology with fetch fallback (MCP → local path → manual paste) and UNGRADED degradation (`reason: companion_repo_unset \| companion_repo_unreachable`) per the v0.2 signal-schema `partial_signal_mode` contract — never fabricated. Seven cross-repo skills (`risk-assess-pr`, `check-merge`, `release-confidence`, `code-review`, `check-test-coverage`, `generate-traceability-matrix`, `analyze-escaped-defect`) carry short pointers to the rule. Five Whys discipline added to `debug-ui-tests`, `analyze-flaky-test`, and `analyze-escaped-defect`: mandatory evidence-per-link chains, `max_depth` runaway guard, user-gated Anti-Patterns appendix. Install model reworked into **two paths**: Path A pack-as-workspace (`install.sh` / `install.ps1` at the cloned pack root) and Path B codebase install (`/assert-iq-bootstrap` or `bash scripts/bootstrap.sh --mode=trial`); the `.claude-plugin/` directory is removed. Both installers gain `--uninstall` with `--user` / `--yes` / `--dry-run`; bootstrap snapshots pre-existing user files to `<file>.assert-iq.pre-install` for byte-for-byte restore. Four new workspace surfaces (`.github/skills/`, `.github/agents/`, `.claude/agents/`, `.claude/skills` symlink with copy fallback on Windows without Developer Mode) bring the total to twelve. Skill count 23 → 24. Version centralized in a new `VERSION` file. Backward-compatible: single-repo users see zero behavioral change. |
 
 Tag releases. Keep a CHANGELOG in `.assert-iq/CHANGELOG.md`.
 
