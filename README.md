@@ -2,7 +2,7 @@
 
 > Quality Intelligence for every IDE, every sprint, every team.
 
-**v0.9.0** · [Full documentation →](README.assert-iq.md)
+**v1.1.1** · [Full documentation →](README.assert-iq.md)
 
 ---
 
