@@ -390,7 +390,7 @@
 
 <section class="hero">
   <div class="hero-content">
-    <div class="badge"><span class="badge-dot"></span>v1.1.6 · Internal Sparq asset</div>
+    <div class="badge"><span class="badge-dot"></span>v1.1.7 · Internal Sparq asset</div>
     <h1 id="assert-iq-agent-pack">Assert.IQ Agent Pack</h1>
     <p class="tagline">Quality Intelligence for every IDE, every sprint, every team.</p>
     <div class="hero-cta">
@@ -510,6 +510,12 @@ cd ~/code/my-app
 bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
 <span class="comment"># Windows: pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</span></code></pre>
           <p style="font-size:0.88em;">The script is fully standalone — it accepts <code>--preset=solo|pod</code>, prompts interactively, and writes everything Copilot and Claude need. <strong>No chicken-and-egg.</strong> You do not need to open VS Code or Claude Code first, and the <code>/assert-iq-bootstrap</code> skill does not need to be loaded — the script is what the skill calls under the hood.</p>
+
+          <div class="callout" style="margin-top:16px;margin-bottom:16px;">
+            <strong>Where does <code>--preset=solo</code> put the QI instructions?</strong>
+            <p style="margin:6px 0 8px 0;">Solo is designed for a single developer who wants the QI rules to apply to <em>every</em> repo they open, not just this one. The instruction files (<code>qi-foundation</code>, <code>qi-test-design</code>, etc.) and <code>CLAUDE.md</code> install to your VS Code user prompts folder (<code>~/Library/Application Support/Code/User/prompts/</code> on macOS, <code>~/.config/Code/User/prompts/</code> on Linux, <code>%APPDATA%\Code\User\prompts\</code> on Windows) and <code>~/.claude/CLAUDE.md</code> respectively — <strong>not</strong> to <code>.github/instructions/</code> in the workspace.</p>
+            <p style="font-size:0.88em;margin:6px 0 0 0;">Use <code>--preset=pod</code> if you want the instructions checked into this repo for the whole team.</p>
+          </div>
           <p style="font-size:0.85em;color:var(--text-dim);"><em>Already have the pack loaded</em> (cloned pack opened in your editor, or skills installed user-globally to <code>~/.agents/skills/</code>)? You can also run <code>/assert-iq-bootstrap</code> from chat — same outcome.</p>
           <p style="font-size:0.88em;"><code>--mode=trial</code> is the safe default — files land in your workspace, but paths are added to <code>.git/info/exclude</code>. Your codebase's <code>.gitignore</code> is <strong>never</strong> touched.</p>
         </div>
@@ -632,7 +638,7 @@ bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
 </div>
 
 <footer>
-  <div>Assert.IQ Agent Pack · v1.1.6 · Owned by <a href="https://github.com/fromjariuswithsparq">Jarius Hayes</a> · Sparq Intelligence Studio</div>
+  <div>Assert.IQ Agent Pack · v1.1.7 · Owned by <a href="https://github.com/fromjariuswithsparq">Jarius Hayes</a> · Sparq Intelligence Studio</div>
   <div style="margin-top:12px;">
     <a href="README.md">Markdown README</a>
     <a href="README.assert-iq.html">Full Docs</a>

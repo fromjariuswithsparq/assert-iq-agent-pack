@@ -78,6 +78,18 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
 ```
 
 The script is fully standalone — it accepts `--preset=solo|pod`, prompts interactively when run in a TTY, and writes everything Copilot and Claude need into your workspace. **There is no chicken-and-egg.** You do not need to open VS Code or Claude Code first, and you do not need the `/assert-iq-bootstrap` skill loaded — the script is what the skill calls under the hood.
+> **Where does `--preset=solo` put the QI instructions?** Solo is
+> designed for a single developer who wants the QI rules to apply to
+> *every* repo they open, not just this one. The instruction files
+> (`qi-foundation`, `qi-test-design`, etc.) and `CLAUDE.md` install to
+> your VS Code user prompts folder
+> (`~/Library/Application Support/Code/User/prompts/` on macOS,
+> `~/.config/Code/User/prompts/` on Linux,
+> `%APPDATA%\Code\User\prompts\` on Windows) and `~/.claude/CLAUDE.md`
+> respectively — **not** to `.github/instructions/` in the workspace.
+> Use `--preset=pod` if you want the instructions checked into this
+> repo for the whole team.
+
 
 > **Already have the pack loaded** (e.g. you opened the cloned pack itself in your editor, or you've installed the skills user-globally to `~/.agents/skills/`)? You can also run `/assert-iq-bootstrap` from chat — same outcome, chat-driven prompts.
 

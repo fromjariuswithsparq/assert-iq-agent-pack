@@ -4,7 +4,7 @@
 > instructions, modes, and tools that turn GitHub Copilot Chat **and**
 > Claude Code into a QI-aware delivery partner inside the IDE.
 
-**Version**: v1.1.6
+**Version**: v1.1.7
 **Status**: Internal Sparq asset — Intelligence Studio
 **Owner**: Jarius Hayes
 **Repo**: <https://github.com/fromjariuswithsparq/assert-iq-agent-pack>
@@ -192,7 +192,7 @@ You can also opt in à la carte with `--skills-scope=user` (default is
 
 ### Pinning to a tag
 
-Use `git checkout v1.1.6` (or `git clone --branch v1.1.6`) on the cloned
+Use `git checkout v1.1.7` (or `git clone --branch v1.1.7`) on the cloned
 copy. Use the latest tag from the
 [Releases page](https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases).
 The pack is on the stable `1.x` line — bootstrap CLI flags, manifest
