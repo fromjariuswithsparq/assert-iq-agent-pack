@@ -41,8 +41,18 @@
   footer{margin-top:64px;padding-top:32px;border-top:1px solid var(--border);color:var(--text-dim);font-size:.88em;text-align:center}
   footer a{margin:0 12px}
 </style>
+<!-- aiq-search:head:start -->
+<link rel="stylesheet" href="assets/search.css">
+<!-- aiq-search:head:end -->
 </head>
 <body>
+<!-- aiq-search:widget:start -->
+<div id="aiq-search" role="search">
+  <input id="aiq-search-input" type="search" autocomplete="off" spellcheck="false"
+         placeholder="Search docs (press / to focus)…" aria-label="Search documentation">
+  <div id="aiq-search-results" hidden role="listbox"></div>
+</div>
+<!-- aiq-search:widget:end -->
 
 <div class="topbar">
   <a href="README.html">← Landing page</a>
@@ -54,11 +64,11 @@
 <main>
   <div class="doc-hero">
     <div class="badge">📁 .github/ · GitHub Copilot in VS Code</div>
-    <h1>The <code>.github/</code> folder</h1>
+    <h1 id="the-github-folder">The <code>.github/</code> folder</h1>
     <p class="subtitle">The <strong>GitHub Copilot half</strong> of the Assert.IQ Agent Pack. If you open this repository in VS Code and use Copilot Chat, everything in here is loaded automatically. You don't need to "install" anything — VS Code and Copilot read this folder on their own.</p>
   </div>
 
-  <h2>What's in here, in plain words</h2>
+  <h2 id="what-s-in-here-in-plain-words">What's in here, in plain words</h2>
   <table>
     <thead><tr><th>Folder</th><th>What it is</th></tr></thead>
     <tbody>
@@ -70,7 +80,7 @@
     </tbody>
   </table>
 
-  <h2>How to start using it</h2>
+  <h2 id="how-to-start-using-it">How to start using it</h2>
   <ol>
     <li><strong>Open the repo in VS Code.</strong> That's it for setup on the Copilot side.</li>
     <li><strong>Open Copilot Chat</strong> (the chat icon in the sidebar).</li>
@@ -79,10 +89,10 @@
     <li><strong>Want a plan first?</strong> Switch to <strong><code>Assert-IQ-PLAN</code></strong> in the agent dropdown. It researches, writes a plan, then gives you a <strong>Start Implementation</strong> button that hands the plan back to <code>Assert-IQ</code> to execute.</li>
   </ol>
 
-  <h2>"Will this also work in Claude Code?"</h2>
+  <h2 id="will-this-also-work-in-claude-code">"Will this also work in Claude Code?"</h2>
   <p>Yes. The same content is mirrored to the <code>.claude/</code> folder at the repo root. See <a href="claude-readme.html"><code>claude-readme.html</code></a> for the Claude side. You can use either tool — they share the same skills, instructions, and hooks.</p>
 
-  <h2>Uninstalling the pack</h2>
+  <h2 id="uninstalling-the-pack">Uninstalling the pack</h2>
   <p>There are exactly two install paths and each has a matching uninstall.</p>
   <p><strong>Path A — pack-as-workspace</strong> (<code>bash install.sh</code> / <code>pwsh ./install.ps1</code> at the root of the cloned pack):</p>
 <pre><code>bash install.sh --uninstall          <span style="color:#6b7280;"># macOS / Linux / WSL</span>
@@ -96,7 +106,7 @@ bash scripts/bootstrap.sh --uninstall --dry-run  <span style="color:#6b7280;"># 
 pwsh -File scripts/bootstrap.ps1 -Uninstall      <span style="color:#6b7280;"># Windows</span></code></pre>
   <p>The uninstall reads <code>.assert-iq/.install-manifest.json</code>, restores any pre-existing files from their <code>&lt;file&gt;.assert-iq.pre-install</code> snapshots, removes pack-owned files (including <code>.github/skills/</code>, <code>.github/agents/</code>, <code>.claude/agents/</code>, and the <code>.claude/skills</code> symlink), strips the trial-mode block from <code>.git/info/exclude</code>, and clears <code>hooks/state</code>, <code>hooks/logs</code>, and <code>hooks/sessions</code>. Files you edited post-install are preserved at <code>&lt;file&gt;.assert-iq.uninstall-saved</code> so nothing is silently lost.</p>
 
-  <h2>What the bootstrap does <em>not</em> auto-wire — and how to fix it</h2>
+  <h2 id="what-the-bootstrap-does-not-auto-wire-and-how-to-fix-it">What the bootstrap does <em>not</em> auto-wire — and how to fix it</h2>
   <p>The bootstrap delivers <strong>every file in the pack to disk</strong> at the right location, but VS Code and Copilot only auto-load some of them from a specific set of paths. Eight surfaces have to live in the <strong>workspace</strong> (or a user-global slot) to be picked up:</p>
   <ul>
     <li><code>.github/copilot-instructions.md</code> — the always-on QI house rules</li>
@@ -110,7 +120,7 @@ pwsh -File scripts/bootstrap.ps1 -Uninstall      <span style="color:#6b7280;"># 
   </ul>
   <div class="callout"><strong>Run the bootstrap script once per new workspace.</strong> From a terminal inside your target repo: <code>bash /path/to/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial</code> (Windows: <code>pwsh -File &lt;pack&gt;\scripts\bootstrap.ps1 -Mode trial</code>). The script walks you through where each surface should live (workspace / user-global / skip), supports <code>solo</code>, <code>pod</code>, and <code>portable</code> presets, and copies the templates from the cloned pack into the right places. Cross-platform (macOS, Linux, Windows). Pre-existing files are preserved (SHA256 compare + interactive resolver); JSON settings files are deep-merged and snapshotted to <code>&lt;file&gt;.assert-iq.pre-install</code> for clean uninstall. Safe to re-run. <em>Skills in every workspace, no per-repo install? Use <code>--preset=portable</code> (or <code>--skills-scope=user</code>) to land skills at <code>~/.agents/skills/</code>. The workspace still gets <code>.github/agents/</code>, <code>.claude/agents/</code>, and the install manifest, but instructions, hooks, settings, and MCP config stay out.</em> <em>If the cloned pack is open in VS Code, or its skills are installed user-globally to <code>~/.agents/skills/</code>, the same wizard is available from chat as <code>/assert-iq-bootstrap</code>.</em></div>
 
-  <h2>Something feels off?</h2>
+  <h2 id="something-feels-off">Something feels off?</h2>
   <ul>
     <li>Skill isn't appearing in <code>/</code> autocomplete? Make sure VS Code is reading this folder — open the repository at its root, not a subfolder.</li>
     <li>Need the full file map? See <a href="MANIFEST.md"><code>MANIFEST.md</code></a>.</li>
@@ -128,5 +138,9 @@ pwsh -File scripts/bootstrap.ps1 -Uninstall      <span style="color:#6b7280;"># 
     </div>
   </footer>
 </main>
+<!-- aiq-search:scripts:start -->
+<script src="assets/search-index.js"></script>
+<script src="assets/search.js"></script>
+<!-- aiq-search:scripts:end -->
 </body>
 </html>

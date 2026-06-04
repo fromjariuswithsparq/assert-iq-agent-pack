@@ -286,8 +286,18 @@
     .doc-hero { margin-left: -24px; margin-right: -24px; padding-left: 24px; padding-right: 24px; }
   }
 </style>
+<!-- aiq-search:head:start -->
+<link rel="stylesheet" href="assets/search.css">
+<!-- aiq-search:head:end -->
 </head>
 <body>
+<!-- aiq-search:widget:start -->
+<div id="aiq-search" role="search">
+  <input id="aiq-search-input" type="search" autocomplete="off" spellcheck="false"
+         placeholder="Search docs (press / to focus)…" aria-label="Search documentation">
+  <div id="aiq-search-results" hidden role="listbox"></div>
+</div>
+<!-- aiq-search:widget:end -->
 
 <div class="layout">
 
@@ -341,7 +351,7 @@
 
     <div class="doc-hero">
       <div class="badge"><span aria-hidden="true">📘</span> Full Documentation · Internal Sparq asset</div>
-      <h1>Assert.IQ Agent Pack</h1>
+      <h1 id="assert-iq-agent-pack">Assert.IQ Agent Pack</h1>
       <p class="subtitle">The capability layer of Assert.IQ. Quality Intelligence-grounded skills, instructions, modes, and tools that turn GitHub Copilot Chat <strong>and</strong> Claude Code into a QI-aware delivery partner inside the IDE.</p>
       <div class="doc-meta">
         <div><strong>Version:</strong> v1.1.1</div>
@@ -390,7 +400,7 @@
     <h2 id="install">Installation</h2>
     <p>The pack supports exactly two install paths. They serve different needs — pick based on whether you're evaluating Assert.IQ or actually deploying it into a team's repo.</p>
 
-    <h3>Path A — try it on the pack repo itself</h3>
+    <h3 id="path-a-try-it-on-the-pack-repo-itself">Path A — try it on the pack repo itself</h3>
     <p>Best when you want to play with Assert.IQ without touching your team's repository. Clone the pack, run the installer, open the <strong>pack folder</strong> as your VS Code / Claude Code workspace.</p>
 <pre><code>git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack
 cd assert-iq-agent-pack
@@ -405,7 +415,7 @@ pwsh ./install.ps1     <span class="comment"># Windows PowerShell 7+</span></cod
     </ol>
     <p>Idempotent on every platform. Reverse cleanly with <code>bash install.sh --uninstall</code> (or <code>pwsh ./install.ps1 -Uninstall</code>).</p>
 
-    <h3>Path B — install it into your codebase</h3>
+    <h3 id="path-b-install-it-into-your-codebase">Path B — install it into your codebase</h3>
     <p>This is the real deployment path. Bootstrap copies the full set of workspace-loaded surfaces into a target repo so Copilot Chat and Claude Code can discover skills, agents, instructions, hooks, and config from that codebase.</p>
     <p><strong>Run the bootstrap script from a terminal in your target repo.</strong> No editor required, nothing to install in chat first:</p>
 <pre><code><span class="comment"># 1. Clone the pack somewhere (one time, anywhere)</span>
@@ -536,7 +546,7 @@ Hooks          hooks/hooks.json + hooks/scripts/          Retrospective skill
                .claude/settings.json)                     end</pre>
 
     <h2 id="quickstart">Quick start</h2>
-    <h3>1. Drop the pack into the client repo</h3>
+    <h3 id="1-drop-the-pack-into-the-client-repo">1. Drop the pack into the client repo</h3>
     <p>Copy these directories into the repo root:</p>
     <ul>
       <li><code>MANIFEST.md</code> (root-level inventory)</li>
@@ -555,7 +565,7 @@ Hooks          hooks/hooks.json + hooks/scripts/          Retrospective skill
       <code>.github/</code>, <code>.vscode/</code>, <code>.claude/</code>, and <code>.assert-iq/</code> are dot-prefixed and hidden in macOS Finder / Windows Explorer. Show hidden files (<code>Cmd+Shift+.</code> on macOS; View → Hidden items on Windows), or open in VS Code.
     </div>
 
-    <h3>2. Configure for the client context</h3>
+    <h3 id="2-configure-for-the-client-context">2. Configure for the client context</h3>
     <p>Open <code>.assert-iq/config.yaml</code> and set:</p>
     <ul>
       <li><code>client.name</code></li>
@@ -567,15 +577,15 @@ Hooks          hooks/hooks.json + hooks/scripts/          Retrospective skill
     </ul>
     <p>Open <code>.assert-iq/maturity-profile.md</code> and document the rationale for the chosen tier.</p>
 
-    <h3>3. Wire MCP</h3>
+    <h3 id="3-wire-mcp">3. Wire MCP</h3>
     <p>Open <code>.vscode/mcp.json</code> and confirm servers are enabled. Provide PATs / API tokens at the input prompts.</p>
 
-    <h3>4. Validate</h3>
+    <h3 id="4-validate">4. Validate</h3>
     <p>In Copilot Chat, type:</p>
 <pre><code>/risk-assess-pr</code></pre>
     <p>The agent should respond with a four-layer scaffolded assessment of the current branch.</p>
 
-    <h3>5. Pick a starter skill for the team</h3>
+    <h3 id="5-pick-a-starter-skill-for-the-team">5. Pick a starter skill for the team</h3>
     <ul>
       <li><strong>Plan phase:</strong> <code>/review-acceptance-criteria</code> on a recent work item</li>
       <li><strong>Develop phase:</strong> <code>/generate-tests-from-ac</code> on the same work item</li>
@@ -585,7 +595,7 @@ Hooks          hooks/hooks.json + hooks/scripts/          Retrospective skill
     <h2 id="registry">The skill registry</h2>
     <p>Skills are organized by QE lifecycle phase. Invoke in Copilot Chat with <code>/skill-name</code>. Maturity gating is enforced by each skill that requires it.</p>
 
-    <h3><span class="phase-pill phase-plan">Plan</span></h3>
+    <h3 id="plan"><span class="phase-pill phase-plan">Plan</span></h3>
     <table>
       <thead><tr><th>Skill</th><th>Purpose</th></tr></thead>
       <tbody>
@@ -595,7 +605,7 @@ Hooks          hooks/hooks.json + hooks/scripts/          Retrospective skill
       </tbody>
     </table>
 
-    <h3><span class="phase-pill phase-develop">Develop</span></h3>
+    <h3 id="develop"><span class="phase-pill phase-develop">Develop</span></h3>
     <table>
       <thead><tr><th>Skill</th><th>Purpose</th></tr></thead>
       <tbody>
@@ -608,7 +618,7 @@ Hooks          hooks/hooks.json + hooks/scripts/          Retrospective skill
       </tbody>
     </table>
 
-    <h3><span class="phase-pill phase-review">Code Review / PR</span></h3>
+    <h3 id="code-review-pr"><span class="phase-pill phase-review">Code Review / PR</span></h3>
     <table>
       <thead><tr><th>Skill</th><th>Purpose</th></tr></thead>
       <tbody>
@@ -620,7 +630,7 @@ Hooks          hooks/hooks.json + hooks/scripts/          Retrospective skill
       </tbody>
     </table>
 
-    <h3><span class="phase-pill phase-execute">Execute / Debug</span></h3>
+    <h3 id="execute-debug"><span class="phase-pill phase-execute">Execute / Debug</span></h3>
     <table>
       <thead><tr><th>Skill</th><th>Purpose</th></tr></thead>
       <tbody>
@@ -630,7 +640,7 @@ Hooks          hooks/hooks.json + hooks/scripts/          Retrospective skill
       </tbody>
     </table>
 
-    <h3><span class="phase-pill phase-decide">Decision</span></h3>
+    <h3 id="decision"><span class="phase-pill phase-decide">Decision</span></h3>
     <table>
       <thead><tr><th>Skill</th><th>Purpose</th></tr></thead>
       <tbody>
@@ -639,7 +649,7 @@ Hooks          hooks/hooks.json + hooks/scripts/          Retrospective skill
       </tbody>
     </table>
 
-    <h3><span class="phase-pill phase-learn">Learn</span></h3>
+    <h3 id="learn"><span class="phase-pill phase-learn">Learn</span></h3>
     <table>
       <thead><tr><th>Skill</th><th>Purpose</th></tr></thead>
       <tbody>
@@ -648,7 +658,7 @@ Hooks          hooks/hooks.json + hooks/scripts/          Retrospective skill
       </tbody>
     </table>
 
-    <h3><span class="phase-pill phase-cross">Cross-cutting</span></h3>
+    <h3 id="cross-cutting"><span class="phase-pill phase-cross">Cross-cutting</span></h3>
     <table>
       <thead><tr><th>Skill</th><th>Purpose</th></tr></thead>
       <tbody>
@@ -658,13 +668,13 @@ Hooks          hooks/hooks.json + hooks/scripts/          Retrospective skill
 
     <h2 id="how">How to use</h2>
 
-    <h3>Invoking a skill</h3>
+    <h3 id="invoking-a-skill">Invoking a skill</h3>
     <p>Open Copilot Chat in VS Code. Type <code>/</code> to see available skills. Type the name to invoke. Provide inputs when prompted, or skip if context resolves them (work item from branch, scope from diff).</p>
 
-    <h3>Using the Assert-IQ agents</h3>
+    <h3 id="using-the-assert-iq-agents">Using the Assert-IQ agents</h3>
     <p>Pick <strong><code>Assert-IQ</code></strong> for default behavior — routes to the right skill, full tools to act. Pick <strong><code>Assert-IQ-PLAN</code></strong> for plan-first work on larger / riskier tasks; produces a plan with a <strong>Start Implementation</strong> handoff back to <code>Assert-IQ</code>. Both are maturity-aware.</p>
 
-    <h3>Combining skills</h3>
+    <h3 id="combining-skills">Combining skills</h3>
     <p>Skills compose. A typical PR workflow:</p>
 <pre><code>/review-acceptance-criteria PROJ-123
 /generate-tests-from-ac PROJ-123
@@ -711,7 +721,7 @@ Hooks          hooks/hooks.json + hooks/scripts/          Retrospective skill
     <p>Every skill includes an explicit Governance section. Read it before delegating.</p>
 
     <h2 id="customize">Customization</h2>
-    <h3>Common customizations</h3>
+    <h3 id="common-customizations">Common customizations</h3>
     <table>
       <thead><tr><th>Need</th><th>Where</th></tr></thead>
       <tbody>
@@ -725,7 +735,7 @@ Hooks          hooks/hooks.json + hooks/scripts/          Retrospective skill
       </tbody>
     </table>
 
-    <h3>Adding a new skill</h3>
+    <h3 id="adding-a-new-skill">Adding a new skill</h3>
     <ol>
       <li>Create a folder at <code>.github/skills/your-skill/</code> containing <code>SKILL.md</code> with: YAML frontmatter (<code>name</code>, <code>description</code>, <code>mode: agent</code>), <code># Title</code>, <code>## Inputs</code>, <code>## Procedure</code>, <code>## Governance</code>.</li>
       <li>Drop supporting templates in the same folder; reference by relative path.</li>
@@ -803,5 +813,9 @@ Hooks          hooks/hooks.json + hooks/scripts/          Retrospective skill
   </main>
 </div>
 
+<!-- aiq-search:scripts:start -->
+<script src="assets/search-index.js"></script>
+<script src="assets/search.js"></script>
+<!-- aiq-search:scripts:end -->
 </body>
 </html>

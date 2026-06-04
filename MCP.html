@@ -48,8 +48,18 @@
   footer a{margin:0 12px}
   @media (max-width:880px){.layout{grid-template-columns:1fr}.sidebar{display:none}main{padding:32px 20px 60px}}
 </style>
+<!-- aiq-search:head:start -->
+<link rel="stylesheet" href="assets/search.css">
+<!-- aiq-search:head:end -->
 </head>
 <body>
+<!-- aiq-search:widget:start -->
+<div id="aiq-search" role="search">
+  <input id="aiq-search-input" type="search" autocomplete="off" spellcheck="false"
+         placeholder="Search docs (press / to focus)…" aria-label="Search documentation">
+  <div id="aiq-search-results" hidden role="listbox"></div>
+</div>
+<!-- aiq-search:widget:end -->
 
 <div class="topbar">
   <a href="README.html">← Landing page</a>
@@ -110,7 +120,7 @@
 <main>
   <div class="doc-hero" id="overview">
     <div class="badge">🔌 .vscode/mcp.json · 20 servers</div>
-    <h1>MCP server setup guide</h1>
+    <h1 id="mcp-server-setup-guide">MCP server setup guide</h1>
     <p class="subtitle">This folder's <code>mcp.json</code> wires 20 Model Context Protocol (MCP) servers into VS Code Copilot Chat. Each server gives the agent a new tool surface — GitHub, Jira, Playwright, Sentry, etc. This page explains how to turn each one on.</p>
     <div class="callout"><code>mcp.json</code> only tells your editor <strong>how</strong> to launch / connect to each server. The servers themselves are remote services or npm/Python packages downloaded on demand. Removing an entry does not uninstall anything.</div>
   </div>
@@ -144,7 +154,7 @@ claude mcp add sentry -e SENTRY_AUTH_TOKEN=... -e SENTRY_ORG=... -- uvx mcp-serv
   </ul>
   <p>For each server below, the VS Code <code>mcp.json</code> block is the source of truth; the Claude equivalent is the same command + args + env.</p>
 
-  <h2>Code hosts &amp; trackers</h2>
+  <h2 id="code-hosts-trackers">Code hosts &amp; trackers</h2>
 
   <div class="server" id="github">
     <h4><code>github</code> — GitHub repos, PRs, issues</h4>
@@ -193,7 +203,7 @@ claude mcp add sentry -e SENTRY_AUTH_TOKEN=... -e SENTRY_ORG=... -- uvx mcp-serv
     </ul>
   </div>
 
-  <h2>Local &amp; filesystem</h2>
+  <h2 id="local-filesystem">Local &amp; filesystem</h2>
 
   <div class="server" id="git">
     <h4><code>git</code> — local git operations on this repo</h4>
@@ -213,7 +223,7 @@ claude mcp add sentry -e SENTRY_AUTH_TOKEN=... -e SENTRY_ORG=... -- uvx mcp-serv
     </ul>
   </div>
 
-  <h2>Databases</h2>
+  <h2 id="databases">Databases</h2>
 
   <div class="server" id="postgres">
     <h4><code>postgres</code> — Postgres schema introspection + read-only queries</h4>
@@ -232,7 +242,7 @@ claude mcp add sentry -e SENTRY_AUTH_TOKEN=... -e SENTRY_ORG=... -- uvx mcp-serv
     </ul>
   </div>
 
-  <h2>Cloud</h2>
+  <h2 id="cloud">Cloud</h2>
 
   <div class="server" id="aws">
     <h4><code>aws</code> — AWS resource lookup (CloudWatch, S3, IAM, etc.)</h4>
@@ -244,7 +254,7 @@ claude mcp add sentry -e SENTRY_AUTH_TOKEN=... -e SENTRY_ORG=... -- uvx mcp-serv
     </ul>
   </div>
 
-  <h2>Observability <span style="color:var(--text-dim);font-size:.7em;font-weight:400;">(QI "outcome evidence" layer)</span></h2>
+  <h2 id="observability-qi-outcome-evidence-layer">Observability <span style="color:var(--text-dim);font-size:.7em;font-weight:400;">(QI "outcome evidence" layer)</span></h2>
 
   <div class="server" id="sentry">
     <h4><code>sentry</code> — recent issues, events, releases</h4>
@@ -283,7 +293,7 @@ claude mcp add sentry -e SENTRY_AUTH_TOKEN=... -e SENTRY_ORG=... -- uvx mcp-serv
     </ul>
   </div>
 
-  <h2>Browser automation <span style="color:var(--text-dim);font-size:.7em;font-weight:400;">(UI testing)</span></h2>
+  <h2 id="browser-automation-ui-testing">Browser automation <span style="color:var(--text-dim);font-size:.7em;font-weight:400;">(UI testing)</span></h2>
 
   <div class="server" id="playwright">
     <h4><code>playwright</code> — drive a real Chromium/Firefox/WebKit browser</h4>
@@ -300,7 +310,7 @@ claude mcp add sentry -e SENTRY_AUTH_TOKEN=... -e SENTRY_ORG=... -- uvx mcp-serv
     </ul>
   </div>
 
-  <h2>Knowledge bases</h2>
+  <h2 id="knowledge-bases">Knowledge bases</h2>
 
   <div class="server" id="notion">
     <h4><code>notion</code> — pages, databases, search</h4>
@@ -322,7 +332,7 @@ claude mcp add sentry -e SENTRY_AUTH_TOKEN=... -e SENTRY_ORG=... -- uvx mcp-serv
     </ul>
   </div>
 
-  <h2>Communication</h2>
+  <h2 id="communication">Communication</h2>
 
   <div class="server" id="slack">
     <h4><code>slack</code> — channel history, search, post messages</h4>
@@ -375,5 +385,9 @@ claude mcp add sentry -e SENTRY_AUTH_TOKEN=... -e SENTRY_ORG=... -- uvx mcp-serv
   </footer>
 </main>
 </div>
+<!-- aiq-search:scripts:start -->
+<script src="assets/search-index.js"></script>
+<script src="assets/search.js"></script>
+<!-- aiq-search:scripts:end -->
 </body>
 </html>

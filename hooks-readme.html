@@ -54,8 +54,18 @@
   footer a{margin:0 12px}
   @media (max-width:880px){.layout{grid-template-columns:1fr}.sidebar{display:none}main{padding:32px 20px 60px}}
 </style>
+<!-- aiq-search:head:start -->
+<link rel="stylesheet" href="assets/search.css">
+<!-- aiq-search:head:end -->
 </head>
 <body>
+<!-- aiq-search:widget:start -->
+<div id="aiq-search" role="search">
+  <input id="aiq-search-input" type="search" autocomplete="off" spellcheck="false"
+         placeholder="Search docs (press / to focus)…" aria-label="Search documentation">
+  <div id="aiq-search-results" hidden role="listbox"></div>
+</div>
+<!-- aiq-search:widget:end -->
 
 <div class="topbar">
   <a href="README.html">← Landing page</a>
@@ -94,7 +104,7 @@
 <main>
   <div class="doc-hero" id="top">
     <div class="badge">🪝 Hindsight Hooks · Retrospective Skill Refinement</div>
-    <h1>Hindsight Hooks — Guide</h1>
+    <h1 id="hindsight-hooks-guide">Hindsight Hooks — Guide</h1>
     <p class="subtitle"><strong>Hindsight Hooks</strong> — hooks that fire at turn-end and look back at the just-completed turn for signs the agent corrected itself, then offer to update the SKILL.md / instructions.md file that <em>should have</em> prevented the mistake. Formal technique name: <strong>Retrospective Skill Refinement</strong>.</p>
     <p>This hook watches your Claude Code / Copilot chat sessions for signs that the agent <strong>corrected itself</strong> — and at the end of the session, it offers to update the SKILL.md / instructions.md file that <em>should have</em> prevented the mistake.</p>
     <p>If you just want it to work, do nothing. The defaults are sensible. Read this when you want to tune behavior or troubleshoot.</p>
@@ -416,5 +426,9 @@ python3 -c "import json; print(list(json.load(open('hooks.json'))['hooks'].keys(
   </footer>
 </main>
 </div>
+<!-- aiq-search:scripts:start -->
+<script src="assets/search-index.js"></script>
+<script src="assets/search.js"></script>
+<!-- aiq-search:scripts:end -->
 </body>
 </html>

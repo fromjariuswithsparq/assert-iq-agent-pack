@@ -139,9 +139,14 @@ echo "$VERSION" > VERSION
 echo ">> Bumping doc banners"
 bump_doc_banners "$VERSION"
 
-if ! git diff --quiet -- VERSION CHANGELOG.md README.md MANIFEST.md README.assert-iq.md README.assert-iq.html README.html claude-readme.html vscode-readme.html hooks-readme.html MCP.html 2>/dev/null; then
+if command -v python3 >/dev/null 2>&1 && [[ -x scripts/build-search-index.py ]]; then
+  echo ">> Rebuilding cross-page search index"
+  python3 scripts/build-search-index.py
+fi
+
+if ! git diff --quiet -- VERSION CHANGELOG.md README.md MANIFEST.md README.assert-iq.md README.assert-iq.html README.html claude-readme.html vscode-readme.html hooks-readme.html MCP.html assets/search-index.js 2>/dev/null; then
   echo ">> Committing release bump"
-  git add VERSION CHANGELOG.md README.md MANIFEST.md README.assert-iq.md README.assert-iq.html README.html claude-readme.html vscode-readme.html hooks-readme.html MCP.html
+  git add VERSION CHANGELOG.md README.md MANIFEST.md README.assert-iq.md README.assert-iq.html README.html claude-readme.html vscode-readme.html hooks-readme.html MCP.html assets/search-index.js
   git commit -m "Release $TAG"
 fi
 

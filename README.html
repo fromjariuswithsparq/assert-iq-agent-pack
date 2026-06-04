@@ -374,13 +374,23 @@
     .step::before { top: 24px; left: 24px; }
   }
 </style>
+<!-- aiq-search:head:start -->
+<link rel="stylesheet" href="assets/search.css">
+<!-- aiq-search:head:end -->
 </head>
 <body>
+<!-- aiq-search:widget:start -->
+<div id="aiq-search" role="search">
+  <input id="aiq-search-input" type="search" autocomplete="off" spellcheck="false"
+         placeholder="Search docs (press / to focus)…" aria-label="Search documentation">
+  <div id="aiq-search-results" hidden role="listbox"></div>
+</div>
+<!-- aiq-search:widget:end -->
 
 <section class="hero">
   <div class="hero-content">
     <div class="badge"><span class="badge-dot"></span>v1.1.1 · Internal Sparq asset</div>
-    <h1>Assert.IQ Agent Pack</h1>
+    <h1 id="assert-iq-agent-pack">Assert.IQ Agent Pack</h1>
     <p class="tagline">Quality Intelligence for every IDE, every sprint, every team.</p>
     <div class="hero-cta">
       <a class="btn btn-primary" href="#get-started">Get Started →</a>
@@ -392,7 +402,7 @@
 <div class="container">
 
 <section id="qi">
-  <h2>The shift from <span class="accent">QA</span> to <span class="accent">QI</span></h2>
+  <h2 id="the-shift-from-qa-to-qi">The shift from <span class="accent">QA</span> to <span class="accent">QI</span></h2>
   <p class="lead">Traditional QA asks one question: <em>did this pass?</em> Quality Intelligence asks four — and synthesizes them into <strong>Decision Confidence</strong> no single coverage percentage or green CI badge can give you.</p>
 
   <div class="layers">
@@ -418,7 +428,7 @@
     </div>
   </div>
 
-  <h3>The immediate impact</h3>
+  <h3 id="the-immediate-impact">The immediate impact</h3>
   <ul class="impact">
     <li>Engineers stop asking "do we have tests?" and start asking "do our tests protect the <em>right</em> things?"</li>
     <li>Release conversations shift from gut-feel to evidence.</li>
@@ -428,7 +438,7 @@
 </section>
 
 <section>
-  <h2>Assert.IQ — <span class="accent">QI inside your IDE</span></h2>
+  <h2 id="assert-iq-qi-inside-your-ide">Assert.IQ — <span class="accent">QI inside your IDE</span></h2>
   <p class="lead">Assert.IQ is the accelerator. It drops a QI reasoning layer directly into <strong>GitHub Copilot Chat</strong> and <strong>Claude Code</strong> so teams don't have to learn a new tool or change their workflow. The IDE they already use becomes QI-aware.</p>
 
   <div class="features">
@@ -466,17 +476,17 @@
 </section>
 
 <section id="get-started">
-  <h2>Get started in <span class="accent">three steps</span></h2>
+  <h2 id="get-started-in-three-steps">Get started in <span class="accent">three steps</span></h2>
 
   <div class="steps">
 
     <div class="step">
-      <h3>Install the pack</h3>
+      <h3 id="install-the-pack">Install the pack</h3>
       <p>Two install paths. Pick the one that matches how comfortable you are dropping the pack into your team's codebase.</p>
 
       <div class="paths">
         <div class="path-card">
-          <h3>Path A · Try it on the pack</h3>
+          <h3 id="path-a-try-it-on-the-pack">Path A · Try it on the pack</h3>
           <p style="font-size:0.92em;">Best if you want to play with Assert.IQ before touching your team's repository. Clone the pack, run the installer, and open the <strong>pack folder</strong> as your workspace.</p>
 <pre><code>git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack
 cd assert-iq-agent-pack
@@ -487,7 +497,7 @@ pwsh ./install.ps1        <span class="comment"># Windows PS 7+</span></code></p
         </div>
 
         <div class="path-card featured">
-          <h3>Path B · Install into your codebase</h3>
+          <h3 id="path-b-install-into-your-codebase">Path B · Install into your codebase</h3>
           <p style="font-size:0.92em;">The real deployment path. <strong>Run the bootstrap script from a terminal in your target repo</strong> — no editor required:</p>
 <pre><code><span class="comment"># 1. Clone the pack somewhere (one time, anywhere)</span>
 git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack ~/assert-iq-agent-pack
@@ -530,7 +540,7 @@ bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
     </div>
 
     <div class="step">
-      <h3>Customize and wire everything in</h3>
+      <h3 id="customize-and-wire-everything-in">Customize and wire everything in</h3>
       <h4>Set your maturity tier</h4>
       <p>Open <code>.assert-iq/maturity-profile.md</code> and choose <strong>Early</strong>, <strong>Mid</strong>, or <strong>Higher</strong>. Agents read this on every quality and release question and scale their behavior accordingly.</p>
 
@@ -560,7 +570,7 @@ bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
     </div>
 
     <div class="step">
-      <h3>Run a skill</h3>
+      <h3 id="run-a-skill">Run a skill</h3>
       <p>In Copilot Chat, select the <code>Assert-IQ</code> agent and try:</p>
 <pre><code>/risk-assess-pr</code></pre>
       <p>The agent pulls context from your connected tools and reasons through all four signal layers.</p>
@@ -570,7 +580,7 @@ bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
 </section>
 
 <section>
-  <h2>What's <span class="accent">inside</span></h2>
+  <h2 id="what-s-inside">What's <span class="accent">inside</span></h2>
   <pre class="tree"><span class="dir">.github/</span>
   <span class="file">copilot-instructions.md</span>     <span class="comment">← always-on QI reasoning rules</span>
   <span class="dir">instructions/</span>               <span class="comment">← scoped rule sheets (tests, C#/XAML, CI…)</span>
@@ -591,7 +601,7 @@ bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
 </section>
 
 <section>
-  <h2>Upgrade</h2>
+  <h2 id="upgrade">Upgrade</h2>
   <p class="lead">Upgrades are explicit and intentional.</p>
   <ol style="color:var(--text-dim);font-size:1.02em;line-height:2;">
     <li>Read the <a href="https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases">Releases page</a> for what changed and any migration notes.</li>
@@ -606,7 +616,7 @@ bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
 </section>
 
 <section>
-  <h2>Go <span class="accent">deeper</span></h2>
+  <h2 id="go-deeper">Go <span class="accent">deeper</span></h2>
   <p class="lead">The three steps above are the fast path. When you're ready for the full picture:</p>
   <p><a class="btn btn-primary" href="README.assert-iq.html">Full Documentation →</a></p>
   <p style="margin-top:32px;">Tool-specific references:</p>
@@ -629,5 +639,9 @@ bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
   </div>
 </footer>
 
+<!-- aiq-search:scripts:start -->
+<script src="assets/search-index.js"></script>
+<script src="assets/search.js"></script>
+<!-- aiq-search:scripts:end -->
 </body>
 </html>
