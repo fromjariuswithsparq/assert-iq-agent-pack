@@ -62,25 +62,44 @@ pwsh ./install.ps1        # Windows PowerShell 7+
 
 The installer renders hooks for the pack's own root, wires `.claude/settings.json`, and creates the `.claude/skills` symlink — all inside the pack folder. Re-runnable. Reverse it with `bash install.sh --uninstall` (or `pwsh ./install.ps1 -Uninstall`).
 
-**Path B — Install it into your codebase.** This is the real deployment path. Two equivalent ways to invoke it:
+**Path B — Install it into your codebase.** This is the real deployment path. **Run the bootstrap script from a terminal in your target repo** — no editor required:
 
 ```bash
-# From a chat session inside your target repo:
-/assert-iq-bootstrap
+# 1. Clone the pack somewhere on your machine (one time, anywhere)
+git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack ~/assert-iq-agent-pack
 
-# Or from a terminal inside your target repo:
-bash /path/to/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
-# Windows:
-pwsh /path/to/assert-iq-agent-pack/scripts/bootstrap.ps1 -Mode trial
+# 2. cd into YOUR repo (the one you want Copilot/Claude to load the pack in)
+cd ~/code/my-app
+
+# 3. Run the bootstrap script from the clone
+bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
+# Windows PowerShell:
+pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
 ```
+
+The script is fully standalone — it accepts `--preset=solo|pod`, prompts interactively when run in a TTY, and writes everything Copilot and Claude need into your workspace. **There is no chicken-and-egg.** You do not need to open VS Code or Claude Code first, and you do not need the `/assert-iq-bootstrap` skill loaded — the script is what the skill calls under the hood.
+
+> **Already have the pack loaded** (e.g. you opened the cloned pack itself in your editor, or you've installed the skills user-globally to `~/.agents/skills/`)? You can also run `/assert-iq-bootstrap` from chat — same outcome, chat-driven prompts.
 
 `--mode=trial` is the safe default for the first install: every pack file lands in your workspace, but the path is added to `.git/info/exclude`. Your team sees nothing — your codebase's `.gitignore` is **never** touched. Once you're ready for the team to see it, run `bash scripts/bootstrap.sh --graduate` (or use `--mode=committed` from the start).
 
 Bootstrap writes twelve surfaces into the workspace: `.assert-iq/`, `.github/instructions/`, `.github/copilot-instructions.md`, `.github/skills/`, `.github/agents/`, `.claude/agents/`, `.claude/skills` (symlink to `../.github/skills` on macOS/Linux; copy fallback on Windows without Developer Mode), `.claude/settings.json`, `CLAUDE.md`, `AGENTS.md`, `.vscode/settings.json` + `.vscode/mcp.json`, and `hooks/`. Pre-existing user files are snapshotted to `<file>.assert-iq.pre-install` before any modification, so a later `bash scripts/bootstrap.sh --uninstall` can restore them byte-for-byte. Safe to re-run.
 
+> **Don't want trial mode? Want skills available in every workspace?**
+> Use `--preset=portable` instead. Skills install user-globally to
+> `~/.agents/skills/` (VS Code Copilot Chat) and `~/.claude/skills/`
+> (Claude Code), so every repo you open has the 24 QI skills available.
+> Workspace footprint is minimal: just the Assert-IQ chat agent files
+> (`.github/agents/`, `.claude/agents/`) and the manifest — no
+> instructions, hooks, settings, or MCP config touch your repo.
+> ```bash
+> bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --preset=portable
+> ```
+> Reverse with `bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --uninstall --user`.
+
 | | Path A — pack-as-workspace | Path B — install into codebase |
 |---|---|---|
-| **Command** | `bash install.sh` | `/assert-iq-bootstrap` or `bash scripts/bootstrap.sh --mode=trial` |
+| **Command** | `bash install.sh` | `bash <pack>/scripts/bootstrap.sh --mode=trial` (or `/assert-iq-bootstrap` if the pack is already loaded) |
 | **Workspace** | The pack folder itself | Your team's repo |
 | **Touches your codebase?** | No — the pack is the workspace | Yes — files go into your repo (hidden from git in trial mode) |
 | **Hides from team git?** | N/A | Yes via `.git/info/exclude` (trial mode) |

@@ -32,11 +32,27 @@ The instructions ("house rules") that Copilot reads from
      root, run `./install.sh` (macOS/Linux) or `pwsh ./install.ps1`
      (Windows). Then open the **pack folder** itself in Claude Code.
      Your team's codebase is never touched.
-   - **Path B — install it into your codebase.** Open your target repo
-     in Claude Code and run `/assert-iq-bootstrap`. Choose `trial` to
-     keep the pack invisible to your team via `.git/info/exclude`, or
-     `committed` to check it in. Either way, bootstrap copies skills,
-     agents, instructions, hooks, and config into the workspace.
+   - **Path B — install it into your codebase.** This is the real
+     deployment path. Run the bootstrap script from a terminal
+     pointed at your target repo — no editor required, nothing to
+     install in chat first:
+     ```bash
+     # 1. Clone the pack somewhere (one time, anywhere)
+     git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack ~/assert-iq-agent-pack
+     # 2. cd into YOUR repo
+     cd ~/code/my-app
+     # 3. Run the bootstrap script from the clone
+     bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
+     # Windows: pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
+     ```
+     `--mode=trial` keeps the pack invisible to your team via
+     `.git/info/exclude`; `--mode=committed` checks it in. Either way,
+     bootstrap copies skills, agents, instructions, hooks, and config
+     into the workspace. The script is fully standalone and prompts
+     interactively. **Already have the pack loaded** (e.g. you opened
+     the cloned pack itself in Claude Code, or installed the skills
+     user-globally to `~/.agents/skills/`)? You can also run
+     `/assert-iq-bootstrap` from chat — same outcome.
    Both installers are safe to re-run.
 3. **Start chatting.** Type `/` to see available skills, or `@assert-iq`
    to use the default Assert.IQ subagent. For plan-first behavior on a
@@ -119,14 +135,35 @@ user-global slot) to be picked up:
   scripts themselves. `hooks.json` is rendered at bootstrap time so
   the script paths resolve to the workspace copies.
 
-**Run `/assert-iq-bootstrap` once per new workspace.** The skill walks
-you through where each surface should live (workspace / user-global /
-skip), supports `solo` and `pod` presets, and copies the templates
-from the cloned pack into the right places. Cross-platform
-(macOS, Linux, Windows). Pre-existing files are preserved (SHA256
-compare + interactive resolver); JSON settings files are deep-merged
-additively and snapshotted to `<file>.assert-iq.pre-install` for clean
-uninstall. Safe to re-run.
+**Run the bootstrap script once per new workspace.** From a terminal
+inside your target repo:
+
+```bash
+bash /path/to/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
+# Windows: pwsh -File <pack>\scripts\bootstrap.ps1 -Mode trial
+```
+
+The script walks you through where each surface should live (workspace
+/ user-global / skip), supports `solo`, `pod`, and `portable` presets,
+and copies the templates from the cloned pack into the right places.
+Cross-platform (macOS, Linux, Windows). Pre-existing files are
+preserved (SHA256 compare + interactive resolver); JSON settings files
+are deep-merged additively and snapshotted to
+`<file>.assert-iq.pre-install` for clean uninstall. Safe to re-run.
+
+> **Skills in every workspace, no per-repo install?** Use
+> `--preset=portable` (or `--skills-scope=user`) to land skills at
+> `~/.agents/skills/` and `~/.claude/skills/`. The workspace still gets
+> `.github/agents/`, `.claude/agents/`, and the install manifest, but
+> instructions, hooks, settings, MCP config, and `CLAUDE.md` stay out.
+
+> If the cloned pack is open in Claude Code, or its skills are
+> installed user-globally to `~/.agents/skills/`, the same wizard is
+> available from chat as `/assert-iq-bootstrap`.
+
+> If the cloned pack itself is open in Claude Code, or its skills are
+> installed user-globally to `~/.agents/skills/`, the same wizard is
+> available from chat as `/assert-iq-bootstrap`.
 
 ---
 

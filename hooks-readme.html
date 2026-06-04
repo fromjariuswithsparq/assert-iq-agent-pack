@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Assert.IQ — Hindsight Hooks Guide</title>
+<style>
+  :root {
+    --bg:#0b0d12; --bg-elev:#131722; --bg-card:#1a1f2e; --border:#2a3142;
+    --text:#e6e8ee; --text-dim:#9ba3b4; --accent:#7c5cff; --accent-2:#00d4a8;
+    --accent-3:#ff6b9d; --warn:#ffb347; --code-bg:#0f1219;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent-2);text-decoration:none;transition:color .15s}
+  a:hover{color:var(--accent)}
+  code{font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:.88em;background:var(--code-bg);color:#c8d3ff;padding:2px 6px;border-radius:4px;border:1px solid var(--border)}
+  pre{background:var(--code-bg);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:14px 18px;overflow-x:auto;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:.85em;line-height:1.55}
+  pre code{background:none;border:none;padding:0;color:#c8d3ff}
+  pre.flow{border-left-color:var(--accent-3);font-size:.78em;line-height:1.4;color:#9ba3b4}
+  p{color:var(--text-dim)}
+  p strong,li strong,td strong{color:var(--text)}
+  li{color:var(--text-dim);margin-bottom:5px}
+  blockquote{border-left:3px solid var(--accent);background:var(--bg-card);margin:18px 0;padding:12px 18px;border-radius:0 8px 8px 0;color:var(--text-dim)}
+  blockquote strong{color:var(--text)}
+  .topbar{background:var(--bg-elev);border-bottom:1px solid var(--border);padding:12px 24px;font-size:.85em;color:var(--text-dim);position:sticky;top:0;z-index:20;backdrop-filter:blur(8px)}
+  .topbar a{margin-right:18px}
+  .layout{display:grid;grid-template-columns:280px 1fr;max-width:1320px;margin:0 auto;gap:0}
+  .sidebar{position:sticky;top:50px;align-self:start;height:calc(100vh - 50px);overflow-y:auto;padding:32px 16px 32px 24px;border-right:1px solid var(--border);font-size:.86em}
+  .sidebar .nav-group{color:var(--accent);font-size:.72em;text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin:18px 0 6px;padding-left:8px}
+  .sidebar a{display:block;padding:5px 10px;color:var(--text-dim);border-radius:5px;margin-bottom:2px}
+  .sidebar a.sub{padding-left:22px;font-size:.92em}
+  .sidebar a:hover{background:var(--bg-card);color:var(--text)}
+  main{padding:48px 40px 80px;min-width:0}
+  .doc-hero{margin-bottom:40px;padding-bottom:24px;border-bottom:1px solid var(--border)}
+  .badge{display:inline-flex;align-items:center;gap:8px;padding:4px 12px;background:rgba(255,107,157,.12);border:1px solid rgba(255,107,157,.35);border-radius:999px;font-size:.78em;color:var(--accent-3);font-weight:500;margin-bottom:14px}
+  h1{font-size:clamp(1.7rem,3vw,2.2rem);margin:0 0 12px;line-height:1.15;letter-spacing:-.02em;background:linear-gradient(135deg,#fff 30%,var(--accent-3) 70%,var(--accent) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .subtitle{color:var(--text-dim);font-size:1.02rem;max-width:780px}
+  h2{font-size:1.45rem;margin:48px 0 12px;letter-spacing:-.01em;padding-bottom:8px;border-bottom:1px solid var(--border);scroll-margin-top:70px}
+  h3{font-size:1.1rem;margin:28px 0 10px;color:var(--text);scroll-margin-top:70px}
+  h4{font-size:.98rem;margin:18px 0 8px;color:var(--text);scroll-margin-top:70px}
+  table{width:100%;border-collapse:collapse;margin:14px 0;background:var(--bg-card);border-radius:10px;overflow:hidden;border:1px solid var(--border);font-size:.9em}
+  thead{background:linear-gradient(135deg,rgba(255,107,157,.15),rgba(124,92,255,.08))}
+  th{text-align:left;padding:10px 14px;color:var(--text);font-weight:600;border-bottom:1px solid var(--border)}
+  td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text-dim);vertical-align:top}
+  td:first-child{color:var(--text);font-weight:500}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:rgba(255,107,157,.04)}
+  .callout{background:var(--bg-card);border:1px solid var(--border);border-left:3px solid var(--accent-2);border-radius:8px;padding:14px 18px;margin:18px 0}
+  .callout.warn{border-left-color:var(--warn)}
+  hr{border:none;border-top:1px solid var(--border);margin:36px 0}
+  footer{margin-top:64px;padding-top:32px;border-top:1px solid var(--border);color:var(--text-dim);font-size:.88em;text-align:center}
+  footer a{margin:0 12px}
+  @media (max-width:880px){.layout{grid-template-columns:1fr}.sidebar{display:none}main{padding:32px 20px 60px}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="README.html">← Landing page</a>
+  <a href="README.assert-iq.html">Full Documentation</a>
+  <a href="vscode-readme.html">VS Code half</a>
+  <a href="claude-readme.html">Claude Code half</a>
+  <a href="MCP.html">MCP setup</a>
+</div>
+
+<div class="layout">
+
+<aside class="sidebar">
+  <div class="nav-group">Overview</div>
+  <a href="#overview">1. The big picture</a>
+  <a href="#files">2. Files in this folder</a>
+
+  <div class="nav-group">Configuration</div>
+  <a href="#config">3. Editing config.json</a>
+  <a href="#enabled" class="sub">3.1 enabled</a>
+  <a href="#roots" class="sub">3.2 customization_roots</a>
+  <a href="#patterns" class="sub">3.3 file patterns</a>
+  <a href="#signatures" class="sub">3.4 correction_signatures</a>
+  <a href="#thresholds" class="sub">3.5 thresholds</a>
+  <a href="#behavior" class="sub">3.6 behavior</a>
+  <a href="#retention" class="sub">3.7 retention</a>
+  <a href="#envvars" class="sub">3.8 env-var overrides</a>
+  <a href="#insights" class="sub">3.9 proactive_insights</a>
+
+  <div class="nav-group">Operate</div>
+  <a href="#flow">4. The flow, step by step</a>
+  <a href="#troubleshooting">5. Troubleshooting</a>
+  <a href="#undo">6. Undoing an edit</a>
+  <a href="#sanity">7. Sanity-check</a>
+</aside>
+
+<main>
+  <div class="doc-hero" id="top">
+    <div class="badge">🪝 Hindsight Hooks · Retrospective Skill Refinement</div>
+    <h1>Hindsight Hooks — Guide</h1>
+    <p class="subtitle"><strong>Hindsight Hooks</strong> — hooks that fire at turn-end and look back at the just-completed turn for signs the agent corrected itself, then offer to update the SKILL.md / instructions.md file that <em>should have</em> prevented the mistake. Formal technique name: <strong>Retrospective Skill Refinement</strong>.</p>
+    <p>This hook watches your Claude Code / Copilot chat sessions for signs that the agent <strong>corrected itself</strong> — and at the end of the session, it offers to update the SKILL.md / instructions.md file that <em>should have</em> prevented the mistake.</p>
+    <p>If you just want it to work, do nothing. The defaults are sensible. Read this when you want to tune behavior or troubleshoot.</p>
+    <blockquote><strong>Paths in this guide.</strong> All path references like <code>&lt;pack-root&gt;/hooks/...</code> are relative to the pack folder you cloned (e.g. <code>~/Desktop/assert-iq-agent-pack/hooks/...</code>). On Windows, swap <code>/</code> for <code>\</code>. The scripts handle both.</blockquote>
+  </div>
+
+  <h2 id="overview">1. The big picture (read this first)</h2>
+<pre class="flow"><code>┌────────────────┐   ┌──────────────┐   ┌──────────────┐   ┌─────────────┐
+│ SessionStart   │ → │ PostToolUse  │ → │     Stop     │ → │   You       │
+│ (once)         │   │ (every tool) │   │ (session end)│   │ (yes / no)  │
+└────────────────┘   └──────────────┘   └──────────────┘   └─────────────┘
+       │                    │                  │                  │
+       ▼                    ▼                  ▼                  ▼
+ snapshots which       logs every          scans transcript +   if you say yes,
+ customization        tool the agent      tool log for signs   the apply script
+ files exist in your   used into           the agent had to     edits the
+ configured roots      tool-log.jsonl      correct itself       customization file
+                                                                in your working tree</code></pre>
+
+  <p>If the agent never corrected itself, <strong>nothing happens</strong> — you won't even notice the hook ran.</p>
+  <p>If it did, you'll get a numbered list before the session closes:</p>
+<pre><code>I detected 2 corrections this session. Proposed updates:
+  [1] ~/code/my-app/.github/instructions/services.instructions.md — Add note about disposing X
+  [2] ~/.agents/skills/debug-ui-tests/SKILL.md — Fix outdated AutomationId tip
+Apply which? [all / 1,2 / none / diff N]</code></pre>
+  <p>You decide. No git commits. No PRs. Just direct edits with a provenance comment so you can find them later.</p>
+
+  <h2 id="files">2. The files in this folder</h2>
+  <table>
+    <thead><tr><th>File</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>skill-improve.config.json</code></td><td>The only thing you'll edit. See section 3.</td></tr>
+    </tbody>
+  </table>
+  <p>State and session data live in sibling folders, <strong>not here</strong>:</p>
+  <table>
+    <thead><tr><th>Folder</th><th>Contents</th></tr></thead>
+    <tbody>
+      <tr><td><code>../state/dismissed-lessons.json</code></td><td>Fingerprints of lessons you rejected (so they don't ask again)</td></tr>
+      <tr><td><code>../state/edit-frequency.json</code></td><td>How often each customization has been edited (for "hot skill" quarantine)</td></tr>
+      <tr><td><code>../state/correction-recurrence.json</code></td><td>Per-fingerprint count of applied patches — drives the recurrence quarantine when the same correction recurs after two applied patches in 30 days</td></tr>
+      <tr><td><code>../state/needs-rewrite.json</code></td><td>Targets that have been auto-patched twice and <strong>still</strong> misfired the same signal — quarantined from any further automated patches until a human rewrites them</td></tr>
+      <tr><td><code>../state/.state.lock</code></td><td>Lock file used by the bash side (<code>fcntl.flock</code>) to serialize state writes. PowerShell uses a named system mutex <code>Global\HindsightHooksState</code> for the same purpose</td></tr>
+      <tr><td><code>../sessions/&lt;session-id&gt;/</code></td><td>Per-session scratch: loaded customizations, tool log, <strong>invoked-customizations.json</strong> (the subset actually read this session, prioritized during attribution), candidate edits, decisions</td></tr>
+      <tr><td><code>../logs/skill-improve.log</code></td><td>Diagnostic log. First place to look when something feels off.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="config">3. Editing <code>skill-improve.config.json</code></h2>
+  <p>The config has several top-level sections. Walking through each:</p>
+
+  <h3 id="enabled">3.1 <code>enabled</code></h3>
+<pre><code>"enabled": true</code></pre>
+  <p>Master switch. Set to <code>false</code> to turn the whole feature off without removing the hook.</p>
+  <p>You can also disable it <strong>just for one terminal session</strong> without editing this file:</p>
+<pre><code>export SKILL_IMPROVE_DISABLED=1      <span style="color:#6b7280;"># macOS / Linux</span>
+$env:SKILL_IMPROVE_DISABLED = '1'    <span style="color:#6b7280;"># Windows PowerShell</span></code></pre>
+
+  <h3 id="roots">3.2 <code>customization_roots</code></h3>
+  <p>Default:</p>
+<pre><code>"customization_roots": [
+  "~/.agents/skills"
+]</code></pre>
+  <p>Folders the hook scans at session start to find candidate customization files (skills, instructions, prompts, agents).</p>
+  <p><code>~</code> expands to your home directory. Non-existent paths are silently skipped, so it's safe to keep entries that may not exist on every machine.</p>
+  <p><strong>Add a folder per repo</strong> you work in that has its own <code>.github/skills/</code> or <code>.github/instructions/</code>:</p>
+<pre><code>"customization_roots": [
+  "~/.agents/skills",
+  "~/code/my-app/.github/instructions",
+  "~/code/my-app/.github/skills",
+  "~/code/another-repo/.github"
+]</code></pre>
+  <p>Use forward slashes even on Windows — the scripts convert as needed.</p>
+  <p>Common locations worth adding if they apply to you:</p>
+  <ul>
+    <li>VS Code user prompts (macOS): <code>~/Library/Application Support/Code/User/prompts</code></li>
+    <li>VS Code user prompts (Linux): <code>~/.config/Code/User/prompts</code></li>
+    <li>VS Code user prompts (Windows): <code>~/AppData/Roaming/Code/User/prompts</code></li>
+  </ul>
+  <blockquote>Legacy key <code>skill_roots</code> is still accepted for backward compatibility but <code>customization_roots</code> takes precedence.</blockquote>
+
+  <h3 id="patterns">3.3 <code>customization_file_patterns</code></h3>
+<pre><code>"customization_file_patterns": [
+  "SKILL.md",
+  "*.instructions.md",
+  "*.prompt.md",
+  "copilot-instructions.md",
+  "AGENTS.md"
+]</code></pre>
+  <p>Filename patterns the hook treats as customization artifacts (skills, instructions, prompts, agents). You almost never need to change this.</p>
+  <blockquote>Legacy key <code>skill_file_patterns</code> is still accepted for backward compatibility.</blockquote>
+
+  <h3 id="signatures">3.4 <code>correction_signatures</code></h3>
+  <p>This is the brain — how the hook decides the agent corrected itself.</p>
+  <p><strong>Text signals</strong> (<code>assistant_text_regex</code>) — case-insensitive regexes applied to assistant messages in the transcript. Each entry is a <code>{pattern, weight}</code> object where <code>weight</code> is <code>"strong"</code> (clear self-correction phrases like <em>"I was wrong"</em>, <em>"my mistake"</em>) or <code>"weak"</code> (softer hedges like <em>"actually"</em>, <em>"turns out"</em>).</p>
+  <p>To add a new phrase, append an object. Regex syntax — remember to <strong>double-escape backslashes</strong> in JSON:</p>
+<pre><code>{ "pattern": "\\bnever mind\\b",     "weight": "strong" }
+{ "pattern": "\\bsecond thought\\b", "weight": "weak"   }</code></pre>
+  <p>A correction is only acted on when the <strong>sum of hit weights</strong> across the transcript and tool log meets <code>trigger.min_score</code>. This filters out lone soft hedges and avoids firing on phrases that just happen to look like corrections.</p>
+
+  <h4>Trigger</h4>
+<pre><code>"trigger": {
+  "min_score": 2,
+  "weights": { "strong": 2, "weak": 1, "behavioral": 2 }
+}</code></pre>
+  <table>
+    <thead><tr><th>Key</th><th>Default</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>min_score</code></td><td><code>2</code></td><td>A session must accumulate at least this much weighted hit-score before the agent is asked to draft candidate edits. With the defaults, that means <em>one strong text hit</em>, <em>two weak hits</em>, or <em>one behavioral hit</em> (edit→re-read / self-rewrite).</td></tr>
+      <tr><td><code>weights.strong</code></td><td><code>2</code></td><td>Score added per strong text hit.</td></tr>
+      <tr><td><code>weights.weak</code></td><td><code>1</code></td><td>Score added per weak text hit.</td></tr>
+      <tr><td><code>weights.behavioral</code></td><td><code>2</code></td><td>Score added per behavioral hit. Behavioral hits are downgraded to <code>weak</code> automatically if there are <code>&gt;=2</code> intervening tool calls on different files between the edit and the re-read (the agent was clearly doing other work, not self-correcting).</td></tr>
+    </tbody>
+  </table>
+
+  <h4>Behavioral signals (<code>tool_patterns</code>)</h4>
+  <table>
+    <thead><tr><th>Key</th><th>Default</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>reread_window_turns</code></td><td><code>3</code></td><td>If the agent re-reads the same file within 3 tool calls after editing it, that's a sign of "I had to verify after writing."</td></tr>
+      <tr><td><code>self_edit_window_turns</code></td><td><code>2</code></td><td>If the agent edits its own freshly written output within 2 calls, that's a "rewrite of my mistake" signal.</td></tr>
+    </tbody>
+  </table>
+  <p>Raise these numbers to catch more signals (more noise). Lower them to catch only obvious cases.</p>
+
+  <h3 id="thresholds">3.5 <code>thresholds</code></h3>
+<pre><code>"thresholds": {
+  "diff_max_lines":          10,
+  "min_confidence":     "medium",
+  "hot_skill_window_days":    7,
+  "hot_skill_edit_limit":     3
+}</code></pre>
+  <table>
+    <thead><tr><th>Key</th><th>Default</th><th>What it means</th></tr></thead>
+    <tbody>
+      <tr><td><code>diff_max_lines</code></td><td><code>10</code></td><td>Any proposed edit larger than this is <strong>rejected</strong>. Big changes need a human to author, not the agent.</td></tr>
+      <tr><td><code>min_confidence</code></td><td><code>"medium"</code></td><td>Skip proposals tagged <code>low</code>. Set to <code>"low"</code> to see everything, <code>"high"</code> to see only slam-dunks.</td></tr>
+      <tr><td><code>hot_skill_window_days</code></td><td><code>7</code></td><td>How far back to look for the hot-skill check.</td></tr>
+      <tr><td><code>hot_skill_edit_limit</code></td><td><code>3</code></td><td>If a skill has been edited this many times in the window, <strong>quarantine</strong> it — the hook stops proposing more edits and warns you that the skill probably needs a rewrite, not patches.</td></tr>
+    </tbody>
+  </table>
+  <div class="callout"><strong>Rule of thumb:</strong> if you find the hook is too chatty, raise <code>min_confidence</code> to <code>"high"</code> first. If it's too quiet, lower it to <code>"low"</code>.</div>
+
+  <h3 id="behavior">3.6 <code>behavior</code></h3>
+<pre><code>"behavior": {
+  "edit_scope": "direct",
+  "silent_on_zero_corrections": true,
+  "provenance_comment_format": "&lt;!-- self-improve: session {session_id}, {date} --&gt;"
+}</code></pre>
+  <table>
+    <thead><tr><th>Key</th><th>Default</th><th>What it means</th></tr></thead>
+    <tbody>
+      <tr><td><code>edit_scope</code></td><td><code>"direct"</code></td><td>Edit files in your working tree, no git ops. (<code>stage</code> and <code>branch-commit</code> are reserved but <strong>not yet implemented</strong> — leave it on <code>direct</code> for now.)</td></tr>
+      <tr><td><code>silent_on_zero_corrections</code></td><td><code>true</code></td><td>When the agent had a clean session, say nothing. Set to <code>false</code> if you want a confirmation like <em>"no corrections detected this session"</em> every time the hook runs.</td></tr>
+      <tr><td><code>provenance_comment_format</code></td><td>(see config)</td><td>The comment appended to every edited file. <code>{session_id}</code> and <code>{date}</code> get substituted. Useful for <code>grep -r "self-improve"</code> to find every edit the hook has ever made.</td></tr>
+    </tbody>
+  </table>
+
+  <h3 id="retention">3.7 <code>retention</code> (housekeeping)</h3>
+<pre><code>"retention": {
+  "keep_silent_sessions":          false,
+  "keep_correction_sessions_days":    30,
+  "edit_frequency_keep_days":         14,
+  "log_max_lines":                  5000,
+  "janitor_min_interval_hours":       24
+}</code></pre>
+  <p>The janitor runs at the end of every session to keep things from ballooning over time.</p>
+  <table>
+    <thead><tr><th>Key</th><th>Default</th><th>What it means</th></tr></thead>
+    <tbody>
+      <tr><td><code>keep_silent_sessions</code></td><td><code>false</code></td><td>If the agent had a clean session (no corrections), delete its session folder immediately. Receipts for clean sessions are noise — keeping them off saves the vast majority of disk usage. Set to <code>true</code> if you want every session preserved.</td></tr>
+      <tr><td><code>keep_correction_sessions_days</code></td><td><code>30</code></td><td>How long to keep session folders that <strong>did</strong> produce corrections (audit trail). Older ones are deleted on the next janitor sweep.</td></tr>
+      <tr><td><code>edit_frequency_keep_days</code></td><td><code>14</code></td><td>Drop entries from <code>edit-frequency.json</code> older than this. Hot-skill check only looks back <code>hot_skill_window_days</code> (default 7), so two weeks of buffer is plenty.</td></tr>
+      <tr><td><code>log_max_lines</code></td><td><code>5000</code></td><td>Cap on <code>logs/skill-improve.log</code>. Older lines are dropped on rotation.</td></tr>
+      <tr><td><code>janitor_min_interval_hours</code></td><td><code>24</code></td><td>The cheap part of the janitor (deleting <em>this</em> session's silent folder) runs every session. The expensive sweeps (log rotation, edit-frequency trim, old session-dir cleanup) run <strong>at most once per this many hours</strong> — gated by a marker file at <code>../state/.last-janitor</code>. Lower it to sweep more aggressively, raise it to sweep less.</td></tr>
+    </tbody>
+  </table>
+  <div class="callout"><strong>Rule of thumb:</strong> the defaults keep total disk usage flat in steady state — somewhere under ~5 MB long-term. If you want to keep more audit trail, raise <code>keep_correction_sessions_days</code>. If you want to keep nothing, set both <code>keep_silent_sessions: false</code> and <code>keep_correction_sessions_days: 0</code>.</div>
+  <p>To force a full janitor sweep right now, delete the marker:</p>
+<pre><code><span style="color:#6b7280;"># macOS / Linux</span>
+rm &lt;pack-root&gt;/hooks/state/.last-janitor
+
+<span style="color:#6b7280;"># Windows PowerShell</span>
+Remove-Item &lt;pack-root&gt;\hooks\state\.last-janitor</code></pre>
+  <p>The next session will trigger a full sweep instead of waiting for the interval.</p>
+
+  <h3 id="envvars">3.8 Environment-variable overrides</h3>
+  <p>A few knobs are exposed via env vars for quick one-off tuning without editing the config:</p>
+  <table>
+    <thead><tr><th>Variable</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td><code>SKILL_IMPROVE_DISABLED=1</code></td><td>Disable the whole feature for the current shell.</td></tr>
+      <tr><td><code>SKILL_IMPROVE_TRIGGER_ANY=1</code></td><td>Restore the legacy "fire on any single hit" behavior; bypasses <code>trigger.min_score</code> entirely. Useful when debugging signal detection.</td></tr>
+      <tr><td><code>SKILL_IMPROVE_MIN_SCORE=&lt;int&gt;</code></td><td>Override <code>correction_signatures.trigger.min_score</code> for the current shell. Lower it to surface more hits during tuning, raise it to suppress noisy sessions without editing the config. Ignored when <code>SKILL_IMPROVE_TRIGGER_ANY=1</code> is set.</td></tr>
+      <tr><td><code>SKILL_IMPROVE_INSIGHTS_DISABLED=1</code></td><td>Suppress the proactive-insight pipeline (see §3.9) for the current shell. Corrections still fire normally. Useful when you want the legacy correction-only behavior.</td></tr>
+    </tbody>
+  </table>
+
+  <h3 id="insights">3.9 <code>proactive_insights</code></h3>
+  <p>The correction pipeline (§3.4) catches signals from the model's <strong>own error trail</strong> — "scratch that", "actually", retry-after-error, etc. It misses a different class: when the model <strong>proactively flags a latent flaw in the user's workflow or code</strong> without ever making (or correcting) a mistake. Phrases like <em>"consider --logger trx because tail -120 discards stack traces"</em> or <em>"this would be safer with a try/finally"</em>. There is no self-error to anchor on — just an outward-facing observation.</p>
+  <p>The proactive-insights pipeline adds a parallel detector and its own weighted gate. Insights run independently of corrections: a session can fire on insights only, corrections only, or both.</p>
+<pre><code>"proactive_insights": {
+  "enabled": true,
+  "require_file_reference": true,
+  "max_per_session": 3,
+  "proactive_insight_regex": [
+    { "pattern": "\\bconsider\\b",                                "weight": "strong" },
+    { "pattern": "\\bwould be (safer|better|cleaner|wiser)\\b",   "weight": "strong" },
+    { "pattern": "\\bsuggest(ed|ion)?\\b",                        "weight": "strong" },
+    { "pattern": "\\bsilently (discard|swallow|drop|ignore)\\b",  "weight": "strong" },
+    { "pattern": "\\b(might|may) want to\\b",                     "weight": "weak"   }
+  ],
+  "trigger": { "min_score": 3, "weights": { "strong": 2, "weak": 1 } }
+}</code></pre>
+  <table>
+    <thead><tr><th>Key</th><th>Default</th><th>What it means</th></tr></thead>
+    <tbody>
+      <tr><td><code>enabled</code></td><td><code>true</code></td><td>Master switch for the insight pipeline. Disabling here keeps corrections running normally.</td></tr>
+      <tr><td><code>require_file_reference</code></td><td><code>true</code></td><td>Only count a hit when the same assistant turn also mentions a path-like token (e.g. <code>run-tests.sh</code>, <code>~/.agents/skills/foo</code>). Strongly reduces false positives on conversational asides like <em>"might want to revisit this later"</em>. The detected token is attached to each hit as <code>file_ref</code> so the agent can use it to pick a target.</td></tr>
+      <tr><td><code>max_per_session</code></td><td><code>3</code></td><td>Hard cap on insight drafts per session. Insights can be high-volume in long sessions — this prevents the user-facing task block from becoming a wall of suggestions.</td></tr>
+      <tr><td><code>proactive_insight_regex</code></td><td>(see config)</td><td>Same weighted-regex shape as <code>correction_signatures.assistant_text_regex</code>. Tune carefully — false positives here are <strong>more annoying than missed ones</strong> since each surfaces as a proposed edit.</td></tr>
+      <tr><td><code>trigger.min_score</code></td><td><code>3</code></td><td>Default is one step higher than the correction gate so insights need stronger evidence to fire. Lower to <code>2</code> if you want more drafts.</td></tr>
+      <tr><td><code>trigger.weights</code></td><td><code>{strong:2, weak:1}</code></td><td>Per-weight contribution. Same semantics as the correction gate.</td></tr>
+    </tbody>
+  </table>
+
+  <h4>How insight drafts differ from corrections</h4>
+  <p>Insight drafts have a <code>kind</code> field that determines the routing:</p>
+  <ul>
+    <li><strong><code>kind: "extend"</code></strong> — the observation maps cleanly onto an existing customization file (a skill, instruction, prompt, or agent already loaded this session). These flow through the <strong>same</strong> reflect gates as corrections (diff cap, hot-skill quarantine, dismissed-lessons, recurrence) and <strong>can be auto-applied</strong> after user confirmation. They are surfaced in the user-facing list with <code>I</code> prefix ids (<code>[I1]</code>, <code>[I2]</code>) and written with a distinguished provenance comment: <code>&lt;!-- self-improve (insight): session ..., DATE --&gt;</code>.</li>
+    <li><strong><code>kind: "create"</code></strong> — the observation describes a recurring concern that does <strong>not</strong> fit any existing customization. The agent proposes a brand-new file under <code>~/.agents/skills/&lt;slug&gt;/SKILL.md</code> or a new <code>.instructions.md</code>. These are <strong>always</strong> routed to <code>needs_human</code> regardless of the rest of the gates — creating a new top-level skill is a human-authoring decision, not a one-line patch.</li>
+  </ul>
+  <p>The fingerprint includes <code>kind</code>, so an insight <code>extend</code> patch and a correction patch targeting the same file and the same QI layer remain in <strong>separate dismissed-lessons namespaces</strong>.</p>
+
+  <h4>Apply selection syntax</h4>
+  <p>When the user is presented with the task block they can mix correction and insight ids:</p>
+<pre><code>Apply which? all
+Apply which? 1,2,I1
+Apply which? I1
+Apply which? diff I2     <span style="color:#6b7280;"># dry-run print of insight #2 without applying</span></code></pre>
+  <p><code>all</code> accepts every validated <code>extend</code> insight as well as every validated correction. <code>none</code> rejects them all (and their fingerprints get added to <code>dismissed-lessons.json</code> so the same suggestion won't re-surface).</p>
+
+  <h2 id="flow">4. The flow, step by step</h2>
+  <p>When something does fire, here's exactly what happens:</p>
+  <ol>
+    <li><strong>Session starts.</strong> <code>skill-improve-session-start.sh</code> scans your <code>customization_roots</code> and writes a snapshot to <code>sessions/&lt;id&gt;/loaded-customizations.json</code>. ~Instant.</li>
+    <li><strong>You chat.</strong> Every tool call the agent makes (read_file, edit, etc.) gets appended to <code>sessions/&lt;id&gt;/tool-log.jsonl</code> by <code>skill-improve-detect.sh</code>. ~1 ms each.</li>
+    <li><strong>Session ends.</strong> <code>skill-improve-session-end.sh</code> scans the transcript + tool log. If it finds no signals → silent exit. If it finds signals → it writes <code>sessions/&lt;id&gt;/signals.json</code> and tells the agent: <em>"Draft minimal candidate edits, then ask the user."</em></li>
+    <li><strong>Agent drafts proposals</strong> into <code>sessions/&lt;id&gt;/candidate-edits.json</code> and runs <code>skill-improve-reflect.sh</code>, which applies the policy gates (<code>diff_max_lines</code>, <code>min_confidence</code>, <code>hot_skill_*</code>, dismissed-lessons) and writes <code>candidate-edits.validated.json</code>.</li>
+    <li><strong>Agent asks you</strong> with the numbered list. You reply <code>all</code>, <code>1,3</code>, <code>none</code>, or <code>diff 2</code> to inspect.</li>
+    <li><strong>Agent runs <code>skill-improve-apply.sh</code></strong> with your selection. The script:
+      <ul>
+        <li>Writes accepted edits directly to the target file, appending the provenance comment.</li>
+        <li>Records rejected edits' fingerprints in <code>dismissed-lessons.json</code> so they never get re-proposed.</li>
+        <li>Bumps <code>edit-frequency.json</code> for accepted edits.</li>
+        <li>Saves a full audit trail to <code>sessions/&lt;id&gt;/decisions.json</code>.</li>
+      </ul>
+    </li>
+    <li><strong>Janitor runs</strong> at the very end (on both silent and correction paths). See section 3.7 — it prunes silent-session folders immediately and, at most once per day, rotates the log, trims <code>edit-frequency.json</code>, and deletes old correction-session folders.</li>
+  </ol>
+
+  <h2 id="troubleshooting">5. Troubleshooting</h2>
+  <table>
+    <thead><tr><th>Symptom</th><th>Where to look</th></tr></thead>
+    <tbody>
+      <tr><td>Hook seems to do nothing</td><td><code>../logs/skill-improve.log</code> — check for recent <code>SessionStart</code>, <code>Stop</code> entries</td></tr>
+      <tr><td>Proposal you expected didn't show up</td><td><code>sessions/&lt;id&gt;/candidate-edits.validated.json</code> — look at the <code>skipped</code> array for the reason (likely <code>confidence_below_medium</code>, <code>diff_exceeds_cap</code>, <code>previously_dismissed</code>, or <code>hot_skill_quarantine</code>)</td></tr>
+      <tr><td>Same lesson keeps being proposed</td><td>Check <code>../state/dismissed-lessons.json</code> — the fingerprint should appear there after you reject it</td></tr>
+      <tr><td>Want to "un-dismiss" a lesson</td><td>Remove its fingerprint from <code>../state/dismissed-lessons.json</code></td></tr>
+      <tr><td>Skill is in quarantine ("hot")</td><td>Either wait for the rolling window to clear, or trim old entries out of <code>../state/edit-frequency.json</code></td></tr>
+      <tr><td>Need to see every edit the hook has ever made</td><td><code>grep -rn "self-improve: session"</code> across every directory you have in <code>customization_roots</code></td></tr>
+      <tr><td>Disk usage growing</td><td>Confirm <code>retention.keep_silent_sessions</code> is <code>false</code>. Force a sweep with <code>rm &lt;pack-root&gt;/hooks/state/.last-janitor</code> then start any chat — the next Stop hook will run the full janitor.</td></tr>
+      <tr><td>Want to keep a specific session forever</td><td>Move it out of <code>../sessions/</code> (e.g., to <code>../sessions-archive/</code>). The janitor only sweeps direct children of <code>sessions/</code>.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="undo">6. Undoing an edit</h2>
+  <p>Every edit leaves a provenance comment like:</p>
+<pre><code>&lt;!-- self-improve: session apply-1778984054, 2026-05-16 --&gt;</code></pre>
+  <p>To find and revert (search any directory in your <code>customization_roots</code>):</p>
+<pre><code><span style="color:#6b7280;"># macOS / Linux</span>
+grep -rn "self-improve: session apply-1778984054" ~/.agents/skills ~/code
+
+<span style="color:#6b7280;"># Then either remove the added lines + comment manually, or read the full audit trail:</span>
+cat &lt;pack-root&gt;/hooks/sessions/apply-1778984054/decisions.json
+<span style="color:#6b7280;"># decisions.json contains the exact before/after for every applied edit</span></code></pre>
+<pre><code><span style="color:#6b7280;"># Windows PowerShell equivalent</span>
+Get-ChildItem -Recurse ~\.agents\skills, ~\code |
+    Select-String "self-improve: session apply-1778984054"
+Get-Content &lt;pack-root&gt;\hooks\sessions\apply-1778984054\decisions.json</code></pre>
+
+  <h2 id="sanity">7. Sanity-check: is everything wired correctly?</h2>
+  <p>From <code>&lt;pack-root&gt;/hooks/</code>:</p>
+<pre><code><span style="color:#6b7280;"># Validates the JSON files parse cleanly.</span>
+python3 -c "import json; \
+  [json.load(open(f)) for f in [ \
+    'hooks.json', \
+    'config/skill-improve.config.json', \
+    'state/dismissed-lessons.json', \
+    'state/edit-frequency.json' \
+  ]]; print('OK')"
+
+<span style="color:#6b7280;"># Confirms the three hook events are wired.</span>
+python3 -c "import json; print(list(json.load(open('hooks.json'))['hooks'].keys()))"
+<span style="color:#6b7280;"># Expected: ['SessionStart', 'PostToolUse', 'Stop']</span></code></pre>
+  <blockquote>Note: <code>hooks.json</code> is generated by <code>install.sh</code> / <code>install.ps1</code> at the <strong>pack root</strong> with the absolute pack path baked into each command. If <code>hooks.json</code> is missing, re-run the installer from the pack root. See the top-level <a href="README.assert-iq.html"><code>README.assert-iq.html</code></a> for installer details.</blockquote>
+  <p>If both checks print cleanly, you're good. Start a chat — the hook will take care of itself.</p>
+
+  <footer>
+    <div>Assert.IQ Agent Pack · v0.9.0 · Owned by Jarius Hayes · Sparq Intelligence Studio</div>
+    <div style="margin-top:12px;">
+      <a href="README.html">← Landing page</a>
+      <a href="README.assert-iq.html">Full Docs</a>
+      <a href="vscode-readme.html">VS Code half</a>
+      <a href="claude-readme.html">Claude Code half</a>
+      <a href="MCP.html">MCP servers</a>
+      <a href="hooks/config/README.md">Markdown source</a>
+    </div>
+  </footer>
+</main>
+</div>
+</body>
+</html>

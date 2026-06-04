@@ -12,6 +12,17 @@
 #   -Mode ask         Interactive prompt (default when TTY). Non-TTY
 #                     falls back to committed.
 #
+# Skills scope (where the 24 QI skills land):
+#   -SkillsScope workspace   (default) workspace .github/skills + .claude/skills symlink
+#   -SkillsScope user        only ~/.agents/skills + ~/.claude/skills (every workspace gets them)
+#   -SkillsScope both        workspace AND user-global
+#
+# Presets:
+#   -Preset pod        (default) team install — everything in workspace
+#   -Preset solo       solo dev — instructions + CLAUDE.md user-global
+#   -Preset portable   skills user-global, minimal workspace footprint
+#                      (chat agents + manifest still live in the repo)
+#
 # Other switches:
 #   -Graduate / -Untrial   Reverse trial mode: remove pack entries from
 #                          .git/info/exclude. Files stay on disk.
@@ -20,7 +31,7 @@
 
 [CmdletBinding()]
 param(
-    [ValidateSet('solo', 'pod', '')]
+    [ValidateSet('solo', 'pod', 'portable', '')]
     [string]$Preset = '',
 
     [ValidateSet('workspace', 'user', 'skip', '')]
@@ -46,6 +57,9 @@ param(
 
     [ValidateSet('workspace', 'skip', '')]
     [string]$ClaudeSettings = '',
+
+    [ValidateSet('workspace', 'user', 'both', '')]
+    [string]$SkillsScope = '',
 
     [string]$Workspace = (Get-Location).Path,
 
@@ -89,18 +103,22 @@ if (-not $Source) {
 # ---- Resolve user-global paths by OS ----------------------------------------
 $isWin = $IsWindows -or ($env:OS -eq 'Windows_NT')
 if ($isWin) {
-    $userPrompts  = Join-Path $env:APPDATA 'Code\User\prompts'
-    $userAssertIq = Join-Path $env:USERPROFILE '.assert-iq'
-    $userClaudeMd = Join-Path $env:USERPROFILE '.claude\CLAUDE.md'
+    $userHome    = $env:USERPROFILE
+    $userPrompts = Join-Path $env:APPDATA 'Code\User\prompts'
 } elseif ($IsMacOS) {
-    $userPrompts  = Join-Path $HOME 'Library/Application Support/Code/User/prompts'
-    $userAssertIq = Join-Path $HOME '.assert-iq'
-    $userClaudeMd = Join-Path $HOME '.claude/CLAUDE.md'
+    $userHome    = $HOME
+    $userPrompts = Join-Path $HOME 'Library/Application Support/Code/User/prompts'
 } else {
-    $userPrompts  = Join-Path $HOME '.config/Code/User/prompts'
-    $userAssertIq = Join-Path $HOME '.assert-iq'
-    $userClaudeMd = Join-Path $HOME '.claude/CLAUDE.md'
+    $userHome    = $HOME
+    $userPrompts = Join-Path $HOME '.config/Code/User/prompts'
 }
+
+$userAssertIq     = Join-Path $userHome '.assert-iq'
+$userClaudeDir    = Join-Path $userHome '.claude'
+$userAgentsDir    = Join-Path $userHome '.agents'
+$userClaudeMd     = Join-Path $userClaudeDir 'CLAUDE.md'
+$userVscodeSkills = Join-Path $userAgentsDir 'skills'
+$userClaudeSkills = Join-Path $userClaudeDir 'skills'
 
 $manifestPath = Join-Path $Workspace '.assert-iq\.install-manifest.json'
 
@@ -122,8 +140,14 @@ function Get-Sha256($path) {
 $script:RemovableActions  = @('created','unchanged_owned','overwritten','rendered','sidecar')
 $script:ExcludableActions = @('created','unchanged_owned','overwritten','merged_hooks_key','merged_settings','rendered','sidecar')
 $script:MergedActions     = @('merged_settings','merged_hooks_key')
+# Vocabulary of actions allowed in the manifest. Validation in
+# Add-ManifestEntry turns silent typos into immediate errors.
+$script:KnownActions      = @('created','unchanged_owned','overwritten','rendered','sidecar','merged_settings','merged_hooks_key','pre_install_backup')
 
 function Add-ManifestEntry($action, $path, $scope) {
+    if ($action -notin $script:KnownActions) {
+        throw "Add-ManifestEntry: unknown action '$action' (typo? add it to `$script:KnownActions)"
+    }
     $script:ManifestEntries.Add([pscustomobject]@{
         action = $action
         path   = $path
@@ -144,6 +168,31 @@ function Backup-IfUserOwned {
     if (Test-Path -LiteralPath $backup) { return }
     Copy-Item -LiteralPath $Path -Destination $backup -Force
     Add-ManifestEntry 'pre_install_backup' $backup $Scope
+}
+
+# Stage-then-commit a merged JSON string. If the staged content is
+# byte-identical to the existing dst, records unchanged_owned; otherwise
+# backs up (if user-owned) and atomically writes dst, recording
+# $ChangedAction. Centralizes the no-op short-circuit used by JSON merges.
+function Write-OrSkipIfUnchanged {
+    param(
+        [Parameter(Mandatory)] [string] $Label,
+        [Parameter(Mandatory)] [string] $MergedContent,
+        [Parameter(Mandatory)] [string] $Dst,
+        [Parameter(Mandatory)] [string] $Scope,
+        [Parameter(Mandatory)] [string] $ChangedAction,
+        [Parameter(Mandatory)] [string] $ChangedMessage
+    )
+    $existingContent = Get-Content -LiteralPath $Dst -Raw -ErrorAction SilentlyContinue
+    if ($null -ne $existingContent -and $existingContent -eq $MergedContent) {
+        Add-ManifestEntry 'unchanged_owned' $Dst $Scope
+        Record $Label 'unchanged (merge no-op)' $Dst
+        return
+    }
+    Backup-IfUserOwned -Path $Dst -Scope $Scope
+    Write-AtomicFile -Path $Dst -Content $MergedContent
+    Add-ManifestEntry $ChangedAction $Dst $Scope
+    Record $Label $ChangedMessage $Dst
 }
 
 # Atomically write $Content to $Path: stage to a sibling temp file, validate
@@ -520,11 +569,15 @@ function Invoke-Uninstall {
     if (-not $DryRun) {
         # First, clean nested empty subdirectories left by tree-style copies
         # (.github/skills/<skill>/, eval-optimizer/references/, etc.).
-        foreach ($tree in @(
-                (Join-Path $Workspace '.github\skills'),
-                (Join-Path $Workspace '.github\agents'),
-                (Join-Path $Workspace '.claude\agents'),
-                (Join-Path $Workspace 'hooks'))) {
+        $treeRoots = @(
+            (Join-Path $Workspace '.github\skills'),
+            (Join-Path $Workspace '.github\agents'),
+            (Join-Path $Workspace '.claude\agents'),
+            (Join-Path $Workspace 'hooks'))
+        if ($User) {
+            $treeRoots += @($userVscodeSkills, $userClaudeSkills, $userAssertIq)
+        }
+        foreach ($tree in $treeRoots) {
             if ((Test-Path -LiteralPath $tree -PathType Container) -and `
                 ((Get-Item -LiteralPath $tree -Force).LinkType -notin @('SymbolicLink','Junction'))) {
                 Get-ChildItem -LiteralPath $tree -Recurse -Force -Directory -ErrorAction SilentlyContinue |
@@ -536,17 +589,52 @@ function Invoke-Uninstall {
                     }
             }
         }
-        foreach ($d in @(
-                (Join-Path $Workspace 'hooks'),
-                (Join-Path $Workspace '.vscode'),
-                (Join-Path $Workspace '.claude\agents'),
-                (Join-Path $Workspace '.claude\skills'),
-                (Join-Path $Workspace '.claude'),
-                (Join-Path $Workspace '.github\instructions'),
-                (Join-Path $Workspace '.github\agents'),
-                (Join-Path $Workspace '.github\skills'),
-                (Join-Path $Workspace '.github'),
-                (Join-Path $Workspace '.assert-iq'))) {
+        $emptyDirs = @(
+            (Join-Path $Workspace 'hooks'),
+            (Join-Path $Workspace '.vscode'),
+            (Join-Path $Workspace '.claude\agents'),
+            (Join-Path $Workspace '.claude\skills'),
+            (Join-Path $Workspace '.claude'),
+            (Join-Path $Workspace '.github\instructions'),
+            (Join-Path $Workspace '.github\agents'),
+            (Join-Path $Workspace '.github\skills'),
+            (Join-Path $Workspace '.github'),
+            (Join-Path $Workspace '.assert-iq'))
+        if ($User) {
+            $emptyDirs += @(
+                $userVscodeSkills,
+                $userAgentsDir,
+                $userClaudeSkills,
+                $userClaudeDir,
+                $userAssertIq)
+        }
+        foreach ($d in $emptyDirs) {
+            if ((Test-Path -LiteralPath $d -PathType Container) -and `
+                ((Get-Item -LiteralPath $d -Force).LinkType -notin @('SymbolicLink','Junction')) -and `
+                -not (Get-ChildItem -LiteralPath $d -Force -ErrorAction SilentlyContinue)) {
+                Remove-Item -LiteralPath $d -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        # Manifest-derived safety net: rmdir every ancestor dir of paths we
+        # just removed (deepest-first, scope-gated, symlink-safe). Future
+        # additions don't have to update the hardcoded lists above — if the
+        # path went into the manifest, its empty parent dirs get reaped here.
+        $ancestorSet = @{}
+        foreach ($e in $entries) {
+            if ($e.scope -eq 'user' -and -not $User) { continue }
+            $stop = if ($e.scope -eq 'user') { $userHome } else { $Workspace }
+            $cur  = Split-Path -Parent $e.path
+            while ($cur -and $cur -ne $stop -and $cur.Length -gt 1) {
+                $ancestorSet[$cur] = $true
+                $next = Split-Path -Parent $cur
+                if ($next -eq $cur) { break }
+                $cur = $next
+            }
+        }
+        # Sort by path-segment depth, not string length — a deeper sibling
+        # may have a shorter total path than a shallow one with a long name.
+        foreach ($d in ($ancestorSet.Keys | Sort-Object -Property @{Expression={($_ -split '[\\/]').Length}; Descending=$true})) {
             if ((Test-Path -LiteralPath $d -PathType Container) -and `
                 ((Get-Item -LiteralPath $d -Force).LinkType -notin @('SymbolicLink','Junction')) -and `
                 -not (Get-ChildItem -LiteralPath $d -Force -ErrorAction SilentlyContinue)) {
@@ -641,6 +729,24 @@ switch ($Preset) {
         if (-not $VSCode)          { $VSCode          = 'workspace' }
         if (-not $Hooks)           { $Hooks           = 'workspace' }
         if (-not $ClaudeSettings)  { $ClaudeSettings  = 'workspace' }
+        if (-not $SkillsScope)     { $SkillsScope     = 'workspace' }
+    }
+    'portable' {
+        # Skills live user-globally so every workspace can use them. The
+        # workspace still receives the Assert-IQ chat agent files
+        # (.github/agents/, .claude/agents/) and the install manifest so
+        # uninstall stays clean; instructions, hooks, settings, MCP
+        # config, and CLAUDE.md stay out. Ideal for "I want skills
+        # available in every repo I open without committing the full pack".
+        if (-not $AssertIq)        { $AssertIq        = 'user' }
+        if (-not $Instructions)    { $Instructions    = 'user' }
+        if (-not $Claude)          { $Claude          = 'user' }
+        if (-not $Copilot)         { $Copilot         = 'skip' }
+        if (-not $Agents)          { $Agents          = 'skip' }
+        if (-not $VSCode)          { $VSCode          = 'skip' }
+        if (-not $Hooks)           { $Hooks           = 'skip' }
+        if (-not $ClaudeSettings)  { $ClaudeSettings  = 'skip' }
+        if (-not $SkillsScope)     { $SkillsScope     = 'user' }
     }
     default {
         # pod (and unset)
@@ -652,6 +758,7 @@ switch ($Preset) {
         if (-not $VSCode)          { $VSCode          = 'workspace' }
         if (-not $Hooks)           { $Hooks           = 'workspace' }
         if (-not $ClaudeSettings)  { $ClaudeSettings  = 'workspace' }
+        if (-not $SkillsScope)     { $SkillsScope     = 'workspace' }
     }
 }
 
@@ -760,6 +867,8 @@ function Copy-TreeScoped {
         return
     }
     Get-ChildItem -LiteralPath $SrcDir -Recurse -File | ForEach-Object {
+        # Skip OS/editor cruft.
+        if ($_.Name -in @('.DS_Store','Thumbs.db','desktop.ini')) { return }
         $rel = $_.FullName.Substring($SrcDir.Length).TrimStart('\','/')
         $relUx = $rel -replace '\\','/'
         Copy-FileScoped -Label "$Label/$relUx" -Src $_.FullName -Dst (Join-Path $DstDir $rel) -Scope $Scope
@@ -817,10 +926,11 @@ function Merge-JsonFile {
         $packJson = Get-Content -LiteralPath $Src -Raw | ConvertFrom-Json
         $userJson = Get-Content -LiteralPath $Dst -Raw | ConvertFrom-Json
         $merged   = Merge-Hashtables -Pack $packJson -User $userJson
-        Backup-IfUserOwned -Path $Dst -Scope $Scope
-        Write-AtomicFile -Path $Dst -Content ($merged | ConvertTo-Json -Depth 32)
-        Add-ManifestEntry 'merged_settings' $Dst $Scope
-        Record $Label 'merged (additive, yours wins)' $Dst
+        $mergedContent = $merged | ConvertTo-Json -Depth 32
+        Write-OrSkipIfUnchanged -Label $Label -MergedContent $mergedContent `
+            -Dst $Dst -Scope $Scope `
+            -ChangedAction 'merged_settings' `
+            -ChangedMessage 'merged (additive, yours wins)'
     } catch {
         # Parse or write failed — sidecar.
         $side = "$Dst.assert-iq-new"
@@ -1022,10 +1132,11 @@ function Step-ClaudeSettings {
                         if ($prop.Name -ne 'hooks') { $out[$prop.Name] = $prop.Value }
                     }
                     $out['hooks'] = $new.hooks
-                    Backup-IfUserOwned -Path $dst -Scope 'workspace'
-                    Write-AtomicFile -Path $dst -Content ([pscustomobject]$out | ConvertTo-Json -Depth 32)
-                    Add-ManifestEntry 'merged_hooks_key' $dst 'workspace'
-                    Record '.claude/settings.json' 'merged hooks key' $dst
+                    $mergedContent = [pscustomobject]$out | ConvertTo-Json -Depth 32
+                    Write-OrSkipIfUnchanged -Label '.claude/settings.json' `
+                        -MergedContent $mergedContent -Dst $dst -Scope 'workspace' `
+                        -ChangedAction 'merged_hooks_key' `
+                        -ChangedMessage 'merged hooks key'
                 } catch {
                     $side = "$dst.assert-iq-new"
                     Copy-Item -LiteralPath $rendered -Destination $side -Force
@@ -1041,11 +1152,22 @@ function Step-ClaudeSettings {
 }
 
 function Step-GithubSkills {
-    # Skills must live in the workspace for VS Code Copilot to discover them.
-    Copy-TreeScoped -Label '.github/skills' `
-        -SrcDir (Join-Path $Source '.github\skills') `
-        -DstDir (Join-Path $Workspace '.github\skills') `
-        -Scope 'workspace'
+    # Skills can live in the workspace (.github/skills) so they ship with the
+    # repo, OR user-globally in ~/.agents/skills (VS Code Copilot Chat) so
+    # they work in every workspace. SkillsScope selects which, or 'both'.
+    if ($SkillsScope -in @('workspace','both')) {
+        Copy-TreeScoped -Label '.github/skills' `
+            -SrcDir (Join-Path $Source '.github\skills') `
+            -DstDir (Join-Path $Workspace '.github\skills') `
+            -Scope 'workspace'
+    }
+    if ($SkillsScope -in @('user','both')) {
+        # Label is display-only; the real destination is $userVscodeSkills.
+        Copy-TreeScoped -Label '~/.agents/skills' `
+            -SrcDir (Join-Path $Source '.github\skills') `
+            -DstDir $userVscodeSkills `
+            -Scope 'user'
+    }
 }
 
 function Step-GithubAgents {
@@ -1075,6 +1197,21 @@ function Step-ClaudeSkillsLink {
     # so Claude Code auto-discovers the same skills Copilot uses. On Windows
     # without Developer Mode (or filesystems that reject symlinks) fall back to
     # a recursive copy.
+    #
+    # SkillsScope controls placement:
+    #   workspace -> only the workspace symlink (today's behavior)
+    #   user      -> only ~/.claude/skills (no workspace symlink at all)
+    #   both      -> workspace symlink AND ~/.claude/skills
+    if ($SkillsScope -in @('user','both')) {
+        # Label is display-only; the real destination is $userClaudeSkills.
+        Copy-TreeScoped -Label '~/.claude/skills' `
+            -SrcDir (Join-Path $Source '.github\skills') `
+            -DstDir $userClaudeSkills `
+            -Scope 'user'
+    }
+    if ($SkillsScope -eq 'user') {
+        return
+    }
     $dst       = Join-Path $Workspace '.claude\skills'
     $targetRel = '..\.github\skills'
     $targetAbs = Join-Path $Workspace '.github\skills'
@@ -1162,6 +1299,7 @@ Write-Host "Workspace: $Workspace"
 $presetLabel = if ($Preset) { $Preset } else { '(none)' }
 Write-Host "Preset:    $presetLabel"
 Write-Host "Mode:      $Mode"
+Write-Host "Skills:    $SkillsScope"
 Write-Host "Manifest:  $manifestPath"
 Write-Host ''
 $results | Format-Table -AutoSize Surface, Result, Destination

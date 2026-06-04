@@ -6,7 +6,7 @@
 
 **Version**: v0.9.0
 **Status**: Internal Sparq asset — Intelligence Studio
-**Owner**: QE Competency Council
+**Owner**: Jarius Hayes
 **Repo**: <https://github.com/fromjariuswithsparq/assert-iq-agent-pack>
 
 ---
@@ -69,6 +69,14 @@ re-run the installer after editing skills).
 
 Copilot requires no extra wiring — it reads `.github/*` natively.
 
+> **Note on the `.html` siblings.** The `*.html` files at the repo root
+> (`README.html`, `README.assert-iq.html`, `claude-readme.html`,
+> `vscode-readme.html`, `hooks-readme.html`, `MCP.html`) are rendered
+> snapshots of the corresponding `.md` files, intended for offline /
+> static-host distribution. They are **not** the source of truth — edit
+> the `.md` files only and regenerate the HTMLs from those. If you change
+> a doc and don't refresh the HTML, the two will drift.
+
 ---
 
 ## Installation
@@ -116,17 +124,45 @@ workspace-loaded surfaces into a target repo so Copilot Chat and Claude
 Code can discover the skills, agents, instructions, hooks, and config
 from that codebase.
 
-Two equivalent ways to invoke it:
+**Run the bootstrap script from a terminal in your target repo.** No
+editor required, nothing to install in chat first:
 
 ```bash
-# From a chat session inside your target repo:
-/assert-iq-bootstrap
+# 1. Clone the pack somewhere on your machine (one time, anywhere)
+git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack ~/assert-iq-agent-pack
 
-# Or from a terminal inside your target repo:
-bash /path/to/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
-# Windows:
-pwsh /path/to/assert-iq-agent-pack/scripts/bootstrap.ps1 -Mode trial
+# 2. cd into YOUR repo
+cd ~/code/my-app
+
+# 3. Run the bootstrap script from the clone
+bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
+# Windows PowerShell:
+pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
 ```
+
+The script is fully standalone — it accepts `--preset=solo|pod`,
+prompts interactively when run in a TTY, and writes everything Copilot
+and Claude need into your workspace. **There is no chicken-and-egg.**
+You do not need to open VS Code or Claude Code first, and the
+`/assert-iq-bootstrap` skill does not need to be loaded — the script
+is what the skill calls under the hood.
+
+> **Where does `--preset=solo` put the QI instructions?** Solo is
+> designed for a single developer who wants the QI rules to apply to
+> *every* repo they open, not just this one. The instruction files
+> (`qi-foundation`, `qi-test-design`, etc.) and `CLAUDE.md` install to
+> your VS Code user prompts folder
+> (`~/Library/Application Support/Code/User/prompts/` on macOS,
+> `~/.config/Code/User/prompts/` on Linux,
+> `%APPDATA%\Code\User\prompts\` on Windows) and `~/.claude/CLAUDE.md`
+> respectively — **not** to `.github/instructions/` in the workspace.
+> Use `--preset=pod` if you want the instructions checked into this
+> repo for the whole team.
+
+> **Already have the pack loaded** (the cloned pack opened in your
+> editor, or the skills installed user-globally to
+> `~/.agents/skills/`)? You can also run `/assert-iq-bootstrap` from
+> chat — same outcome, chat-driven prompts.
 
 `--mode=trial` is the safe default: every pack file lands in your
 workspace, and each path is added to `.git/info/exclude` so your team
@@ -134,6 +170,25 @@ sees nothing. **Your codebase's `.gitignore` is never touched.** When
 you're ready for the team to see it, run
 `bash scripts/bootstrap.sh --graduate` (or use `--mode=committed` from
 the start).
+
+#### Portable mode — skills user-globally, minimal workspace footprint
+
+If you'd rather not put the full pack into your workspace (not even in
+trial mode), use `--preset=portable`. Skills install to
+`~/.agents/skills/` (VS Code Copilot Chat) and `~/.claude/skills/`
+(Claude Code) so every workspace you open has the 24 QI skills
+available. Workspace footprint shrinks to just the Assert-IQ chat
+agent files (`.github/agents/`, `.claude/agents/`) and the install
+manifest — no instructions, hooks, settings, MCP config, or `CLAUDE.md`
+are written into the repo.
+
+```bash
+bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --preset=portable
+# Reverse with: --uninstall --user
+```
+
+You can also opt in à la carte with `--skills-scope=user` (default is
+`workspace`; `both` puts skills in both places).
 
 ### Pinning to a tag
 

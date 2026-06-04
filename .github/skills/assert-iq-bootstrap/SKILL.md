@@ -85,6 +85,14 @@ disk are untouched.
    - **`solo`**: `.assert-iq/` in the workspace (per-client governance),
      everything else user-global. Best for a contractor rotating across
      many client repos who wants the same QI brain everywhere.
+   - **`portable`**: skills land user-globally at `~/.agents/skills/`
+     (VS Code) and `~/.claude/skills/` (Claude Code). Workspace
+     footprint shrinks to the Assert-IQ chat agent files and the
+     install manifest; instructions, hooks, settings, MCP config, and
+     `CLAUDE.md` stay out of the repo. Best for users who don't want
+     trial-mode pack files in their repo, or who want skills available
+     in every workspace they open. Sets `--skills-scope=user` and skips
+     workspace surfaces (copilot/agents/vscode/hooks/claude-settings).
 
 4. **If preset is chosen**, confirm and skip to step 6. Otherwise, walk
    through each surface and ask `workspace` / `user-global` / `skip`.
@@ -133,6 +141,7 @@ disk are untouched.
    bash scripts/bootstrap.sh \
      --mode=committed \
      --preset=pod \
+     --skills-scope=both \
      --instructions=user \
      --claude=skip
    ```
@@ -180,7 +189,8 @@ disk are untouched.
 | `--user` / `-User` | (switch, with `--uninstall`) | also remove user-global copies |
 | `--yes` / `-Yes` (`-y`) | (switch, with `--uninstall`) | skip the confirmation prompt |
 | `--dry-run` / `-DryRun` | (switch, with `--uninstall`) | preview operations without changing files |
-| `--preset` / `-Preset` | `solo`, `pod` | (none — falls back to `pod` if no per-surface flags given) |
+| `--preset` / `-Preset` | `solo`, `pod`, `portable` | (none — falls back to `pod` if no per-surface flags given) |
+| `--skills-scope` / `-SkillsScope` | `workspace`, `user`, `both` | `workspace` (or `user` when `--preset=portable`) |
 | `--assert-iq` / `-AssertIq` | `workspace`, `user`, `skip` | preset default |
 | `--instructions` / `-Instructions` | `workspace`, `user`, `skip` | preset default |
 | `--claude` / `-Claude` | `workspace`, `user`, `skip` | preset default |

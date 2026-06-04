@@ -116,13 +116,31 @@ specific set of paths. Eight surfaces have to live in the **workspace**
   here. Bootstrap merges only the `hooks` key, preserving anything
   else you have.
 
-**Run `/assert-iq-bootstrap` once per new workspace.** The skill walks
-you through where each surface should live (workspace / user-global /
-skip), supports `solo` and `pod` presets, and copies the templates
-from the cloned pack into the right places. Cross-platform
-(macOS, Linux, Windows). Pre-existing files are preserved (SHA256
-compare + interactive resolver); JSON settings files are deep-merged
-and snapshotted to `<file>.assert-iq.pre-install` for clean uninstall.
+**Run the bootstrap script once per new workspace.** From a terminal
+inside your target repo:
+
+```bash
+bash /path/to/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
+# Windows: pwsh -File <pack>\scripts\bootstrap.ps1 -Mode trial
+```
+
+The script walks you through where each surface should live (workspace
+/ user-global / skip), supports `solo`, `pod`, and `portable` presets,
+and copies the templates from the cloned pack into the right places.
+Cross-platform (macOS, Linux, Windows). Pre-existing files are
+preserved (SHA256 compare + interactive resolver); JSON settings files
+are deep-merged and snapshotted to `<file>.assert-iq.pre-install` for
+clean uninstall.
+
+> **Skills in every workspace, no per-repo install?** Use
+> `--preset=portable` (or `--skills-scope=user`) to land skills at
+> `~/.agents/skills/` (VS Code Copilot Chat). The workspace still gets
+> `.github/agents/`, `.claude/agents/`, and the install manifest, but
+> instructions, hooks, settings, and MCP config stay out.
+
+> If the cloned pack itself is open in VS Code, or its skills are
+> installed user-globally to `~/.agents/skills/`, the same wizard is
+> available from chat as `/assert-iq-bootstrap`.
 Safe to re-run.
 
 ---

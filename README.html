@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Assert.IQ Agent Pack — Quality Intelligence in your IDE</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --bg-elev: #131722;
+    --bg-card: #1a1f2e;
+    --border: #2a3142;
+    --text: #e6e8ee;
+    --text-dim: #9ba3b4;
+    --accent: #7c5cff;
+    --accent-2: #00d4a8;
+    --accent-3: #ff6b9d;
+    --warn: #ffb347;
+    --code-bg: #0f1219;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent-2); text-decoration: none; transition: color 0.15s; }
+  a:hover { color: var(--accent); }
+  code {
+    font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+    font-size: 0.88em;
+    background: var(--code-bg);
+    color: #c8d3ff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+    font-size: 0.86em;
+    line-height: 1.55;
+  }
+  pre code { background: none; border: none; padding: 0; color: #c8d3ff; }
+  .comment { color: #6b7280; }
+  p { color: var(--text-dim); }
+
+  /* Hero */
+  .hero {
+    position: relative;
+    padding: 100px 24px 80px;
+    text-align: center;
+    background:
+      radial-gradient(ellipse at top, rgba(124,92,255,0.18), transparent 60%),
+      radial-gradient(ellipse at bottom right, rgba(0,212,168,0.12), transparent 60%),
+      var(--bg);
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(124,92,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,92,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
+  }
+  .hero-content { position: relative; max-width: 880px; margin: 0 auto; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: rgba(124,92,255,0.12);
+    border: 1px solid rgba(124,92,255,0.4);
+    border-radius: 999px;
+    font-size: 0.82em;
+    color: var(--accent);
+    font-weight: 500;
+    letter-spacing: 0.4px;
+    margin-bottom: 24px;
+  }
+  .badge-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  h1 {
+    font-size: clamp(2.4rem, 5vw, 3.8rem);
+    margin: 0 0 16px;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #fff 30%, var(--accent) 60%, var(--accent-2) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero p.tagline {
+    font-size: 1.25rem;
+    color: var(--text-dim);
+    margin: 0 0 36px;
+    font-weight: 300;
+  }
+  .hero-cta {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #5a3fd4);
+    color: white;
+    box-shadow: 0 4px 24px rgba(124,92,255,0.35);
+  }
+  .btn-primary:hover { transform: translateY(-2px); color: white; box-shadow: 0 6px 30px rgba(124,92,255,0.5); }
+  .btn-ghost {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Layout */
+  .container {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 80px 24px;
+  }
+  section { margin-bottom: 80px; }
+  h2 {
+    font-size: 2rem;
+    margin: 0 0 16px;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+  h2 .accent { color: var(--accent); }
+  h3 { font-size: 1.25rem; margin: 32px 0 12px; }
+  .lead {
+    font-size: 1.1rem;
+    color: var(--text-dim);
+    max-width: 720px;
+    margin-bottom: 40px;
+  }
+
+  /* Four-layer cards */
+  .layers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin: 32px 0;
+  }
+  .layer-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .layer-card:hover { transform: translateY(-4px); border-color: var(--accent); }
+  .layer-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  }
+  .layer-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75em;
+    color: var(--accent);
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .layer-card h4 { margin: 0 0 8px; font-size: 1.05rem; }
+  .layer-card p { margin: 0; color: var(--text-dim); font-size: 0.92em; }
+
+  /* Bullets impact list */
+  .impact { list-style: none; padding: 0; }
+  .impact li {
+    position: relative;
+    padding: 10px 0 10px 32px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .impact li:last-child { border-bottom: none; }
+  .impact li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--accent-2);
+    font-weight: bold;
+  }
+
+  /* Feature grid */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    margin-top: 32px;
+  }
+  .feature {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    transition: border-color 0.2s;
+  }
+  .feature:hover { border-color: var(--accent-2); }
+  .feature-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    margin-bottom: 12px;
+  }
+  .feature h4 { margin: 0 0 8px; }
+  .feature p { margin: 0; color: var(--text-dim); font-size: 0.92em; }
+
+  /* Steps */
+  .steps { counter-reset: step; }
+  .step {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 32px 28px 88px;
+    margin-bottom: 20px;
+    position: relative;
+    counter-increment: step;
+  }
+  .step::before {
+    content: counter(step);
+    position: absolute;
+    left: 24px;
+    top: 28px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: white;
+  }
+  .step h3 { margin-top: 0; }
+  .step h4 { margin: 24px 0 8px; color: var(--accent); }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    background: var(--bg-card);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    font-size: 0.92em;
+  }
+  thead { background: linear-gradient(135deg, rgba(124,92,255,0.15), rgba(0,212,168,0.1)); }
+  th {
+    text-align: left;
+    padding: 12px 16px;
+    color: var(--text);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+    vertical-align: top;
+  }
+  td:first-child { color: var(--text); font-weight: 500; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(124,92,255,0.04); }
+
+  /* Tree / file structure */
+  .tree {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+    line-height: 1.85;
+    color: var(--text-dim);
+    overflow-x: auto;
+  }
+  .tree .dir { color: var(--accent-2); }
+  .tree .comment { color: #6b7280; font-style: italic; }
+  .tree .file { color: var(--text); }
+
+  /* Path comparison */
+  .paths {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin: 32px 0;
+  }
+  .path-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    position: relative;
+  }
+  .path-card.featured { border-color: var(--accent); }
+  .path-card.featured::after {
+    content: 'RECOMMENDED';
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    font-size: 0.65em;
+    letter-spacing: 1px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    padding: 4px 10px;
+    border-radius: 4px;
+    color: white;
+    font-weight: 700;
+  }
+  .path-card h3 { margin-top: 0; color: var(--accent); }
+  .path-card.featured h3 { color: var(--accent-2); }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 40px 24px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.9em;
+    background: var(--bg-elev);
+  }
+  footer a { margin: 0 12px; }
+
+  @media (max-width: 720px) {
+    .paths { grid-template-columns: 1fr; }
+    .step { padding-left: 28px; padding-top: 80px; }
+    .step::before { top: 24px; left: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="hero-content">
+    <div class="badge"><span class="badge-dot"></span>v0.9.0 · Internal Sparq asset</div>
+    <h1>Assert.IQ Agent Pack</h1>
+    <p class="tagline">Quality Intelligence for every IDE, every sprint, every team.</p>
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="#get-started">Get Started →</a>
+      <a class="btn btn-ghost" href="README.assert-iq.html">Full Documentation</a>
+    </div>
+  </div>
+</section>
+
+<div class="container">
+
+<section id="qi">
+  <h2>The shift from <span class="accent">QA</span> to <span class="accent">QI</span></h2>
+  <p class="lead">Traditional QA asks one question: <em>did this pass?</em> Quality Intelligence asks four — and synthesizes them into <strong>Decision Confidence</strong> no single coverage percentage or green CI badge can give you.</p>
+
+  <div class="layers">
+    <div class="layer-card">
+      <span class="layer-num">LAYER 01</span>
+      <h4>Change Risk</h4>
+      <p>What moved, and how broadly does it reach?</p>
+    </div>
+    <div class="layer-card">
+      <span class="layer-num">LAYER 02</span>
+      <h4>Protection Strength</h4>
+      <p>Do the right tests actually cover it?</p>
+    </div>
+    <div class="layer-card">
+      <span class="layer-num">LAYER 03</span>
+      <h4>Signal Trustworthiness</h4>
+      <p>Can we believe the results we're seeing?</p>
+    </div>
+    <div class="layer-card">
+      <span class="layer-num">LAYER 04</span>
+      <h4>Outcome Evidence</h4>
+      <p>What do escaped defects and telemetry say?</p>
+    </div>
+  </div>
+
+  <h3>The immediate impact</h3>
+  <ul class="impact">
+    <li>Engineers stop asking "do we have tests?" and start asking "do our tests protect the <em>right</em> things?"</li>
+    <li>Release conversations shift from gut-feel to evidence.</li>
+    <li>Escaped defects get root-caused at the signal layer they slipped through, not just triaged.</li>
+    <li>QA stops being a gate at the end of a sprint and becomes a continuous signal woven into every PR, every merge, every retrospective.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Assert.IQ — <span class="accent">QI inside your IDE</span></h2>
+  <p class="lead">Assert.IQ is the accelerator. It drops a QI reasoning layer directly into <strong>GitHub Copilot Chat</strong> and <strong>Claude Code</strong> so teams don't have to learn a new tool or change their workflow. The IDE they already use becomes QI-aware.</p>
+
+  <div class="features">
+    <div class="feature">
+      <div class="feature-icon" aria-hidden="true">⚡</div>
+      <h4>24 Skills</h4>
+      <p>Test generation, code review, risk assessment, hotspot mapping, traceability matrices, release confidence, escaped-defect analysis, exploratory charters, and more.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon" aria-hidden="true">🤖</div>
+      <h4>Two Agents</h4>
+      <p><code>Assert-IQ</code> for full execution and <code>Assert-IQ-PLAN</code> for plan-first workflows, with a built-in handoff button between them.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon" aria-hidden="true">📊</div>
+      <h4>Maturity-Aware</h4>
+      <p>A one-file config scales the pack from <em>early / manual generation only</em> to <em>higher / autonomous healing</em>, meeting teams where they are.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon" aria-hidden="true">🔌</div>
+      <h4>20 MCP Servers</h4>
+      <p>GitHub, ADO, Jira, Sentry, Grafana, Playwright, Slack, and more — wired in one file, credentials kept in your OS keychain.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon" aria-hidden="true">🪝</div>
+      <h4>Hindsight Hooks</h4>
+      <p>Learn from corrections across sessions and progressively tighten agent behavior for your specific codebase.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon" aria-hidden="true">🎯</div>
+      <h4>Operating Model</h4>
+      <p>QI is the operating model. Assert.IQ is how teams act on it — from day one, in the tools they already use.</p>
+    </div>
+  </div>
+</section>
+
+<section id="get-started">
+  <h2>Get started in <span class="accent">three steps</span></h2>
+
+  <div class="steps">
+
+    <div class="step">
+      <h3>Install the pack</h3>
+      <p>Two install paths. Pick the one that matches how comfortable you are dropping the pack into your team's codebase.</p>
+
+      <div class="paths">
+        <div class="path-card">
+          <h3>Path A · Try it on the pack</h3>
+          <p style="font-size:0.92em;">Best if you want to play with Assert.IQ before touching your team's repository. Clone the pack, run the installer, and open the <strong>pack folder</strong> as your workspace.</p>
+<pre><code>git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack
+cd assert-iq-agent-pack
+bash install.sh           <span class="comment"># macOS / Linux / WSL</span>
+<span class="comment"># or</span>
+pwsh ./install.ps1        <span class="comment"># Windows PS 7+</span></code></pre>
+          <p style="font-size:0.88em;">Reverse with <code>bash install.sh --uninstall</code>.</p>
+        </div>
+
+        <div class="path-card featured">
+          <h3>Path B · Install into your codebase</h3>
+          <p style="font-size:0.92em;">The real deployment path. <strong>Run the bootstrap script from a terminal in your target repo</strong> — no editor required:</p>
+<pre><code><span class="comment"># 1. Clone the pack somewhere (one time, anywhere)</span>
+git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack ~/assert-iq-agent-pack
+
+<span class="comment"># 2. cd into YOUR repo</span>
+cd ~/code/my-app
+
+<span class="comment"># 3. Run the bootstrap script from the clone</span>
+bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
+<span class="comment"># Windows: pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</span></code></pre>
+          <p style="font-size:0.88em;">The script is fully standalone — it accepts <code>--preset=solo|pod</code>, prompts interactively, and writes everything Copilot and Claude need. <strong>No chicken-and-egg.</strong> You do not need to open VS Code or Claude Code first, and the <code>/assert-iq-bootstrap</code> skill does not need to be loaded — the script is what the skill calls under the hood.</p>
+          <p style="font-size:0.85em;color:var(--text-dim);"><em>Already have the pack loaded</em> (cloned pack opened in your editor, or skills installed user-globally to <code>~/.agents/skills/</code>)? You can also run <code>/assert-iq-bootstrap</code> from chat — same outcome.</p>
+          <p style="font-size:0.88em;"><code>--mode=trial</code> is the safe default — files land in your workspace, but paths are added to <code>.git/info/exclude</code>. Your codebase's <code>.gitignore</code> is <strong>never</strong> touched.</p>
+        </div>
+      </div>
+
+      <p style="font-size:0.92em;margin-top:24px;">Bootstrap writes <strong>twelve surfaces</strong>: <code>.assert-iq/</code>, <code>.github/instructions/</code>, <code>.github/copilot-instructions.md</code>, <code>.github/skills/</code>, <code>.github/agents/</code>, <code>.claude/agents/</code>, <code>.claude/skills</code> (symlink), <code>.claude/settings.json</code>, <code>CLAUDE.md</code>, <code>AGENTS.md</code>, <code>.vscode/settings.json</code> + <code>.vscode/mcp.json</code>, and <code>hooks/</code>. Pre-existing user files are snapshotted to <code>&lt;file&gt;.assert-iq.pre-install</code> for byte-for-byte restore on uninstall.</p>
+
+      <div class="callout" style="margin-top:16px;">
+        <strong>Don't want trial mode? Want skills in every workspace?</strong>
+        <p style="margin:6px 0 8px 0;">Use <code>--preset=portable</code>. Skills install user-globally to <code>~/.agents/skills/</code> (VS Code Copilot Chat) and <code>~/.claude/skills/</code> (Claude Code), so every repo you open has the 24 QI skills available. Workspace footprint is minimal — only the Assert-IQ chat agent files (<code>.github/agents/</code>, <code>.claude/agents/</code>) and the manifest land in the repo; no instructions, hooks, settings, or MCP config.</p>
+<pre><code>bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --preset=portable</code></pre>
+        <p style="font-size:0.88em;margin:6px 0 0 0;">Reverse with <code>bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --uninstall --user</code>.</p>
+      </div>
+
+      <h4>Compare the paths</h4>
+      <table>
+        <thead>
+          <tr><th></th><th>Path A — pack-as-workspace</th><th>Path B — into your codebase</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Command</td><td><code>bash install.sh</code></td><td><code>bash &lt;pack&gt;/scripts/bootstrap.sh --mode=trial</code></td></tr>
+          <tr><td>Workspace</td><td>The pack folder itself</td><td>Your team's repo</td></tr>
+          <tr><td>Touches your codebase?</td><td>No</td><td>Yes (hidden in trial mode)</td></tr>
+          <tr><td>Hides from team git?</td><td>N/A</td><td>Yes via <code>.git/info/exclude</code></td></tr>
+          <tr><td>Reverse with</td><td><code>install.sh --uninstall</code></td><td><code>bootstrap.sh --uninstall</code></td></tr>
+          <tr><td>Best for</td><td>Evaluating, demos, the curious</td><td>Real adoption — solo, then team</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="step">
+      <h3>Customize and wire everything in</h3>
+      <h4>Set your maturity tier</h4>
+      <p>Open <code>.assert-iq/maturity-profile.md</code> and choose <strong>Early</strong>, <strong>Mid</strong>, or <strong>Higher</strong>. Agents read this on every quality and release question and scale their behavior accordingly.</p>
+
+      <h4>Set your governance posture</h4>
+      <p>Open <code>.assert-iq/governance.md</code> — compliance constraints the agents must respect (data handling, naming, refusal rules).</p>
+
+      <h4>Wire your tools</h4>
+      <p>The pack ships 20 pre-configured MCP servers in <code>.vscode/mcp.json</code>. Add credentials when VS Code prompts — they go to your OS keychain, not the file. See <a href="MCP.html">.vscode/MCP.html</a> for a per-server setup guide.</p>
+
+      <h4>Tailor <code>config.yaml</code></h4>
+      <p>Open <code>.assert-iq/config.yaml</code>. Edit manually — every field has inline comments — or attach the file to chat and say:</p>
+<pre><code>Customize this config.yaml file to my codebase and workspace.</code></pre>
+      <p style="font-size:0.92em;">The agent will ask a few targeted questions about your stack, tracker, and team, then fill in the placeholders.</p>
+
+      <h4>Pick your workspace topology</h4>
+      <table>
+        <thead>
+          <tr><th>Topology</th><th><code>workspace.role</code></th><th>Setup</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Tests + prod in one repo</td><td><code>monorepo</code> (default)</td><td>Nothing else to configure</td></tr>
+          <tr><td>This repo = prod; tests elsewhere</td><td><code>prod</code></td><td>Set <code>workspace.companion_repo</code> to tests repo</td></tr>
+          <tr><td>This repo = tests; prod elsewhere</td><td><code>tests</code></td><td>Set <code>workspace.companion_repo</code> to prod repo</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:0.92em;">When the companion isn't set, the affected layer is reported as <strong>UNGRADED</strong> with reason <code>companion_repo_unset</code> — never fabricated.</p>
+    </div>
+
+    <div class="step">
+      <h3>Run a skill</h3>
+      <p>In Copilot Chat, select the <code>Assert-IQ</code> agent and try:</p>
+<pre><code>/risk-assess-pr</code></pre>
+      <p>The agent pulls context from your connected tools and reasons through all four signal layers.</p>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>What's <span class="accent">inside</span></h2>
+  <pre class="tree"><span class="dir">.github/</span>
+  <span class="file">copilot-instructions.md</span>     <span class="comment">← always-on QI reasoning rules</span>
+  <span class="dir">instructions/</span>               <span class="comment">← scoped rule sheets (tests, C#/XAML, CI…)</span>
+  <span class="dir">skills/</span>                     <span class="comment">← 24 QI skills, one subfolder each</span>
+  <span class="dir">agents/</span>                     <span class="comment">← Assert-IQ &amp; Assert-IQ-PLAN agents</span>
+<span class="dir">.claude/</span>
+  <span class="dir">agents/</span>                     <span class="comment">← Claude Code subagent counterparts</span>
+  <span class="dir">skills</span> → ../.github/skills    <span class="comment">← symlink (copy on Windows w/o Dev Mode)</span>
+<span class="dir">.vscode/</span>
+  <span class="file">mcp.json</span>                    <span class="comment">← 20 MCP server definitions</span>
+  <span class="file">MCP.md</span>                      <span class="comment">← per-server credential and setup guide</span>
+<span class="dir">hooks/</span>
+  <span class="file">hooks.json</span>                  <span class="comment">← Hindsight Hooks wiring</span>
+  <span class="dir">scripts/</span>                    <span class="comment">← session-start, apply, reflect, session-end</span>
+<span class="dir">.assert-iq/</span>                   <span class="comment">← per-repo config (created by bootstrap)</span>
+<span class="dir">scripts/</span>
+  <span class="file">bootstrap.sh / .ps1</span>         <span class="comment">← workspace installer, cross-platform</span></pre>
+</section>
+
+<section>
+  <h2>Upgrade</h2>
+  <p class="lead">Upgrades are explicit and intentional.</p>
+  <ol style="color:var(--text-dim);font-size:1.02em;line-height:2;">
+    <li>Read the <a href="https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases">Releases page</a> for what changed and any migration notes.</li>
+    <li>Uninstall the current version where you installed it:
+      <ul>
+        <li><strong>Path A</strong> (pack-as-workspace): <code>bash install.sh --uninstall</code></li>
+        <li><strong>Path B</strong> (codebase install): <code>bash scripts/bootstrap.sh --uninstall</code> in each target repo</li>
+      </ul>
+    </li>
+    <li><code>git pull</code> (or re-clone) to the new tag, then re-run the same path to refresh.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Go <span class="accent">deeper</span></h2>
+  <p class="lead">The three steps above are the fast path. When you're ready for the full picture:</p>
+  <p><a class="btn btn-primary" href="README.assert-iq.html">Full Documentation →</a></p>
+  <p style="margin-top:32px;">Tool-specific references:</p>
+  <ul style="color:var(--text-dim);">
+    <li>VS Code / Copilot — <a href="vscode-readme.html"><code>vscode-readme.html</code></a></li>
+    <li>Claude Code — <a href="claude-readme.html"><code>claude-readme.html</code></a></li>
+    <li>MCP servers — <a href="MCP.html"><code>MCP.html</code></a></li>
+    <li>Hindsight Hooks guide — <a href="hooks-readme.html"><code>hooks-readme.html</code></a></li>
+  </ul>
+</section>
+
+</div>
+
+<footer>
+  <div>Assert.IQ Agent Pack · v0.9.0 · Owned by <a href="https://github.com/fromjariuswithsparq">Jarius Hayes</a> · Sparq Intelligence Studio</div>
+  <div style="margin-top:12px;">
+    <a href="README.md">Markdown README</a>
+    <a href="README.assert-iq.html">Full Docs</a>
+    <a href="https://github.com/fromjariuswithsparq/assert-iq-agent-pack">GitHub</a>
+  </div>
+</footer>
+
+</body>
+</html>

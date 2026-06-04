@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Assert.IQ — .github/ folder (GitHub Copilot in VS Code)</title>
+<style>
+  :root {
+    --bg:#0b0d12; --bg-elev:#131722; --bg-card:#1a1f2e; --border:#2a3142;
+    --text:#e6e8ee; --text-dim:#9ba3b4; --accent:#7c5cff; --accent-2:#00d4a8;
+    --accent-3:#ff6b9d; --warn:#ffb347; --code-bg:#0f1219;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent-2);text-decoration:none;transition:color .15s}
+  a:hover{color:var(--accent)}
+  code{font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:.88em;background:var(--code-bg);color:#c8d3ff;padding:2px 6px;border-radius:4px;border:1px solid var(--border)}
+  pre{background:var(--code-bg);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:16px 20px;overflow-x:auto;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:.86em;line-height:1.55}
+  pre code{background:none;border:none;padding:0;color:#c8d3ff}
+  .topbar{background:var(--bg-elev);border-bottom:1px solid var(--border);padding:12px 24px;font-size:.85em;color:var(--text-dim);position:sticky;top:0;z-index:10;backdrop-filter:blur(8px)}
+  .topbar a{margin-right:18px}
+  main{max-width:980px;margin:0 auto;padding:48px 24px 80px}
+  p{color:var(--text-dim)}
+  p strong,li strong,td strong{color:var(--text)}
+  li{color:var(--text-dim);margin-bottom:6px}
+  .doc-hero{margin-bottom:48px;padding-bottom:28px;border-bottom:1px solid var(--border);background:radial-gradient(ellipse at top right,rgba(124,92,255,.1),transparent 60%);margin-left:-24px;margin-right:-24px;padding:0 24px 32px}
+  .badge{display:inline-flex;align-items:center;gap:8px;padding:4px 12px;background:rgba(124,92,255,.12);border:1px solid rgba(124,92,255,.35);border-radius:999px;font-size:.78em;color:var(--accent);font-weight:500;margin-bottom:14px}
+  h1{font-size:clamp(1.8rem,3.4vw,2.4rem);margin:0 0 12px;line-height:1.15;letter-spacing:-.02em;background:linear-gradient(135deg,#fff 30%,var(--accent) 70%,var(--accent-2) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .subtitle{color:var(--text-dim);font-size:1.05rem;max-width:720px;margin:0}
+  h2{font-size:1.5rem;margin:48px 0 14px;letter-spacing:-.01em;padding-bottom:8px;border-bottom:1px solid var(--border);scroll-margin-top:60px}
+  h3{font-size:1.15rem;margin:28px 0 10px;color:var(--text);scroll-margin-top:60px}
+  table{width:100%;border-collapse:collapse;margin:18px 0;background:var(--bg-card);border-radius:10px;overflow:hidden;border:1px solid var(--border);font-size:.92em}
+  thead{background:linear-gradient(135deg,rgba(124,92,255,.15),rgba(0,212,168,.08))}
+  th{text-align:left;padding:12px 16px;color:var(--text);font-weight:600;border-bottom:1px solid var(--border)}
+  td{padding:12px 16px;border-bottom:1px solid var(--border);color:var(--text-dim);vertical-align:top}
+  td:first-child{color:var(--text);font-weight:500}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:rgba(124,92,255,.04)}
+  .callout{background:var(--bg-card);border:1px solid var(--border);border-left:3px solid var(--accent-2);border-radius:8px;padding:14px 18px;margin:18px 0}
+  footer{margin-top:64px;padding-top:32px;border-top:1px solid var(--border);color:var(--text-dim);font-size:.88em;text-align:center}
+  footer a{margin:0 12px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="README.html">← Landing page</a>
+  <a href="README.assert-iq.html">Full Documentation</a>
+  <a href="claude-readme.html">Claude Code half</a>
+  <a href="MCP.html">MCP setup</a>
+</div>
+
+<main>
+  <div class="doc-hero">
+    <div class="badge">📁 .github/ · GitHub Copilot in VS Code</div>
+    <h1>The <code>.github/</code> folder</h1>
+    <p class="subtitle">The <strong>GitHub Copilot half</strong> of the Assert.IQ Agent Pack. If you open this repository in VS Code and use Copilot Chat, everything in here is loaded automatically. You don't need to "install" anything — VS Code and Copilot read this folder on their own.</p>
+  </div>
+
+  <h2>What's in here, in plain words</h2>
+  <table>
+    <thead><tr><th>Folder</th><th>What it is</th></tr></thead>
+    <tbody>
+      <tr><td><code>copilot-instructions.md</code></td><td>The always-on guidance Copilot reads at the start of every chat. Think of it as Copilot's "house rules" for this repo.</td></tr>
+      <tr><td><code>instructions/</code></td><td>Extra rule sheets that switch on automatically when you open certain kinds of files (for example, when you're working on tests).</td></tr>
+      <tr><td><code>skills/</code></td><td>Step-by-step playbooks Copilot can run when you ask. Each one is a little expert. Type <code>/</code> in chat to see them. Examples: <code>/generate-bug-report</code>, <code>/code-review</code>, <code>/risk-assess-pr</code>.</td></tr>
+      <tr><td><code>agents/</code></td><td>Specialist agents you can pick from the chat agent dropdown. <strong><code>Assert-IQ</code></strong> is the default front door (full tools, routes to the right skill). <strong><code>Assert-IQ-PLAN</code></strong> is the read-only planning sibling — researches and writes a plan, then offers a <strong>Start Implementation</strong> button that hands off to <code>Assert-IQ</code>.</td></tr>
+      <tr><td><code>../hooks/hooks.json</code> + <code>../hooks/scripts/</code></td><td>Small background scripts that fire when Copilot does things (like saving a file). They keep telemetry and help the pack learn from your sessions. You don't interact with these directly.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>How to start using it</h2>
+  <ol>
+    <li><strong>Open the repo in VS Code.</strong> That's it for setup on the Copilot side.</li>
+    <li><strong>Open Copilot Chat</strong> (the chat icon in the sidebar).</li>
+    <li><strong>Pick the <code>Assert-IQ</code> agent</strong> from the agent dropdown at the top of the chat panel. It's the front door — it routes your question to the right skill and has full tools to act.</li>
+    <li><strong>Type <code>/</code></strong> to see the list of skills directly, or just ask a question in plain English — the right rule sheets will be applied automatically based on what file you're looking at.</li>
+    <li><strong>Want a plan first?</strong> Switch to <strong><code>Assert-IQ-PLAN</code></strong> in the agent dropdown. It researches, writes a plan, then gives you a <strong>Start Implementation</strong> button that hands the plan back to <code>Assert-IQ</code> to execute.</li>
+  </ol>
+
+  <h2>"Will this also work in Claude Code?"</h2>
+  <p>Yes. The same content is mirrored to the <code>.claude/</code> folder at the repo root. See <a href="claude-readme.html"><code>claude-readme.html</code></a> for the Claude side. You can use either tool — they share the same skills, instructions, and hooks.</p>
+
+  <h2>Uninstalling the pack</h2>
+  <p>There are exactly two install paths and each has a matching uninstall.</p>
+  <p><strong>Path A — pack-as-workspace</strong> (<code>bash install.sh</code> / <code>pwsh ./install.ps1</code> at the root of the cloned pack):</p>
+<pre><code>bash install.sh --uninstall          <span style="color:#6b7280;"># macOS / Linux / WSL</span>
+pwsh ./install.ps1 -Uninstall        <span style="color:#6b7280;"># Windows</span></code></pre>
+  <p>That removes <code>.claude/skills</code>, the rendered <code>hooks/hooks.json</code>, and the <code>hooks</code> key from <code>.claude/settings.json</code> (preserving any other keys you had). The committed pack files (<code>.github/</code>, <code>CLAUDE.md</code>, <code>AGENTS.md</code>, the <code>hooks/</code> scripts and template) remain — delete them or <code>git rm</code> them when you're done with the clone.</p>
+
+  <p><strong>Path B — codebase install</strong> (<code>/assert-iq-bootstrap</code> or <code>bash scripts/bootstrap.sh --mode=trial</code> inside your target repo):</p>
+<pre><code>bash scripts/bootstrap.sh --uninstall            <span style="color:#6b7280;"># macOS / Linux</span>
+bash scripts/bootstrap.sh --uninstall --user     <span style="color:#6b7280;"># also remove user-global copies</span>
+bash scripts/bootstrap.sh --uninstall --dry-run  <span style="color:#6b7280;"># preview without changes</span>
+pwsh -File scripts/bootstrap.ps1 -Uninstall      <span style="color:#6b7280;"># Windows</span></code></pre>
+  <p>The uninstall reads <code>.assert-iq/.install-manifest.json</code>, restores any pre-existing files from their <code>&lt;file&gt;.assert-iq.pre-install</code> snapshots, removes pack-owned files (including <code>.github/skills/</code>, <code>.github/agents/</code>, <code>.claude/agents/</code>, and the <code>.claude/skills</code> symlink), strips the trial-mode block from <code>.git/info/exclude</code>, and clears <code>hooks/state</code>, <code>hooks/logs</code>, and <code>hooks/sessions</code>. Files you edited post-install are preserved at <code>&lt;file&gt;.assert-iq.uninstall-saved</code> so nothing is silently lost.</p>
+
+  <h2>What the bootstrap does <em>not</em> auto-wire — and how to fix it</h2>
+  <p>The bootstrap delivers <strong>every file in the pack to disk</strong> at the right location, but VS Code and Copilot only auto-load some of them from a specific set of paths. Eight surfaces have to live in the <strong>workspace</strong> (or a user-global slot) to be picked up:</p>
+  <ul>
+    <li><code>.github/copilot-instructions.md</code> — the always-on QI house rules</li>
+    <li><code>.github/instructions/qi-*.instructions.md</code> — the five <code>applyTo</code> rule sheets</li>
+    <li><code>CLAUDE.md</code> — the Claude-side always-on guidance (if you also use Claude Code)</li>
+    <li><code>AGENTS.md</code> — the generic agent-spec pointer</li>
+    <li><code>.assert-iq/</code> — per-client config (maturity tier, governance posture, signal schema). The <code>Assert-IQ</code> agent reads <code>.assert-iq/maturity-profile.md</code> and <code>.assert-iq/governance.md</code> on every quality/release question and silently falls back to defaults if they're missing.</li>
+    <li><code>.vscode/settings.json</code> + <code>.vscode/mcp.json</code> — wires Copilot to read instructions and prompts from <code>.github/</code>, and points <code>chat.hookFilesLocations</code> at <code>./hooks/hooks.json</code>. JSON deep-merged into any pre-existing files (additive — your scalar values win on conflicts; object keys union from both sides).</li>
+    <li><code>hooks/</code> (<code>scripts/</code>, <code>lib/</code>, <code>config/</code>, <code>hooks.json</code>) — the hook scripts themselves. <code>hooks.json</code> is rendered at bootstrap time so the script paths resolve to the workspace copies.</li>
+    <li><code>.claude/settings.json</code> — Claude Code reads its <code>hooks</code> block from here. Bootstrap merges only the <code>hooks</code> key, preserving anything else you have.</li>
+  </ul>
+  <div class="callout"><strong>Run the bootstrap script once per new workspace.</strong> From a terminal inside your target repo: <code>bash /path/to/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial</code> (Windows: <code>pwsh -File &lt;pack&gt;\scripts\bootstrap.ps1 -Mode trial</code>). The script walks you through where each surface should live (workspace / user-global / skip), supports <code>solo</code>, <code>pod</code>, and <code>portable</code> presets, and copies the templates from the cloned pack into the right places. Cross-platform (macOS, Linux, Windows). Pre-existing files are preserved (SHA256 compare + interactive resolver); JSON settings files are deep-merged and snapshotted to <code>&lt;file&gt;.assert-iq.pre-install</code> for clean uninstall. Safe to re-run. <em>Skills in every workspace, no per-repo install? Use <code>--preset=portable</code> (or <code>--skills-scope=user</code>) to land skills at <code>~/.agents/skills/</code>. The workspace still gets <code>.github/agents/</code>, <code>.claude/agents/</code>, and the install manifest, but instructions, hooks, settings, and MCP config stay out.</em> <em>If the cloned pack is open in VS Code, or its skills are installed user-globally to <code>~/.agents/skills/</code>, the same wizard is available from chat as <code>/assert-iq-bootstrap</code>.</em></div>
+
+  <h2>Something feels off?</h2>
+  <ul>
+    <li>Skill isn't appearing in <code>/</code> autocomplete? Make sure VS Code is reading this folder — open the repository at its root, not a subfolder.</li>
+    <li>Need the full file map? See <a href="MANIFEST.md"><code>MANIFEST.md</code></a>.</li>
+    <li>Need the day-one onboarding doc? See <a href="README.assert-iq.html"><code>README.assert-iq.html</code></a>.</li>
+  </ul>
+
+  <footer>
+    <div>Assert.IQ Agent Pack · v0.9.0 · Owned by Jarius Hayes · Sparq Intelligence Studio</div>
+    <div style="margin-top:12px;">
+      <a href="README.html">← Landing page</a>
+      <a href="README.assert-iq.html">Full Docs</a>
+      <a href="claude-readme.html">Claude Code half</a>
+      <a href="MCP.html">MCP servers</a>
+      <a href=".github/vscode-readme.md">Markdown source</a>
+    </div>
+  </footer>
+</main>
+</body>
+</html>

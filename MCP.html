@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Assert.IQ — MCP server setup guide</title>
+<style>
+  :root {
+    --bg:#0b0d12; --bg-elev:#131722; --bg-card:#1a1f2e; --border:#2a3142;
+    --text:#e6e8ee; --text-dim:#9ba3b4; --accent:#7c5cff; --accent-2:#00d4a8;
+    --accent-3:#ff6b9d; --warn:#ffb347; --code-bg:#0f1219;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent-2);text-decoration:none;transition:color .15s}
+  a:hover{color:var(--accent)}
+  code{font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:.88em;background:var(--code-bg);color:#c8d3ff;padding:2px 6px;border-radius:4px;border:1px solid var(--border)}
+  pre{background:var(--code-bg);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:14px 18px;overflow-x:auto;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:.85em;line-height:1.55}
+  pre code{background:none;border:none;padding:0;color:#c8d3ff}
+  p{color:var(--text-dim)}
+  p strong,li strong{color:var(--text)}
+  li{color:var(--text-dim);margin-bottom:5px}
+  .topbar{background:var(--bg-elev);border-bottom:1px solid var(--border);padding:12px 24px;font-size:.85em;color:var(--text-dim);position:sticky;top:0;z-index:20;backdrop-filter:blur(8px)}
+  .topbar a{margin-right:18px}
+  .layout{display:grid;grid-template-columns:260px 1fr;max-width:1280px;margin:0 auto;gap:0}
+  .sidebar{position:sticky;top:50px;align-self:start;height:calc(100vh - 50px);overflow-y:auto;padding:32px 16px 32px 24px;border-right:1px solid var(--border);font-size:.88em}
+  .sidebar .nav-group{color:var(--accent);font-size:.72em;text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin:18px 0 6px;padding-left:8px}
+  .sidebar a{display:block;padding:5px 10px;color:var(--text-dim);border-radius:5px;margin-bottom:2px}
+  .sidebar a:hover{background:var(--bg-card);color:var(--text)}
+  main{padding:48px 40px 80px;min-width:0}
+  .doc-hero{margin-bottom:40px;padding-bottom:24px;border-bottom:1px solid var(--border)}
+  .badge{display:inline-flex;align-items:center;gap:8px;padding:4px 12px;background:rgba(124,92,255,.12);border:1px solid rgba(124,92,255,.35);border-radius:999px;font-size:.78em;color:var(--accent);font-weight:500;margin-bottom:14px}
+  h1{font-size:clamp(1.7rem,3vw,2.2rem);margin:0 0 12px;line-height:1.15;letter-spacing:-.02em;background:linear-gradient(135deg,#fff 30%,var(--accent) 70%,var(--accent-2) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .subtitle{color:var(--text-dim);font-size:1.02rem;max-width:760px}
+  h2{font-size:1.4rem;margin:48px 0 12px;letter-spacing:-.01em;padding-bottom:8px;border-bottom:1px solid var(--border);scroll-margin-top:70px}
+  h3{font-size:1.1rem;margin:28px 0 10px;color:var(--text);scroll-margin-top:70px}
+  h3 code{font-size:.88em;background:rgba(124,92,255,.12);color:var(--accent);border-color:rgba(124,92,255,.35)}
+  h4{font-size:1rem;margin:22px 0 8px;color:var(--text);scroll-margin-top:70px}
+  h4 code{font-size:.92em;background:rgba(0,212,168,.10);color:var(--accent-2);border-color:rgba(0,212,168,.30)}
+  .server{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin:14px 0}
+  .server h4{margin-top:0}
+  .server ul{margin:8px 0;padding-left:22px}
+  .callout{background:var(--bg-card);border:1px solid var(--border);border-left:3px solid var(--accent-2);border-radius:8px;padding:14px 18px;margin:18px 0}
+  .callout.warn{border-left-color:var(--warn)}
+  hr{border:none;border-top:1px solid var(--border);margin:36px 0}
+  footer{margin-top:64px;padding-top:32px;border-top:1px solid var(--border);color:var(--text-dim);font-size:.88em;text-align:center}
+  footer a{margin:0 12px}
+  @media (max-width:880px){.layout{grid-template-columns:1fr}.sidebar{display:none}main{padding:32px 20px 60px}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="README.html">← Landing page</a>
+  <a href="README.assert-iq.html">Full Documentation</a>
+  <a href="vscode-readme.html">VS Code half</a>
+  <a href="claude-readme.html">Claude Code half</a>
+</div>
+
+<div class="layout">
+
+<aside class="sidebar">
+  <div class="nav-group">Setup</div>
+  <a href="#overview">Overview</a>
+  <a href="#quickstart-vscode">Quick start (VS Code)</a>
+  <a href="#quickstart-claude">Quick start (Claude)</a>
+
+  <div class="nav-group">Code hosts &amp; trackers</div>
+  <a href="#github">github</a>
+  <a href="#azure-devops">azure-devops</a>
+  <a href="#atlassian">atlassian (Jira)</a>
+  <a href="#gitlab">gitlab</a>
+  <a href="#bitbucket">bitbucket</a>
+
+  <div class="nav-group">Local &amp; filesystem</div>
+  <a href="#git">git</a>
+  <a href="#filesystem">filesystem</a>
+
+  <div class="nav-group">Databases</div>
+  <a href="#postgres">postgres</a>
+  <a href="#sqlite">sqlite</a>
+
+  <div class="nav-group">Cloud</div>
+  <a href="#aws">aws</a>
+
+  <div class="nav-group">Observability</div>
+  <a href="#sentry">sentry</a>
+  <a href="#grafana">grafana</a>
+  <a href="#datadog">datadog</a>
+  <a href="#honeycomb">honeycomb</a>
+
+  <div class="nav-group">Browser automation</div>
+  <a href="#playwright">playwright</a>
+  <a href="#puppeteer">puppeteer</a>
+
+  <div class="nav-group">Knowledge bases</div>
+  <a href="#notion">notion</a>
+  <a href="#confluence">confluence</a>
+
+  <div class="nav-group">Communication</div>
+  <a href="#slack">slack</a>
+  <a href="#teams">teams</a>
+
+  <div class="nav-group">Operate</div>
+  <a href="#troubleshooting">Troubleshooting</a>
+  <a href="#security">Security notes</a>
+</aside>
+
+<main>
+  <div class="doc-hero" id="overview">
+    <div class="badge">🔌 .vscode/mcp.json · 20 servers</div>
+    <h1>MCP server setup guide</h1>
+    <p class="subtitle">This folder's <code>mcp.json</code> wires 20 Model Context Protocol (MCP) servers into VS Code Copilot Chat. Each server gives the agent a new tool surface — GitHub, Jira, Playwright, Sentry, etc. This page explains how to turn each one on.</p>
+    <div class="callout"><code>mcp.json</code> only tells your editor <strong>how</strong> to launch / connect to each server. The servers themselves are remote services or npm/Python packages downloaded on demand. Removing an entry does not uninstall anything.</div>
+  </div>
+
+  <h2 id="quickstart-vscode">Quick start (VS Code)</h2>
+  <ol>
+    <li><strong>Install the launchers</strong> the servers depend on:
+<pre><code><span style="color:#6b7280;"># macOS</span>
+brew install node uv          <span style="color:#6b7280;"># node gives you npx; uv gives you uvx</span>
+<span style="color:#6b7280;"># verify</span>
+node -v &amp;&amp; npx -v &amp;&amp; uvx --version</code></pre>
+    </li>
+    <li><strong>Open the workspace</strong> in VS Code. Make sure the GitHub Copilot Chat extension is installed and you're signed in.</li>
+    <li><strong>Open the MCP panel:</strong> <code>Cmd+Shift+P</code> → <strong>MCP: List Servers</strong>. You should see all 20 entries from <code>mcp.json</code>. Most will be marked <em>Needs input</em> until you provide credentials.</li>
+    <li><strong>Start the credential-free ones first</strong> to confirm your toolchain works: click <strong>Start</strong> on <code>git</code> and <code>playwright</code>. They should turn <em>Ready</em> and expose tools (e.g. <code>git_log</code>, <code>browser_navigate</code>).</li>
+    <li><strong>Enable the rest as you need them.</strong> Click <strong>Start</strong> — VS Code will prompt for each <code>${input:…}</code> value. Secrets (marked with the lock icon) are stored in your OS keychain, not in <code>mcp.json</code>.</li>
+  </ol>
+  <div class="callout">To wipe a stored secret: <code>Cmd+Shift+P</code> → <strong>MCP: Reset Inputs</strong>.</div>
+
+  <h2 id="quickstart-claude">Quick start (Claude Code / Claude Desktop)</h2>
+  <p>VS Code's <code>mcp.json</code> is not read by Claude. To use the same servers there:</p>
+  <ul>
+    <li><strong>Claude Code (CLI):</strong> for each server below, run
+<pre><code>claude mcp add &lt;name&gt; -- &lt;command&gt; &lt;args...&gt;</code></pre>
+      Set env vars with <code>-e KEY=VALUE</code>. Example:
+<pre><code>claude mcp add git -- uvx mcp-server-git --repository "$PWD"
+claude mcp add sentry -e SENTRY_AUTH_TOKEN=... -e SENTRY_ORG=... -- uvx mcp-server-sentry</code></pre>
+      List with <code>claude mcp list</code>, remove with <code>claude mcp remove &lt;name&gt;</code>.
+    </li>
+    <li><strong>Claude Desktop:</strong> edit <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> and add entries under <code>mcpServers</code>. Same <code>command</code> / <code>args</code> / <code>env</code> shape as <code>mcp.json</code>, but <strong>no <code>${input:…}</code> substitution</strong> — paste secrets literally (the file is local-only) or use shell env vars.</li>
+  </ul>
+  <p>For each server below, the VS Code <code>mcp.json</code> block is the source of truth; the Claude equivalent is the same command + args + env.</p>
+
+  <h2>Code hosts &amp; trackers</h2>
+
+  <div class="server" id="github">
+    <h4><code>github</code> — GitHub repos, PRs, issues</h4>
+    <ul>
+      <li><strong>Transport:</strong> remote HTTP (<code>api.githubcopilot.com/mcp/</code>).</li>
+      <li><strong>You need:</strong> GitHub personal access token (classic or fine-grained) with <code>repo</code>, <code>read:org</code>, <code>workflow</code> scopes.</li>
+      <li><strong>Get it:</strong> <a href="https://github.com/settings/tokens">github.com/settings/tokens</a></li>
+      <li><strong>Prompt:</strong> <code>github_pat</code> (secret).</li>
+    </ul>
+  </div>
+
+  <div class="server" id="azure-devops">
+    <h4><code>azure-devops</code> — Azure DevOps work items, repos, pipelines</h4>
+    <ul>
+      <li><strong>You need:</strong> ADO org URL (e.g. <code>https://dev.azure.com/contoso</code>) and a PAT with <strong>Work Items: Read &amp; Write</strong>, <strong>Code: Read</strong>, <strong>Build: Read</strong>.</li>
+      <li><strong>Get it:</strong> ADO → User settings → Personal access tokens.</li>
+      <li><strong>Prompts:</strong> <code>ado_org</code>, <code>ado_pat</code> (secret).</li>
+    </ul>
+  </div>
+
+  <div class="server" id="atlassian">
+    <h4><code>atlassian</code> — Jira issues (and Confluence via the official server)</h4>
+    <ul>
+      <li><strong>You need:</strong> Jira site URL (<code>https://acme.atlassian.net</code>), your account email, and an API token.</li>
+      <li><strong>Get token:</strong> <a href="https://id.atlassian.com/manage-profile/security/api-tokens">id.atlassian.com/manage-profile/security/api-tokens</a></li>
+      <li><strong>Prompts:</strong> <code>jira_base_url</code>, <code>jira_email</code>, <code>jira_api_token</code> (secret).</li>
+    </ul>
+  </div>
+
+  <div class="server" id="gitlab">
+    <h4><code>gitlab</code> — GitLab projects, MRs, issues</h4>
+    <ul>
+      <li><strong>You need:</strong> GitLab PAT with <code>api</code> scope, and the API URL (<code>https://gitlab.com/api/v4</code> for SaaS, or your self-hosted URL).</li>
+      <li><strong>Get it:</strong> GitLab → Edit profile → Access tokens.</li>
+      <li><strong>Prompts:</strong> <code>gitlab_pat</code> (secret), <code>gitlab_api_url</code>.</li>
+    </ul>
+  </div>
+
+  <div class="server" id="bitbucket">
+    <h4><code>bitbucket</code> — Bitbucket Cloud workspaces, repos, PRs</h4>
+    <ul>
+      <li><strong>You need:</strong> workspace slug, your Bitbucket account email, and an <strong>app password</strong> with Repositories: Read, Pull requests: Read scopes.</li>
+      <li><strong>Get it:</strong> <a href="https://bitbucket.org/account/settings/app-passwords/">bitbucket.org/account/settings/app-passwords</a></li>
+      <li><strong>Prompts:</strong> <code>bitbucket_workspace</code>, <code>bitbucket_email</code>, <code>bitbucket_app_password</code> (secret).</li>
+      <li><strong>Note:</strong> community package; multiple impls exist — see <code>mcp.json</code> for which one is wired.</li>
+    </ul>
+  </div>
+
+  <h2>Local &amp; filesystem</h2>
+
+  <div class="server" id="git">
+    <h4><code>git</code> — local git operations on this repo</h4>
+    <ul>
+      <li><strong>Launcher:</strong> <code>uvx</code> (install <code>uv</code> first).</li>
+      <li><strong>You need:</strong> nothing. Uses <code>${workspaceFolder}</code>.</li>
+      <li>Exposes <code>git_log</code>, <code>git_diff</code>, <code>git_show</code>, <code>git_status</code>, etc. Useful for the QI four-layer "change risk" reasoning.</li>
+    </ul>
+  </div>
+
+  <div class="server" id="filesystem">
+    <h4><code>filesystem</code> — scoped read/write to a directory</h4>
+    <ul>
+      <li><strong>You need:</strong> an absolute path the agent may touch. Pick something outside the repo if you want shared notes (e.g. <code>/Users/me/notes</code>), or the workspace itself if you want a second editing surface.</li>
+      <li><strong>Prompt:</strong> <code>fs_allowed_path</code>.</li>
+      <li><strong>Warning:</strong> the agent gets read+write on that path. Don't point it at your home directory.</li>
+    </ul>
+  </div>
+
+  <h2>Databases</h2>
+
+  <div class="server" id="postgres">
+    <h4><code>postgres</code> — Postgres schema introspection + read-only queries</h4>
+    <ul>
+      <li><strong>You need:</strong> a connection string, <code>postgresql://user:pass@host:5432/db</code>. Prefer a read-only role.</li>
+      <li><strong>Prompt:</strong> <code>pg_connection_string</code> (secret).</li>
+    </ul>
+  </div>
+
+  <div class="server" id="sqlite">
+    <h4><code>sqlite</code> — local SQLite inspection</h4>
+    <ul>
+      <li><strong>Launcher:</strong> <code>uvx</code>.</li>
+      <li><strong>You need:</strong> absolute path to a <code>.sqlite</code> / <code>.db</code> file.</li>
+      <li><strong>Prompt:</strong> <code>sqlite_db_path</code>.</li>
+    </ul>
+  </div>
+
+  <h2>Cloud</h2>
+
+  <div class="server" id="aws">
+    <h4><code>aws</code> — AWS resource lookup (CloudWatch, S3, IAM, etc.)</h4>
+    <ul>
+      <li><strong>Launcher:</strong> <code>uvx</code> (AWS Labs server).</li>
+      <li><strong>You need:</strong> a named profile already present in <code>~/.aws/credentials</code>, and a default region. Credentials are read from your AWS config — they do <strong>not</strong> live in <code>mcp.json</code>.</li>
+      <li><strong>Set up profile (once):</strong> <code>aws configure --profile dev</code>.</li>
+      <li><strong>Prompts:</strong> <code>aws_profile</code>, <code>aws_region</code>.</li>
+    </ul>
+  </div>
+
+  <h2>Observability <span style="color:var(--text-dim);font-size:.7em;font-weight:400;">(QI "outcome evidence" layer)</span></h2>
+
+  <div class="server" id="sentry">
+    <h4><code>sentry</code> — recent issues, events, releases</h4>
+    <ul>
+      <li><strong>Launcher:</strong> <code>uvx</code>.</li>
+      <li><strong>You need:</strong> Sentry auth token with <code>event:read</code>, <code>project:read</code>, <code>org:read</code>, and your org slug.</li>
+      <li><strong>Get token:</strong> Sentry → Settings → Auth Tokens.</li>
+      <li><strong>Prompts:</strong> <code>sentry_token</code> (secret), <code>sentry_org</code>.</li>
+    </ul>
+  </div>
+
+  <div class="server" id="grafana">
+    <h4><code>grafana</code> — query dashboards &amp; Prometheus through Grafana</h4>
+    <ul>
+      <li><strong>You need:</strong> Grafana base URL and a service account API key (Viewer role is enough).</li>
+      <li><strong>Get key:</strong> Grafana → Administration → Service accounts.</li>
+      <li><strong>Prompts:</strong> <code>grafana_url</code>, <code>grafana_api_key</code> (secret).</li>
+    </ul>
+  </div>
+
+  <div class="server" id="datadog">
+    <h4><code>datadog</code> — logs, metrics, monitors</h4>
+    <ul>
+      <li><strong>You need:</strong> Datadog API key + Application key + your site (<code>datadoghq.com</code>, <code>datadoghq.eu</code>, <code>us3.datadoghq.com</code>, …).</li>
+      <li><strong>Get keys:</strong> Datadog → Organization Settings → API/Application Keys.</li>
+      <li><strong>Prompts:</strong> <code>dd_api_key</code> (secret), <code>dd_app_key</code> (secret), <code>dd_site</code>.</li>
+    </ul>
+  </div>
+
+  <div class="server" id="honeycomb">
+    <h4><code>honeycomb</code> — traces, queries, SLOs</h4>
+    <ul>
+      <li><strong>You need:</strong> Honeycomb API key (environment-scoped is preferred).</li>
+      <li><strong>Get it:</strong> Honeycomb → Account → API Keys.</li>
+      <li><strong>Prompt:</strong> <code>honeycomb_api_key</code> (secret).</li>
+    </ul>
+  </div>
+
+  <h2>Browser automation <span style="color:var(--text-dim);font-size:.7em;font-weight:400;">(UI testing)</span></h2>
+
+  <div class="server" id="playwright">
+    <h4><code>playwright</code> — drive a real Chromium/Firefox/WebKit browser</h4>
+    <ul>
+      <li><strong>You need:</strong> nothing for credentials. First launch downloads browsers (~300 MB).</li>
+      <li>Direct fit with the <code>debug-ui-tests</code> and <code>generate-automated-ui-test</code> skills.</li>
+    </ul>
+  </div>
+
+  <div class="server" id="puppeteer">
+    <h4><code>puppeteer</code> — lighter headless-Chrome alternative</h4>
+    <ul>
+      <li><strong>You need:</strong> nothing. Useful when Playwright is overkill.</li>
+    </ul>
+  </div>
+
+  <h2>Knowledge bases</h2>
+
+  <div class="server" id="notion">
+    <h4><code>notion</code> — pages, databases, search</h4>
+    <ul>
+      <li><strong>You need:</strong> a Notion <strong>internal integration</strong> token, and you must <em>share</em> the relevant pages/databases with the integration.</li>
+      <li><strong>Get it:</strong> <a href="https://www.notion.so/profile/integrations">notion.so/profile/integrations</a></li>
+      <li>The server expects an <code>OPENAPI_MCP_HEADERS</code> JSON string, e.g.
+<pre><code>{"Authorization":"Bearer secret_xxx","Notion-Version":"2022-06-28"}</code></pre>
+      </li>
+      <li><strong>Prompt:</strong> <code>notion_headers</code> (secret) — paste the whole JSON blob.</li>
+    </ul>
+  </div>
+
+  <div class="server" id="confluence">
+    <h4><code>confluence</code> — Confluence pages and spaces (sibling of <code>atlassian</code>)</h4>
+    <ul>
+      <li><strong>Launcher:</strong> <code>uvx mcp-atlassian --confluence-only</code>.</li>
+      <li><strong>You need:</strong> nothing new — reuses the Jira inputs (<code>jira_base_url</code>, <code>jira_email</code>, <code>jira_api_token</code>). Make sure your API token has Confluence access (default tokens do).</li>
+    </ul>
+  </div>
+
+  <h2>Communication</h2>
+
+  <div class="server" id="slack">
+    <h4><code>slack</code> — channel history, search, post messages</h4>
+    <ul>
+      <li><strong>You need:</strong> a Slack bot token (<code>xoxb-…</code>) and your workspace's team ID (<code>T0…</code>).</li>
+      <li><strong>Get bot token:</strong> create an app at <a href="https://api.slack.com/apps">api.slack.com/apps</a> → add bot scopes (<code>channels:history</code>, <code>channels:read</code>, <code>chat:write</code> if posting), install to workspace, copy Bot User OAuth Token.</li>
+      <li><strong>Get team ID:</strong> Slack web → workspace URL <code>https://app.slack.com/client/T0XXXXX/...</code> (the <code>T0…</code> part).</li>
+      <li><strong>Prompts:</strong> <code>slack_bot_token</code> (secret), <code>slack_team_id</code>.</li>
+    </ul>
+  </div>
+
+  <div class="server" id="teams">
+    <h4><code>teams</code> — Microsoft Teams channels and chats</h4>
+    <ul>
+      <li><strong>You need:</strong> an Entra app registration with delegated/application permissions for Teams (<code>ChannelMessage.Read.All</code>, <code>Chat.Read.All</code> as needed).</li>
+      <li><strong>Set up:</strong> Entra portal → App registrations → New registration → copy Application (client) ID, Directory (tenant) ID, and create a client secret.</li>
+      <li><strong>Prompts:</strong> <code>teams_app_id</code>, <code>teams_app_password</code> (secret), <code>teams_tenant_id</code>.</li>
+      <li><strong>Note:</strong> community package; confirm the impl in <code>mcp.json</code> matches your auth flow (some variants use device-code instead of client secret).</li>
+    </ul>
+  </div>
+
+  <h2 id="troubleshooting">Troubleshooting</h2>
+  <ul>
+    <li><strong>Server stuck at <em>Starting…</em>:</strong> open the MCP server's output panel (click the server name in <strong>MCP: List Servers</strong>) for stderr.</li>
+    <li><strong><code>uvx: command not found</code>:</strong> install <code>uv</code> (<code>brew install uv</code>) and restart VS Code.</li>
+    <li><strong><code>npx</code> re-downloading every launch:</strong> that's normal the first time; subsequent launches use the npm cache.</li>
+    <li><strong>Auth error after rotating a token:</strong> <code>MCP: Reset Inputs</code>, then restart the server.</li>
+    <li><strong>Too many tools, agent gets confused:</strong> disable servers you aren't using — click <strong>Stop</strong> in the MCP panel. They re-enable in one click.</li>
+    <li><strong>Want to share credentials across machines:</strong> don't put them in <code>mcp.json</code> (it's committed). Use 1Password / your secret manager and paste at prompt time.</li>
+  </ul>
+
+  <h2 id="security">Security notes</h2>
+  <div class="callout warn">
+    <ul style="margin:0">
+      <li><code>mcp.json</code> is safe to commit — every secret is referenced via <code>${input:…}</code> and lives in your OS keychain, not the file.</li>
+      <li>Treat every MCP server as having the privileges of the token you give it. Prefer <strong>read-only / least-privilege tokens</strong> where the agent doesn't need writes.</li>
+      <li>The agent will send tool inputs to whatever endpoint the server points at. Don't wire production-write tokens to servers you haven't vetted.</li>
+    </ul>
+  </div>
+
+  <footer>
+    <div>Assert.IQ Agent Pack · v0.9.0 · Owned by Jarius Hayes · Sparq Intelligence Studio</div>
+    <div style="margin-top:12px;">
+      <a href="README.html">← Landing page</a>
+      <a href="README.assert-iq.html">Full Docs</a>
+      <a href="vscode-readme.html">VS Code half</a>
+      <a href="claude-readme.html">Claude Code half</a>
+      <a href=".vscode/MCP.md">Markdown source</a>
+    </div>
+  </footer>
+</main>
+</div>
+</body>
+</html>

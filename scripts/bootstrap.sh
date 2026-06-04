@@ -13,6 +13,17 @@
 #   --mode=ask         Interactive prompt (default when TTY). Non-TTY
 #                      falls back to committed.
 #
+# Skills scope (where the 24 QI skills land):
+#   --skills-scope=workspace   (default) workspace .github/skills + .claude/skills symlink
+#   --skills-scope=user        only ~/.agents/skills + ~/.claude/skills (every workspace gets them)
+#   --skills-scope=both        workspace AND user-global
+#
+# Presets:
+#   --preset=pod        (default) team install — everything in workspace
+#   --preset=solo       solo dev — instructions + CLAUDE.md user-global
+#   --preset=portable   skills user-global, minimal workspace footprint
+#                       (chat agents + manifest still live in the repo)
+#
 # Other modes:
 #   --graduate / --untrial   Reverse trial mode: remove pack entries from
 #                            .git/info/exclude. Files stay on disk.
@@ -37,6 +48,7 @@ AGENTS_MD=""
 VSCODE=""
 HOOKS=""
 CLAUDE_SETTINGS=""
+SKILLS_SCOPE=""
 WORKSPACE="$PWD"
 MODE=""
 GRADUATE=0
@@ -76,6 +88,7 @@ for arg in "$@"; do
     --vscode=*)          VSCODE="${arg#*=}" ;;
     --hooks=*)           HOOKS="${arg#*=}" ;;
     --claude-settings=*) CLAUDE_SETTINGS="${arg#*=}" ;;
+    --skills-scope=*)    SKILLS_SCOPE="${arg#*=}" ;;
     --workspace=*)       WORKSPACE="${arg#*=}" ;;
     --source=*)          SOURCE="${arg#*=}" ;;
     --mode=*)            MODE="${arg#*=}" ;;
@@ -87,7 +100,7 @@ for arg in "$@"; do
     --yes|-y)           ASSUME_YES=1 ;;
     --dry-run)          DRY_RUN=1 ;;
     --help|-h)
-      sed -n '2,20p' "${BASH_SOURCE[0]}"
+      sed -n '2,40p' "${BASH_SOURCE[0]}"
       exit 0
       ;;
     *)
@@ -108,6 +121,8 @@ case "$(uname -s)" in
 esac
 USER_ASSERT_IQ="$HOME/.assert-iq"
 USER_CLAUDE_MD="$HOME/.claude/CLAUDE.md"
+USER_VSCODE_SKILLS="$HOME/.agents/skills"
+USER_CLAUDE_SKILLS="$HOME/.claude/skills"
 
 MANIFEST_PATH="$WORKSPACE/.assert-iq/.install-manifest.json"
 
@@ -142,11 +157,41 @@ backup_if_user_owned() {
   manifest_add "pre_install_backup" "$backup" "$scope"
 }
 
+# Stage-then-commit a merged JSON. If the staged content is byte-identical
+# to the existing dst, discards the temp and records unchanged_owned;
+# otherwise backs up (if user-owned) and atomically replaces dst, recording
+# $changed_action. Centralizes the no-op short-circuit used by JSON merges.
+# Args: label tmp dst scope changed_action changed_message
+write_or_skip_if_unchanged() {
+  local label="$1" tmp="$2" dst="$3" scope="$4" changed_action="$5" changed_msg="$6"
+  local sh_merged sh_dst_now
+  sh_merged="$(sha256_of "$tmp")"
+  sh_dst_now="$(sha256_of "$dst")"
+  if [[ -n "$sh_merged" && "$sh_merged" == "$sh_dst_now" ]]; then
+    rm -f "$tmp"
+    manifest_add "unchanged_owned" "$dst" "$scope"
+    record "$label" "unchanged (merge no-op)" "$dst"
+    return
+  fi
+  backup_if_user_owned "$dst" "$scope"
+  mv "$tmp" "$dst"
+  manifest_add "$changed_action" "$dst" "$scope"
+  record "$label" "$changed_msg" "$dst"
+}
+
 declare -a MANIFEST_ENTRIES=()
+# Vocabulary of actions allowed in the manifest. Validation in manifest_add
+# turns silent typos into immediate errors; without this, a typo would still
+# be written but downstream action-set predicates would never match.
+KNOWN_MANIFEST_ACTIONS="created unchanged_owned overwritten rendered sidecar merged_settings merged_hooks_key pre_install_backup"
 
 manifest_add() {
   # action | abs_path | scope (workspace|user)
   local action="$1" path="$2" scope="$3"
+  if ! _in_action_set "$action" "$KNOWN_MANIFEST_ACTIONS"; then
+    echo "ERROR: manifest_add: unknown action '$action' (typo? add it to KNOWN_MANIFEST_ACTIONS)" >&2
+    exit 1
+  fi
   MANIFEST_ENTRIES+=("$action|$path|$scope")
 }
 
@@ -543,27 +588,65 @@ uninstall_run() {
     # First, clean nested empty subdirectories left by tree-style copies
     # (.github/skills/<skill>/, eval-optimizer/references/, etc.).
     local tree
-    for tree in \
-      "$WORKSPACE/.github/skills" \
-      "$WORKSPACE/.github/agents" \
-      "$WORKSPACE/.claude/agents" \
-      "$WORKSPACE/hooks" ; do
+    local -a tree_roots=(
+      "$WORKSPACE/.github/skills"
+      "$WORKSPACE/.github/agents"
+      "$WORKSPACE/.claude/agents"
+      "$WORKSPACE/hooks"
+    )
+    if [[ $UNINSTALL_USER -eq 1 ]]; then
+      tree_roots+=(
+        "$USER_VSCODE_SKILLS"
+        "$USER_CLAUDE_SKILLS"
+        "$USER_ASSERT_IQ"
+      )
+    fi
+    for tree in "${tree_roots[@]}"; do
       [[ -d "$tree" && ! -L "$tree" ]] && find "$tree" -depth -type d -empty -delete 2>/dev/null || true
     done
     local d
-    for d in \
-      "$WORKSPACE/hooks" \
-      "$WORKSPACE/.vscode" \
-      "$WORKSPACE/.claude/agents" \
-      "$WORKSPACE/.claude/skills" \
-      "$WORKSPACE/.claude" \
-      "$WORKSPACE/.github/instructions" \
-      "$WORKSPACE/.github/agents" \
-      "$WORKSPACE/.github/skills" \
-      "$WORKSPACE/.github" \
-      "$WORKSPACE/.assert-iq" ; do
+    local -a empty_dirs=(
+      "$WORKSPACE/hooks"
+      "$WORKSPACE/.vscode"
+      "$WORKSPACE/.claude/agents"
+      "$WORKSPACE/.claude/skills"
+      "$WORKSPACE/.claude"
+      "$WORKSPACE/.github/instructions"
+      "$WORKSPACE/.github/agents"
+      "$WORKSPACE/.github/skills"
+      "$WORKSPACE/.github"
+      "$WORKSPACE/.assert-iq"
+    )
+    if [[ $UNINSTALL_USER -eq 1 ]]; then
+      empty_dirs+=(
+        "$USER_VSCODE_SKILLS"
+        "$HOME/.agents"
+        "$USER_CLAUDE_SKILLS"
+        "$(dirname "$USER_CLAUDE_MD")"
+        "$USER_ASSERT_IQ"
+      )
+    fi
+    for d in "${empty_dirs[@]}"; do
       [[ -d "$d" && ! -L "$d" ]] && rmdir "$d" 2>/dev/null || true
     done
+
+    # Manifest-derived safety net: rmdir every ancestor dir of paths we just
+    # removed (bottom-up, scope-gated, symlink-safe). This means future
+    # additions don't have to update the hardcoded lists above — if the
+    # path went into the manifest, its empty parent dirs get reaped here.
+    if command -v jq >/dev/null 2>&1 && [[ -f "$MANIFEST_PATH" ]]; then
+      local _p _s _d _stop
+      while IFS=$'\t' read -r _p _s; do
+        [[ -n "$_p" ]] || continue
+        [[ "$_s" == "user" && $UNINSTALL_USER -eq 0 ]] && continue
+        if [[ "$_s" == "user" ]]; then _stop="$HOME"; else _stop="$WORKSPACE"; fi
+        _d="$(dirname "$_p")"
+        while [[ -n "$_d" && "$_d" != "/" && "$_d" != "$_stop" ]]; do
+          [[ -d "$_d" && ! -L "$_d" ]] && rmdir "$_d" 2>/dev/null || true
+          _d="$(dirname "$_d")"
+        done
+      done < <(jq -r '.paths[] | [.path, .scope] | @tsv' "$MANIFEST_PATH" 2>/dev/null)
+    fi
   fi
 
   # Remove the manifest last.
@@ -653,6 +736,24 @@ case "$PRESET" in
     : "${VSCODE:=workspace}"
     : "${HOOKS:=workspace}"
     : "${CLAUDE_SETTINGS:=workspace}"
+    : "${SKILLS_SCOPE:=workspace}"
+    ;;
+  portable)
+    # Skills live user-globally so every workspace can use them. The
+    # workspace still receives the Assert-IQ chat agent files
+    # (.github/agents/, .claude/agents/) and the install manifest so
+    # uninstall stays clean; instructions, hooks, settings, MCP config,
+    # and CLAUDE.md stay out. Ideal for "I want skills available in
+    # every repo I open without committing the full pack".
+    : "${ASSERT_IQ:=user}"
+    : "${INSTRUCTIONS:=user}"
+    : "${CLAUDE_MD:=user}"
+    : "${COPILOT:=skip}"
+    : "${AGENTS_MD:=skip}"
+    : "${VSCODE:=skip}"
+    : "${HOOKS:=skip}"
+    : "${CLAUDE_SETTINGS:=skip}"
+    : "${SKILLS_SCOPE:=user}"
     ;;
   pod|"")
     : "${ASSERT_IQ:=workspace}"
@@ -663,9 +764,18 @@ case "$PRESET" in
     : "${VSCODE:=workspace}"
     : "${HOOKS:=workspace}"
     : "${CLAUDE_SETTINGS:=workspace}"
+    : "${SKILLS_SCOPE:=workspace}"
     ;;
   *)
-    echo "ERROR: unknown --preset value '$PRESET' (expected: solo, pod)" >&2
+    echo "ERROR: unknown --preset value '$PRESET' (expected: solo, pod, portable)" >&2
+    exit 2
+    ;;
+esac
+
+case "$SKILLS_SCOPE" in
+  workspace|user|both) ;;
+  *)
+    echo "ERROR: invalid --skills-scope value '$SKILLS_SCOPE' (expected: workspace, user, both)" >&2
     exit 2
     ;;
 esac
@@ -775,8 +885,13 @@ copy_tree() {
     record "$label" "missing-source" "$src_dir"
     return
   fi
-  local f rel
+  local f rel base
   while IFS= read -r -d '' f; do
+    base="$(basename "$f")"
+    # Skip OS/editor cruft.
+    case "$base" in
+      .DS_Store|Thumbs.db|desktop.ini) continue ;;
+    esac
     rel="${f#"$src_dir/"}"
     copy_file "$label/$rel" "$f" "$dst_dir/$rel" "$scope"
   done < <(find "$src_dir" -type f -print0)
@@ -817,13 +932,11 @@ merge_json_file() {
     return
   fi
   # Deep merge: pack first, user second -> user wins on scalar conflicts.
-  backup_if_user_owned "$dst" "$scope"
   local tmp
   tmp="$(mktemp)"
   if jq -s '.[0] * .[1]' "$src" "$dst" > "$tmp" 2>/dev/null; then
-    mv "$tmp" "$dst"
-    manifest_add "merged_settings" "$dst" "$scope"
-    record "$label" "merged (additive, yours wins)" "$dst"
+    write_or_skip_if_unchanged "$label" "$tmp" "$dst" "$scope" \
+      "merged_settings" "merged (additive, yours wins)"
   else
     rm -f "$tmp"
     # Invalid JSON on user side — don't risk corruption, write sidecar.
@@ -1030,14 +1143,12 @@ process_claude_settings() {
         record ".claude/settings.json" "copied" "$dst"
       elif command -v jq >/dev/null 2>&1; then
         # Replace only the .hooks key, preserve everything else.
-        backup_if_user_owned "$dst" "workspace"
         local tmp
         tmp="$(mktemp)"
         if jq -s '.[0] as $existing | .[1] as $new | $existing + {hooks: $new.hooks}' \
             "$dst" "$rendered" > "$tmp" 2>/dev/null; then
-          mv "$tmp" "$dst"
-          manifest_add "merged_hooks_key" "$dst" "workspace"
-          record ".claude/settings.json" "merged hooks key" "$dst"
+          write_or_skip_if_unchanged ".claude/settings.json" "$tmp" "$dst" "workspace" \
+            "merged_hooks_key" "merged hooks key"
         else
           rm -f "$tmp"
           local side="$dst.assert-iq-new"
@@ -1059,8 +1170,17 @@ process_claude_settings() {
 }
 
 process_github_skills() {
-  # Skills must live in the workspace for VS Code Copilot to discover them.
-  copy_tree ".github/skills" "$SOURCE/.github/skills" "$WORKSPACE/.github/skills" "workspace"
+  # Skills can live in the workspace (.github/skills) so they ship with the
+  # repo, OR user-globally in ~/.agents/skills (VS Code Copilot Chat) so they
+  # work in every workspace. SKILLS_SCOPE selects which, or "both".
+  if skills_scope_has_workspace; then
+    copy_tree ".github/skills" "$SOURCE/.github/skills" "$WORKSPACE/.github/skills" "workspace"
+  fi
+  if skills_scope_has_user; then
+    # The first argument is only a summary label; the real destination is
+    # $USER_VSCODE_SKILLS.
+    copy_tree "~/.agents/skills" "$SOURCE/.github/skills" "$USER_VSCODE_SKILLS" "user"
+  fi
 }
 
 process_github_agents() {
@@ -1081,6 +1201,22 @@ process_claude_skills_link() {
   # Mirror install.sh: prefer a relative symlink .claude/skills -> ../.github/skills
   # so Claude Code auto-discovers the same skills Copilot uses. Falls back to a
   # recursive copy on filesystems / OSes where symlinks are unavailable.
+  #
+  # SKILLS_SCOPE controls placement:
+  #   workspace -> only the workspace symlink (today's behavior)
+  #   user      -> only ~/.claude/skills (no workspace symlink at all)
+  #   both      -> workspace symlink AND ~/.claude/skills
+
+  if skills_scope_has_user; then
+    # The first argument is only a summary label; the real destination is
+    # $USER_CLAUDE_SKILLS.
+    copy_tree "~/.claude/skills" "$SOURCE/.github/skills" "$USER_CLAUDE_SKILLS" "user"
+  fi
+
+  if ! skills_scope_has_workspace; then
+    return
+  fi
+
   local dst="$WORKSPACE/.claude/skills"
   local target_rel="../.github/skills"
   local target_abs="$WORKSPACE/.github/skills"
@@ -1124,6 +1260,14 @@ process_claude_skills_link() {
   fi
 }
 
+skills_scope_has_workspace() {
+  [[ "$SKILLS_SCOPE" == "workspace" || "$SKILLS_SCOPE" == "both" ]]
+}
+
+skills_scope_has_user() {
+  [[ "$SKILLS_SCOPE" == "user" || "$SKILLS_SCOPE" == "both" ]]
+}
+
 process_assert_iq
 process_instructions
 process_claude
@@ -1157,6 +1301,7 @@ echo "Source:    $SOURCE"
 echo "Workspace: $WORKSPACE"
 echo "Preset:    ${PRESET:-(none)}"
 echo "Mode:      $MODE"
+echo "Skills:    $SKILLS_SCOPE"
 echo "Manifest:  $MANIFEST_PATH"
 echo ""
 printf "%-44s %-30s %s\n" "Surface" "Result" "Destination"

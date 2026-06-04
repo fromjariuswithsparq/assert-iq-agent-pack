@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Assert.IQ Agent Pack — Full Documentation</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --bg-elev: #131722;
+    --bg-card: #1a1f2e;
+    --border: #2a3142;
+    --text: #e6e8ee;
+    --text-dim: #9ba3b4;
+    --accent: #7c5cff;
+    --accent-2: #00d4a8;
+    --accent-3: #ff6b9d;
+    --warn: #ffb347;
+    --code-bg: #0f1219;
+    --sidebar-w: 280px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent-2); text-decoration: none; transition: color 0.15s; }
+  a:hover { color: var(--accent); }
+  code {
+    font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+    font-size: 0.88em;
+    background: var(--code-bg);
+    color: #c8d3ff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+    font-size: 0.86em;
+    line-height: 1.55;
+  }
+  pre code { background: none; border: none; padding: 0; color: #c8d3ff; }
+
+  /* Layout with sidebar */
+  .layout {
+    display: grid;
+    grid-template-columns: var(--sidebar-w) 1fr;
+    min-height: 100vh;
+  }
+  .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    background: var(--bg-elev);
+    border-right: 1px solid var(--border);
+    padding: 32px 24px;
+  }
+  .sidebar-brand {
+    font-weight: 700;
+    font-size: 1.05em;
+    margin-bottom: 4px;
+    background: linear-gradient(135deg, #fff, var(--accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .sidebar-version {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7em;
+    color: var(--accent);
+    background: rgba(124,92,255,0.12);
+    border: 1px solid rgba(124,92,255,0.3);
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 24px;
+  }
+  .sidebar .nav-group {
+    font-size: 0.7em;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    margin: 28px 0 8px;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .sidebar nav a {
+    display: block;
+    padding: 6px 10px;
+    margin: 2px -10px;
+    color: var(--text-dim);
+    border-radius: 6px;
+    font-size: 0.92em;
+    border-left: 2px solid transparent;
+  }
+  .sidebar nav a:hover {
+    background: rgba(124,92,255,0.08);
+    color: var(--text);
+    border-left-color: var(--accent);
+  }
+  main {
+    padding: 60px max(40px, 5vw) 80px;
+    max-width: 1080px;
+    width: 100%;
+  }
+
+  /* Hero strip */
+  .doc-hero {
+    margin: 0 -40px 60px;
+    padding: 0 40px 40px;
+    border-bottom: 1px solid var(--border);
+    background:
+      radial-gradient(ellipse at top right, rgba(124,92,255,0.1), transparent 60%);
+  }
+  .doc-hero .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    background: rgba(0,212,168,0.1);
+    border: 1px solid rgba(0,212,168,0.3);
+    border-radius: 999px;
+    font-size: 0.78em;
+    color: var(--accent-2);
+    font-weight: 500;
+    margin-bottom: 16px;
+  }
+  .doc-hero h1 {
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    margin: 0 0 12px;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #fff 30%, var(--accent) 70%, var(--accent-2) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .doc-hero .subtitle {
+    color: var(--text-dim);
+    font-size: 1.1rem;
+    max-width: 700px;
+    margin: 0 0 24px;
+  }
+  .doc-meta {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    font-size: 0.88em;
+    color: var(--text-dim);
+  }
+  .doc-meta strong { color: var(--text); }
+
+  h2 {
+    font-size: 1.7rem;
+    margin: 56px 0 16px;
+    letter-spacing: -0.01em;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    scroll-margin-top: 24px;
+  }
+  h3 {
+    font-size: 1.2rem;
+    margin: 32px 0 12px;
+    color: var(--text);
+    scroll-margin-top: 24px;
+  }
+  h4 {
+    margin: 24px 0 8px;
+    color: var(--accent-2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.82em;
+  }
+
+  p { color: var(--text-dim); }
+  p strong, li strong { color: var(--text); }
+  li { color: var(--text-dim); margin-bottom: 6px; }
+  .comment { color: #6b7280; }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    background: var(--bg-card);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    font-size: 0.9em;
+  }
+  thead { background: linear-gradient(135deg, rgba(124,92,255,0.15), rgba(0,212,168,0.08)); }
+  th {
+    text-align: left;
+    padding: 12px 16px;
+    color: var(--text);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.92em;
+  }
+  td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+    vertical-align: top;
+  }
+  td:first-child { color: var(--text); font-weight: 500; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(124,92,255,0.04); }
+
+  /* Callouts */
+  .callout {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 20px 0;
+  }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout.info { border-left-color: var(--accent-2); }
+  .callout strong:first-child { color: var(--accent); display: block; margin-bottom: 6px; }
+  .callout.warn strong:first-child { color: var(--warn); }
+  .callout.info strong:first-child { color: var(--accent-2); }
+
+  /* Skill registry phase pills */
+  .phase-pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75em;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-right: 8px;
+  }
+  .phase-plan     { background: rgba(124,92,255,0.15); color: #b39dff; }
+  .phase-develop  { background: rgba(0,212,168,0.15); color: var(--accent-2); }
+  .phase-review   { background: rgba(255,179,71,0.15); color: var(--warn); }
+  .phase-execute  { background: rgba(255,107,157,0.15); color: var(--accent-3); }
+  .phase-decide   { background: rgba(255,255,255,0.08); color: var(--text); }
+  .phase-learn    { background: rgba(124,212,255,0.15); color: #7cbfff; }
+  .phase-cross    { background: rgba(255,255,255,0.06); color: var(--text-dim); }
+
+  /* Table of layers */
+  .layer-table {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    line-height: 1.85;
+    overflow-x: auto;
+    color: var(--text-dim);
+    white-space: pre;
+  }
+
+  /* Footer */
+  footer {
+    margin-top: 80px;
+    padding-top: 40px;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.88em;
+    text-align: center;
+  }
+  footer a { margin: 0 12px; }
+
+  /* Mobile */
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    main { padding: 40px 24px; }
+    .doc-hero { margin-left: -24px; margin-right: -24px; padding-left: 24px; padding-right: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-brand">Assert.IQ Agent Pack</div>
+    <span class="sidebar-version">v0.9.0</span>
+
+    <div class="nav-group">Overview</div>
+    <nav>
+      <a href="#what">What this is</a>
+      <a href="#dual">Dual-target</a>
+      <a href="#install">Installation</a>
+      <a href="#layers">Four layers</a>
+    </nav>
+
+    <div class="nav-group">Use</div>
+    <nav>
+      <a href="#quickstart">Quick start</a>
+      <a href="#registry">Skill registry</a>
+      <a href="#how">How to use</a>
+      <a href="#maturity">Maturity awareness</a>
+    </nav>
+
+    <div class="nav-group">Operate</div>
+    <nav>
+      <a href="#governance">Governance &amp; guardrails</a>
+      <a href="#customize">Customization</a>
+      <a href="#trouble">Troubleshooting</a>
+      <a href="#notpack">What this is not</a>
+    </nav>
+
+    <div class="nav-group">Meta</div>
+    <nav>
+      <a href="#versioning">Versioning</a>
+      <a href="#ownership">Ownership</a>
+      <a href="#more">Where to learn more</a>
+    </nav>
+
+    <div class="nav-group">Other formats</div>
+    <nav>
+      <a href="README.html">← Landing page</a>
+      <a href="vscode-readme.html">VS Code / Copilot</a>
+      <a href="claude-readme.html">Claude Code</a>
+      <a href="MCP.html">MCP servers</a>
+      <a href="hooks-readme.html">Hindsight Hooks</a>
+      <a href="README.assert-iq.md">Markdown source</a>
+    </nav>
+  </aside>
+
+  <main>
+
+    <div class="doc-hero">
+      <div class="badge"><span aria-hidden="true">📘</span> Full Documentation · Internal Sparq asset</div>
+      <h1>Assert.IQ Agent Pack</h1>
+      <p class="subtitle">The capability layer of Assert.IQ. Quality Intelligence-grounded skills, instructions, modes, and tools that turn GitHub Copilot Chat <strong>and</strong> Claude Code into a QI-aware delivery partner inside the IDE.</p>
+      <div class="doc-meta">
+        <div><strong>Version:</strong> v0.9.0</div>
+        <div><strong>Status:</strong> Internal Sparq asset — Intelligence Studio</div>
+        <div><strong>Owner:</strong> Jarius Hayes</div>
+        <div><strong>Repo:</strong> <a href="https://github.com/fromjariuswithsparq/assert-iq-agent-pack">github.com/fromjariuswithsparq/assert-iq-agent-pack</a></div>
+      </div>
+    </div>
+
+    <h2 id="what">What this is</h2>
+    <p>This pack drops into a client codebase and gives the development team an opinionated, QI-grounded layer over <strong>GitHub Copilot Chat and Claude Code</strong> in VS Code (and any other <code>AGENTS.md</code>-aware tooling: Codex CLI, Cursor, Aider). It is <em>not</em> a SaaS product. It is <em>not</em> a runtime. It is a versioned set of files — markdown, YAML, JSON — that lives in the repo and is owned by the team.</p>
+    <p>The pack operationalizes Sparq's Quality Intelligence framework:</p>
+    <ul>
+      <li>The four-layer signal model (Change → Protection → Trust → Outcome → Decision Confidence) is loaded as Copilot's reasoning lens on every interaction.</li>
+      <li>24 skills cover the QE lifecycle: planning, development, review, execution, decision, and post-incident learning.</li>
+      <li>A QI Advisor chat mode provides maturity-aware coaching.</li>
+      <li>MCP wiring connects to ADO or Jira and to GitHub for first-class bidirectional context.</li>
+    </ul>
+    <div class="callout">
+      <strong>QI is the operating model. Assert.IQ is the commercialized acceleration.</strong>
+      This pack is one concrete way teams <em>act</em> on QI — without ever becoming a tooling pitch.
+    </div>
+
+    <h2 id="dual">Dual-target: Copilot and Claude Code</h2>
+    <p>The pack ships one canonical copy of every asset and exposes it through both tools' native config surfaces. There is no duplicated content — only thin entry-point files (<code>CLAUDE.md</code>, <code>AGENTS.md</code>, <code>.claude/agents/*</code>) plus a short installer that wires <code>.claude/settings.json</code> and the skills symlink.</p>
+
+    <table>
+      <thead><tr><th>Asset</th><th>Canonical location</th><th>Copilot reads</th><th>Claude reads</th></tr></thead>
+      <tbody>
+        <tr><td>Always-on guidance</td><td><code>.github/copilot-instructions.md</code> + mirrored body in <code>CLAUDE.md</code></td><td><code>.github/copilot-instructions.md</code></td><td><code>CLAUDE.md</code></td></tr>
+        <tr><td>Scoped instructions</td><td><code>.github/instructions/*.instructions.md</code></td><td>auto via <code>applyTo</code></td><td>via <code>@</code>-imports in <code>CLAUDE.md</code></td></tr>
+        <tr><td>Skills (24)</td><td><code>.github/skills/*/SKILL.md</code></td><td><code>.github/skills/</code></td><td><code>.claude/skills/</code> (symlink)</td></tr>
+        <tr><td>Chat mode / subagent</td><td><code>.github/agents/Assert-IQ.agent.md</code> + plan sibling; Claude counterparts</td><td>agent files</td><td>subagent files</td></tr>
+        <tr><td>Hooks</td><td><code>hooks/hooks.json</code> + <code>hooks/scripts/</code></td><td>via <code>chat.hookFilesLocations</code></td><td><code>.claude/settings.json</code> (synced by installer)</td></tr>
+        <tr><td>MCP wiring</td><td><code>.vscode/mcp.json</code></td><td>yes</td><td>yes</td></tr>
+        <tr><td>Per-client config</td><td><code>.assert-iq/*</code></td><td>yes</td><td>yes</td></tr>
+        <tr><td>Generic agent pointer</td><td><code>AGENTS.md</code></td><td>n/a</td><td>read by Codex / Cursor / Aider</td></tr>
+      </tbody>
+    </table>
+
+    <p><strong>After dropping the pack into a repo, run the installer once:</strong></p>
+<pre><code>bash install.sh        <span class="comment"># macOS / Linux</span>
+.\install.ps1          <span class="comment"># Windows PowerShell</span></code></pre>
+    <p>The installer is idempotent. It (1) syncs <code>hooks.json</code> into <code>.claude/settings.json</code> (merging — preserves any other settings keys you have), and (2) creates <code>.claude/skills</code> as a symlink to <code>../.github/skills</code> (falling back to a copy on Windows without Developer Mode).</p>
+
+    <h2 id="install">Installation</h2>
+    <p>The pack supports exactly two install paths. They serve different needs — pick based on whether you're evaluating Assert.IQ or actually deploying it into a team's repo.</p>
+
+    <h3>Path A — try it on the pack repo itself</h3>
+    <p>Best when you want to play with Assert.IQ without touching your team's repository. Clone the pack, run the installer, open the <strong>pack folder</strong> as your VS Code / Claude Code workspace.</p>
+<pre><code>git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack
+cd assert-iq-agent-pack
+bash install.sh        <span class="comment"># macOS / Linux / WSL</span>
+<span class="comment"># or</span>
+pwsh ./install.ps1     <span class="comment"># Windows PowerShell 7+</span></code></pre>
+    <p>What it does (all inside the pack folder):</p>
+    <ol>
+      <li>Renders <code>hooks/hooks.json</code> from <code>hooks/hooks.template.json</code> with the pack root absolute path baked in.</li>
+      <li>Merges the rendered <code>hooks</code> block into <code>.claude/settings.json</code>, preserving any other keys.</li>
+      <li>Creates <code>.claude/skills</code> as a symlink to <code>../.github/skills</code> (copy fallback on Windows without Developer Mode).</li>
+    </ol>
+    <p>Idempotent on every platform. Reverse cleanly with <code>bash install.sh --uninstall</code> (or <code>pwsh ./install.ps1 -Uninstall</code>).</p>
+
+    <h3>Path B — install it into your codebase</h3>
+    <p>This is the real deployment path. Bootstrap copies the full set of workspace-loaded surfaces into a target repo so Copilot Chat and Claude Code can discover skills, agents, instructions, hooks, and config from that codebase.</p>
+    <p><strong>Run the bootstrap script from a terminal in your target repo.</strong> No editor required, nothing to install in chat first:</p>
+<pre><code><span class="comment"># 1. Clone the pack somewhere (one time, anywhere)</span>
+git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack ~/assert-iq-agent-pack
+
+<span class="comment"># 2. cd into YOUR repo</span>
+cd ~/code/my-app
+
+<span class="comment"># 3. Run the bootstrap script from the clone</span>
+bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
+<span class="comment"># Windows:</span>
+pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
+    <p>The script is fully standalone — it accepts <code>--preset=solo|pod</code>, prompts interactively when run in a TTY, and writes everything Copilot and Claude need into your workspace. <strong>There is no chicken-and-egg.</strong> You do not need to open VS Code or Claude Code first, and the <code>/assert-iq-bootstrap</code> skill does not need to be loaded — the script is what the skill calls under the hood.</p>
+    <div class="callout">
+      <strong>Already have the pack loaded?</strong>
+      If the cloned pack itself is open in your editor, or its skills are installed user-globally to <code>~/.agents/skills/</code>, you can also run <code>/assert-iq-bootstrap</code> from chat — same outcome, chat-driven prompts.
+    </div>
+    <div class="callout info">
+      <strong>Trial mode is safe</strong>
+      Every pack file lands in your workspace, and each path is added to <code>.git/info/exclude</code> so your team sees nothing. <strong>Your codebase's <code>.gitignore</code> is never touched.</strong> When you're ready, run <code>bash scripts/bootstrap.sh --graduate</code> (or use <code>--mode=committed</code> from the start).
+    </div>
+
+    <h4>Portable mode — skills user-globally, minimal workspace footprint</h4>
+    <p>If you'd rather not put the full pack into your workspace (not even in trial mode), use <code>--preset=portable</code>. Skills install to <code>~/.agents/skills/</code> (VS Code Copilot Chat) and <code>~/.claude/skills/</code> (Claude Code) so every workspace you open has the 24 QI skills available. Workspace footprint shrinks to just the Assert-IQ chat agent files (<code>.github/agents/</code>, <code>.claude/agents/</code>) and the install manifest — no instructions, hooks, settings, MCP config, or <code>CLAUDE.md</code> are written into the repo.</p>
+<pre><code>bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --preset=portable
+<span class="comment"># Reverse with: --uninstall --user</span></code></pre>
+    <p>You can also opt in à la carte with <code>--skills-scope=user</code> (default is <code>workspace</code>; <code>both</code> puts skills in both places).</p>
+
+    <h4>Pinning to a tag</h4>
+    <p>Use <code>git checkout v0.9.0</code> on the cloned copy. <code>v0.x</code> releases are marked <strong>pre-release</strong> — the pack is stable, but the file layout and frontmatter may evolve before <code>v1.0.0</code>.</p>
+
+    <h4>What bootstrap delivers (Path B)</h4>
+    <p>The bootstrap copies the <strong>complete workspace surface</strong> into the target repo. Copilot and Claude Code can't auto-discover skills or agents that aren't physically present in the workspace.</p>
+    <table>
+      <thead><tr><th>Surface</th><th>Why it's per-repo</th></tr></thead>
+      <tbody>
+        <tr><td><code>.assert-iq/config.yaml</code></td><td>Maturity tier, tracker, framework, signal sink — varies by repo.</td></tr>
+        <tr><td><code>.assert-iq/governance.md</code></td><td>Compliance posture — varies by client / regulatory regime.</td></tr>
+        <tr><td><code>.assert-iq/maturity-profile.md</code></td><td>Tier rationale — team-specific.</td></tr>
+        <tr><td><code>.github/copilot-instructions.md</code> + <code>instructions/</code></td><td>Copilot reads from workspace; <code>applyTo</code> globs scope to repo files.</td></tr>
+        <tr><td><code>.github/skills/</code></td><td>All 24 QI skills — Copilot reads from this workspace path.</td></tr>
+        <tr><td><code>.github/agents/</code></td><td><code>Assert-IQ</code> + <code>Assert-IQ-PLAN</code> custom chat modes.</td></tr>
+        <tr><td><code>.claude/agents/</code></td><td>Claude Code subagent counterparts.</td></tr>
+        <tr><td><code>.claude/skills</code></td><td>Symlink to <code>../.github/skills</code> (copy fallback on Windows).</td></tr>
+        <tr><td><code>CLAUDE.md</code> / <code>AGENTS.md</code></td><td>Read from repo root by Claude / Codex / Cursor / Aider.</td></tr>
+        <tr><td><code>.vscode/settings.json</code> + <code>mcp.json</code></td><td>Wires VS Code Copilot to read instructions, prompts, hooks; declares MCP servers.</td></tr>
+        <tr><td><code>hooks/</code></td><td>Hook scripts that fire on <code>SessionStart</code> / <code>PostToolUse</code> / <code>Stop</code>.</td></tr>
+        <tr><td><code>.claude/settings.json</code></td><td>Claude Code reads <code>hooks</code> block here; merged additively.</td></tr>
+      </tbody>
+    </table>
+
+    <h4>Trial vs Committed (Path B)</h4>
+    <table>
+      <thead><tr><th>Mode</th><th>What happens</th><th>Reverse with</th></tr></thead>
+      <tbody>
+        <tr><td><code>--mode=trial</code></td><td>Files land in workspace; paths added to <code>.git/info/exclude</code>. <code>.gitignore</code> untouched.</td><td><code>--graduate</code> or <code>--uninstall</code></td></tr>
+        <tr><td><code>--mode=committed</code></td><td>Files land in workspace and are visible to git.</td><td><code>--uninstall</code></td></tr>
+        <tr><td><code>--mode=ask</code> (TTY default)</td><td>Prompts interactively. Non-TTY → <code>committed</code>.</td><td>—</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>Pre-existing files are preserved</strong>
+      The script SHA256-compares each file. Identical → <code>unchanged_owned</code>. Different → interactive resolver: <code>[k]eep</code> / <code>[o]verwrite</code> / <code>[s]idecar</code> / <code>[d]iff</code> / <code>[K/O/S]all</code> / <code>[a]bort</code>. Non-TTY auto-keeps.
+    </div>
+    <div class="callout info">
+      <strong>Pre-install backups for safe uninstall</strong>
+      When bootstrap overwrites or merges into a file you already had, it first snapshots the original to <code>&lt;file&gt;.assert-iq.pre-install</code>. <code>--uninstall</code> restores from that snapshot byte-for-byte; if the file changed since install, the post-install copy is preserved at <code>&lt;file&gt;.assert-iq.uninstall-saved</code>.
+    </div>
+
+    <h4>Graduating from trial → committed</h4>
+<pre><code><span class="comment"># macOS / Linux</span>
+scripts/bootstrap.sh --graduate
+
+<span class="comment"># Windows</span>
+pwsh -File scripts/bootstrap.ps1 -Graduate
+
+<span class="comment"># Then commit when ready:</span>
+git add .assert-iq .claude .github CLAUDE.md AGENTS.md
+git commit -m "chore: adopt Assert.IQ agent pack"</code></pre>
+
+    <h4>Removing the pack</h4>
+<pre><code><span class="comment"># macOS / Linux</span>
+scripts/bootstrap.sh --uninstall              <span class="comment"># add --user to also remove user-global copies</span>
+scripts/bootstrap.sh --uninstall --dry-run    <span class="comment"># preview without changes</span>
+
+<span class="comment"># Windows</span>
+pwsh -File scripts/bootstrap.ps1 -Uninstall
+pwsh -File scripts/bootstrap.ps1 -Uninstall -DryRun</code></pre>
+
+    <h4>Upgrading to a new release</h4>
+    <ol>
+      <li>Read the release notes on the <a href="https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases">Releases page</a>.</li>
+      <li>Uninstall the path you used (Path A: <code>install.sh --uninstall</code>; Path B: <code>bootstrap.sh --uninstall</code> in each target repo).</li>
+      <li><code>git pull</code> (or re-clone) to the new tag, re-run the same path.</li>
+    </ol>
+
+    <h4>Platform notes — <code>.claude/skills</code> symlink</h4>
+    <table>
+      <thead><tr><th>Platform</th><th>What happens</th><th>What you need to do</th></tr></thead>
+      <tbody>
+        <tr><td>macOS / Linux</td><td>Symlink created normally.</td><td>Nothing — edits reflect instantly.</td></tr>
+        <tr><td>Windows + Developer Mode</td><td>Symlink created normally.</td><td>Enable Developer Mode once: <em>Settings → Privacy & security → For developers</em>.</td></tr>
+        <tr><td>Windows w/o Dev Mode</td><td>Falls back to copying. Logs the fallback.</td><td><strong>Re-run <code>install.ps1</code> after editing any skill</strong> so Claude sees changes.</td></tr>
+        <tr><td>CI / Docker COPY / zip downloads</td><td>Symlinks may not preserve.</td><td>Prefer GitHub source tarball, or run installer post-checkout.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="layers">The four layers of the pack</h2>
+    <pre class="layer-table">LAYER          PRIMITIVE                                  ROLE
+─────────      ─────────────────────────────────          ──────────────────────
+Foundation     .github/copilot-instructions.md            Always-on QI guidance
+               .github/instructions/*.instructions.md     (loaded automatically)
+               CLAUDE.md                                   Claude reads CLAUDE.md
+
+Skills         .github/skills/&lt;name&gt;/SKILL.md             Invokable workflows
+               (mirrored at .claude/skills/)              (called via /skill-name)
+
+Modes          .github/agents/Assert-IQ.agent.md          Default front-door
+               .github/agents/Assert-IQ-PLAN.agent.md     Read-only planning
+               .claude/agents/assert-iq{,-plan}.md        Claude Code subagents
+
+Tools          .vscode/mcp.json                           External integrations
+                                                          (ADO, Jira, GitHub…)
+
+Hooks          hooks/hooks.json + hooks/scripts/          Retrospective skill
+               (wired via .vscode/settings.json and       refinement on session
+               .claude/settings.json)                     end</pre>
+
+    <h2 id="quickstart">Quick start</h2>
+    <h3>1. Drop the pack into the client repo</h3>
+    <p>Copy these directories into the repo root:</p>
+    <ul>
+      <li><code>MANIFEST.md</code> (root-level inventory)</li>
+      <li><code>README.assert-iq.md</code></li>
+      <li><code>CLAUDE.md</code> + <code>AGENTS.md</code></li>
+      <li><code>.github/copilot-instructions.md</code> + <code>.github/instructions/</code></li>
+      <li><code>.github/skills/</code> + <code>.github/agents/</code></li>
+      <li><code>.claude/</code> (<code>agents/</code>, <code>settings.json</code>; <code>skills/</code> created by installer)</li>
+      <li><code>.vscode/mcp.json</code> + <code>settings.json</code></li>
+      <li><code>hooks/</code></li>
+      <li><code>.assert-iq/</code></li>
+      <li><code>tests/_qi/</code> (if not already present)</li>
+    </ul>
+    <div class="callout warn">
+      <strong>Note on hidden directories</strong>
+      <code>.github/</code>, <code>.vscode/</code>, <code>.claude/</code>, and <code>.assert-iq/</code> are dot-prefixed and hidden in macOS Finder / Windows Explorer. Show hidden files (<code>Cmd+Shift+.</code> on macOS; View → Hidden items on Windows), or open in VS Code.
+    </div>
+
+    <h3>2. Configure for the client context</h3>
+    <p>Open <code>.assert-iq/config.yaml</code> and set:</p>
+    <ul>
+      <li><code>client.name</code></li>
+      <li><code>maturity.tier</code> — <code>early</code>, <code>mid</code>, or <code>higher</code></li>
+      <li><code>tracker.type</code> — <code>ado</code> or <code>jira</code></li>
+      <li><code>vcs.type</code> — <code>github</code>, <code>ado-repos</code>, <code>gitlab</code>, <code>bitbucket</code></li>
+      <li><code>test_framework</code> — primary framework, language, test command</li>
+      <li><code>manual_test_management.tool</code> — <code>ado_test_plans</code>, <code>xray</code>, <code>testrail</code>, <code>zephyr</code>, <code>markdown</code></li>
+    </ul>
+    <p>Open <code>.assert-iq/maturity-profile.md</code> and document the rationale for the chosen tier.</p>
+
+    <h3>3. Wire MCP</h3>
+    <p>Open <code>.vscode/mcp.json</code> and confirm servers are enabled. Provide PATs / API tokens at the input prompts.</p>
+
+    <h3>4. Validate</h3>
+    <p>In Copilot Chat, type:</p>
+<pre><code>/risk-assess-pr</code></pre>
+    <p>The agent should respond with a four-layer scaffolded assessment of the current branch.</p>
+
+    <h3>5. Pick a starter skill for the team</h3>
+    <ul>
+      <li><strong>Plan phase:</strong> <code>/review-acceptance-criteria</code> on a recent work item</li>
+      <li><strong>Develop phase:</strong> <code>/generate-tests-from-ac</code> on the same work item</li>
+      <li><strong>PR phase:</strong> <code>/code-review</code> on the current branch</li>
+    </ul>
+
+    <h2 id="registry">The skill registry</h2>
+    <p>Skills are organized by QE lifecycle phase. Invoke in Copilot Chat with <code>/skill-name</code>. Maturity gating is enforced by each skill that requires it.</p>
+
+    <h3><span class="phase-pill phase-plan">Plan</span></h3>
+    <table>
+      <thead><tr><th>Skill</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>/review-acceptance-criteria</code></td><td>Review ACs for testability before generation.</td></tr>
+        <tr><td><code>/generate-test-plan</code></td><td>Generate a one-page operating test plan.</td></tr>
+        <tr><td><code>/generate-tests-from-ac</code></td><td>Router — classify each AC and dispatch to automation, manual, or exploratory.</td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="phase-pill phase-develop">Develop</span></h3>
+    <table>
+      <thead><tr><th>Skill</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>/generate-automated-unit-test</code></td><td>Unit tests for a function, class, or module.</td></tr>
+        <tr><td><code>/generate-automated-api-test</code></td><td>API tests with schema validation and error envelopes.</td></tr>
+        <tr><td><code>/generate-automated-ui-test</code></td><td>UI tests with Page Object Model and stable selectors.</td></tr>
+        <tr><td><code>/generate-manual-test-case</code></td><td>Scripted manual cases for ADO Test Plans / Xray / TestRail / markdown.</td></tr>
+        <tr><td><code>/generate-exploratory-charter</code></td><td>Session-based exploratory test charter.</td></tr>
+        <tr><td><code>/generate-test-data</code></td><td>Deterministic, PII-safe test data using your factory pattern.</td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="phase-pill phase-review">Code Review / PR</span></h3>
+    <table>
+      <thead><tr><th>Skill</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>/code-review</code></td><td>Review changes through the QI four-layer lens.</td></tr>
+        <tr><td><code>/check-test-coverage</code></td><td>Risk-weighted coverage on changed surfaces.</td></tr>
+        <tr><td><code>/check-merge</code></td><td>Pre-merge quality gate aggregating all signals.</td></tr>
+        <tr><td><code>/new-pull-request</code></td><td>PR with a QI-aware body — risk band, AC linkage, traceability.</td></tr>
+        <tr><td><code>/review-test-quality</code></td><td>Review tests for design quality (independence, determinism).</td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="phase-pill phase-execute">Execute / Debug</span></h3>
+    <table>
+      <thead><tr><th>Skill</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>/debug-ui-tests</code></td><td>Diagnose a failing UI test — flaky vs brittle vs broken vs regression.</td></tr>
+        <tr><td><code>/analyze-flaky-test</code></td><td>Pattern analysis over historical runs to find flake roots.</td></tr>
+        <tr><td><code>/agentic-heal</code></td><td>Autonomous repair within bounded retries. <em>(Mid+)</em></td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="phase-pill phase-decide">Decision</span></h3>
+    <table>
+      <thead><tr><th>Skill</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>/risk-assess-pr</code></td><td>Score a PR across all four QI layers.</td></tr>
+        <tr><td><code>/release-confidence</code></td><td>Aggregate signals into a go/no-go report. <em>(Mid+)</em></td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="phase-pill phase-learn">Learn</span></h3>
+    <table>
+      <thead><tr><th>Skill</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>/analyze-escaped-defect</code></td><td>Post-incident — which signal layer should have caught it.</td></tr>
+        <tr><td><code>/generate-bug-report</code></td><td>Convert a failure into a tracker-ready defect.</td></tr>
+      </tbody>
+    </table>
+
+    <h3><span class="phase-pill phase-cross">Cross-cutting</span></h3>
+    <table>
+      <thead><tr><th>Skill</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>/generate-traceability-matrix</code></td><td>Build a req↔code↔test matrix from <code>@qi-trace</code> headers.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="how">How to use</h2>
+
+    <h3>Invoking a skill</h3>
+    <p>Open Copilot Chat in VS Code. Type <code>/</code> to see available skills. Type the name to invoke. Provide inputs when prompted, or skip if context resolves them (work item from branch, scope from diff).</p>
+
+    <h3>Using the Assert-IQ agents</h3>
+    <p>Pick <strong><code>Assert-IQ</code></strong> for default behavior — routes to the right skill, full tools to act. Pick <strong><code>Assert-IQ-PLAN</code></strong> for plan-first work on larger / riskier tasks; produces a plan with a <strong>Start Implementation</strong> handoff back to <code>Assert-IQ</code>. Both are maturity-aware.</p>
+
+    <h3>Combining skills</h3>
+    <p>Skills compose. A typical PR workflow:</p>
+<pre><code>/review-acceptance-criteria PROJ-123
+/generate-tests-from-ac PROJ-123
+   → routes to /generate-automated-unit-test, /generate-manual-test-case…
+/code-review
+/check-test-coverage
+/check-merge
+/new-pull-request</code></pre>
+
+    <p>A typical post-incident workflow:</p>
+<pre><code>/analyze-escaped-defect PROJ-456
+   → produces gap analysis + recommended regression test
+/generate-tests-from-ac     <span class="comment">(for the recommended regression)</span>
+/generate-bug-report        <span class="comment">(if extra issues surface)</span></code></pre>
+
+    <h2 id="maturity">Maturity awareness</h2>
+    <p>The pack reads <code>.assert-iq/maturity-profile.md</code> and adjusts behavior:</p>
+    <table>
+      <thead><tr><th>Tier</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Early</strong></td><td>Foundation + traceability + manual generation only. Healing disabled. Risk and release work in advisory mode. Manual fallback even when ACs route to automation.</td></tr>
+        <tr><td><strong>Mid</strong></td><td>Add risk assessment, automated test generation, healing in suggest-only mode. Routing classifier active.</td></tr>
+        <tr><td><strong>Higher</strong></td><td>Full pack including autonomous healing within bounds. Predictive release confidence. Routing flags manual ACs that could be automated.</td></tr>
+      </tbody>
+    </table>
+    <p>Maturity is set during the QI Diagnostic and re-evaluated quarterly.</p>
+
+    <h2 id="governance">Governance &amp; guardrails</h2>
+    <table>
+      <thead><tr><th>Concern</th><th>Control</th></tr></thead>
+      <tbody>
+        <tr><td>AI-generated tests merged without review</td><td><code>@qi-review-required true</code> + branch protection</td></tr>
+        <tr><td>Healing patches production code</td><td><code>allowed_scope: test-only</code> default, regression escalation</td></tr>
+        <tr><td>Secrets in prompts or signals</td><td>Mask rule in foundation; secret scanning in CI</td></tr>
+        <tr><td>Premature acceleration on low-maturity</td><td>Maturity tier gate per skill</td></tr>
+        <tr><td>Vendor lock-in</td><td>Markdown / YAML / JSON only — portable</td></tr>
+        <tr><td>Signal payload drift</td><td>JSON schema in <code>.assert-iq/signal-schema.json</code></td></tr>
+        <tr><td>IP leakage via MCP</td><td>Scoped PATs, audit logging</td></tr>
+        <tr><td>Hallucinated traceability</td><td>Trace must reference a real work item resolvable via MCP</td></tr>
+        <tr><td>Compliance violations</td><td><code>governance.md</code> defines client compliance posture</td></tr>
+        <tr><td>Auto-creating defects without review</td><td><code>bug_reporter.auto_create_threshold</code></td></tr>
+      </tbody>
+    </table>
+    <p>Every skill includes an explicit Governance section. Read it before delegating.</p>
+
+    <h2 id="customize">Customization</h2>
+    <h3>Common customizations</h3>
+    <table>
+      <thead><tr><th>Need</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td>Switch test framework</td><td><code>.assert-iq/config.yaml</code> → <code>test_framework.primary</code></td></tr>
+        <tr><td>Switch tracker (ADO ↔ Jira)</td><td><code>config.yaml</code> → <code>tracker.type</code> + <code>.vscode/mcp.json</code></td></tr>
+        <tr><td>Adjust maturity tier</td><td><code>config.yaml</code> → <code>maturity.tier</code> + <code>maturity-profile.md</code></td></tr>
+        <tr><td>Change healing retry bound</td><td><code>config.yaml</code> → <code>agentic_healing.retry_bound</code></td></tr>
+        <tr><td>Add a domain skill (perf, a11y)</td><td>New folder under <code>.github/skills/&lt;name&gt;/</code></td></tr>
+        <tr><td>Adjust client-specific code patterns</td><td><code>qi-test-design.instructions.md</code></td></tr>
+        <tr><td>Change telemetry sink</td><td><code>config.yaml</code> → <code>signals.sink</code></td></tr>
+      </tbody>
+    </table>
+
+    <h3>Adding a new skill</h3>
+    <ol>
+      <li>Create a folder at <code>.github/skills/your-skill/</code> containing <code>SKILL.md</code> with: YAML frontmatter (<code>name</code>, <code>description</code>, <code>mode: agent</code>), <code># Title</code>, <code>## Inputs</code>, <code>## Procedure</code>, <code>## Governance</code>.</li>
+      <li>Drop supporting templates in the same folder; reference by relative path.</li>
+      <li>If the skill needs new instructions, add a <code>.instructions.md</code> in <code>.github/instructions/</code> with an <code>applyTo</code> glob.</li>
+      <li>Update the skill registry above and root <code>MANIFEST.md</code>. <code>.claude/skills/</code> is a symlink — Claude picks it up automatically.</li>
+    </ol>
+
+    <h2 id="trouble">Troubleshooting</h2>
+    <div class="callout warn"><strong>The skill says it can't find the work item.</strong>Confirm MCP is wired (<code>.vscode/mcp.json</code>) and the PAT has read access. Test by running a minimal MCP query directly.</div>
+    <div class="callout warn"><strong>Generated tests don't match our framework conventions.</strong>Update <code>qi-test-design.instructions.md</code> with explicit examples of your project's pattern. The agent reads instructions before generating.</div>
+    <div class="callout warn"><strong>Healing keeps escalating regressions but the test is wrong.</strong>By design — healing never patches production code. If the test expectation is genuinely outdated, fix the test directly or use <code>/debug-ui-tests</code> with the <code>broken</code> classification path.</div>
+    <div class="callout warn"><strong>Risk assessment scores feel off.</strong>Adjust the weighting heuristics in <code>.github/skills/risk-assess-pr/SKILL.md</code>. Each layer is independently tunable.</div>
+    <div class="callout warn"><strong>The router sends too many ACs to manual.</strong>Tighten <code>routing.automation_threshold</code> in <code>config.yaml</code>, or adjust heuristics in <code>generate-tests-from-ac/SKILL.md</code>.</div>
+    <div class="callout warn"><strong>Skill outputs feel generic.</strong>The pack relies on instructions files for project-specific shape. Update <code>qi-test-design</code>, <code>qi-manual-test-design</code>, or <code>qi-traceability</code> instructions with examples drawn from your codebase.</div>
+
+    <h2 id="notpack">What this pack is <em>not</em></h2>
+    <ul>
+      <li>It is not a runtime. There is no service to deploy.</li>
+      <li>It is not a SaaS. The client owns the files; if Sparq rotates off the account, the pack stays.</li>
+      <li>It is not a replacement for QE judgment. Every output is a draft; human review is required.</li>
+      <li>It is not a tooling pitch for Assert.IQ. Use it where the maturity supports it. Lead with QI thinking, not with this pack.</li>
+    </ul>
+
+    <h2 id="versioning">Versioning</h2>
+    <table>
+      <thead><tr><th>Version</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>0.1.0</td><td>Foundation, instructions, MCP, 9 starter skills (as <code>.prompt.md</code> files).</td></tr>
+        <tr><td>0.1.5</td><td>Manual &amp; Exploratory addendum — router, manual test design, charter generator.</td></tr>
+        <tr><td>0.2.0</td><td>Renamed to Agent Pack. Added 9 lifecycle skills.</td></tr>
+        <tr><td>0.3.0</td><td>Added 8 high-leverage skills. README, governance template, maturity-profile template. 22 skills total.</td></tr>
+        <tr><td>0.4.0</td><td>Skills refactored to <code>.github/skills/&lt;name&gt;/SKILL.md</code> structure. Added <code>MANIFEST.md</code>, <code>.vscode/settings.json</code>.</td></tr>
+        <tr><td>0.5.0</td><td>Dual-target support: Copilot + Claude Code. Added <code>CLAUDE.md</code>, <code>AGENTS.md</code>, <code>.claude/</code>, <code>install.sh</code>/<code>install.ps1</code>. "When this applies" prose to all instruction files. Hooks under <code>hooks/</code>.</td></tr>
+        <tr><td>0.6.x</td><td>Bootstrap rewrite: <code>scripts/bootstrap.sh</code>/<code>.ps1</code> with trial/committed/ask modes, presets, conflict resolver, <code>.git/info/exclude</code> for trial mode, <code>--graduate</code>. Manifest written on every install.</td></tr>
+        <tr><td>0.7.0-rc.1 → rc.5</td><td>Claude plugin format introduced; bootstrap surfaces <code>.vscode/</code>, <code>hooks/</code>, <code>.claude/settings.json</code>; runtime dirs (<code>state/</code>, <code>logs/</code>, <code>sessions/</code>); manifest + path rendering hardened; apply-token validation.</td></tr>
+        <tr><td><strong>0.7.0</strong></td><td><strong>First official release.</strong> Windows verified end-to-end. Fixes since rc.5: <code>$manifestPath</code> escaping, trial-mode unignore guidance, Windows hook commands switched to <code>pwsh -File</code>.</td></tr>
+        <tr><td><strong>0.8.0</strong></td><td><strong>Expanded MCP server catalog.</strong> <code>.vscode/mcp.json</code> wires 20 servers (was 3): adds <code>git</code>, <code>gitlab</code>, <code>bitbucket</code>, <code>filesystem</code>, <code>postgres</code>, <code>sqlite</code>, <code>aws</code>, <code>sentry</code>, <code>grafana</code>, <code>datadog</code>, <code>honeycomb</code>, <code>playwright</code>, <code>puppeteer</code>, <code>notion</code>, <code>confluence</code>, <code>slack</code>, <code>teams</code>. New <code>.vscode/MCP.md</code> per-server setup guide.</td></tr>
+        <tr><td><strong>0.9.0</strong></td><td><strong>Workspace topology + Five Whys discipline + install-model rework.</strong> New <code>workspace.role</code> config (<code>monorepo</code> default, <code>prod</code>, <code>tests</code>) plus optional <code>companion_repo</code> wires split-repo teams. Topology contract centralized; UNGRADED degradation per signal-schema <code>partial_signal_mode</code>. Seven cross-repo skills carry pointers to the rule. Five Whys discipline added to <code>debug-ui-tests</code>, <code>analyze-flaky-test</code>, <code>analyze-escaped-defect</code>: evidence-per-link chains, <code>max_depth</code> guard, user-gated Anti-Patterns appendix. Install model reworked into <strong>two paths</strong>: Path A (pack-as-workspace) and Path B (codebase install); <code>.claude-plugin/</code> removed. Both installers gain <code>--uninstall</code> with <code>--user</code>/<code>--yes</code>/<code>--dry-run</code>; bootstrap snapshots for byte-for-byte restore. Four new workspace surfaces (<code>.github/skills/</code>, <code>.github/agents/</code>, <code>.claude/agents/</code>, <code>.claude/skills</code> symlink) — <strong>twelve total</strong>. Skill count <strong>23 → 24</strong>. Version centralized in new <code>VERSION</code> file. Backward-compatible.</td></tr>
+      </tbody>
+    </table>
+    <p>Tag releases. Keep a CHANGELOG in <code>.assert-iq/CHANGELOG.md</code>.</p>
+
+    <h2 id="ownership">Ownership</h2>
+    <table>
+      <thead><tr><th>Role</th><th>Responsibility</th></tr></thead>
+      <tbody>
+        <tr><td>Pack technical owner / QI Sponsor</td><td>Jarius Hayes</td></tr>
+        <tr><td>Assert.IQ commercial owner</td><td>Intelligence Studio leadership</td></tr>
+        <tr><td>Pilot account leads</td><td>Embedded QE pod leads</td></tr>
+        <tr><td>Governance review</td><td>QI sponsor + Sparq InfoSec</td></tr>
+        <tr><td>Versioning and release</td><td>Jarius Hayes</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="more">Where to learn more</h2>
+    <ul>
+      <li>Quality Intelligence Kit (Sparq internal) — the operating model behind every skill in this pack</li>
+      <li>QI Diagnostic Guide — how to set the right maturity tier (See Jarius)</li>
+      <li>QI Facilitator Guide and Playbook — how to talk about this pack with clients without making it the headline (Sparq internal)</li>
+      <li>Assert.IQ and the Quality Intelligence Vision — positioning between the operating model and the commercial offering (See Jarius)</li>
+    </ul>
+
+    <footer>
+      <div>Assert.IQ Agent Pack · v0.9.0 · Owned by Jarius Hayes · Sparq Intelligence Studio</div>
+      <div style="margin-top:12px;">
+        <a href="README.html">← Landing page</a>
+        <a href="README.assert-iq.md">Markdown source</a>
+        <a href="https://github.com/fromjariuswithsparq/assert-iq-agent-pack">GitHub</a>
+      </div>
+    </footer>
+
+  </main>
+</div>
+
+</body>
+</html>
