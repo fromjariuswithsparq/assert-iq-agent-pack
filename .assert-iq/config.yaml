@@ -95,6 +95,10 @@ maturity:
 tracker:
   type: "github"        # options: github | ado | jira | linear | none
 
+  # regression_area_path: where new regression-test work items land.
+  # e.g. "qe/regression", "area-path/Quality", "team:platform-qe"
+  regression_area_path: "<area-path-or-label>" 
+
   # priority_field: where business criticality lives on a work item.
   # Used by check-test-coverage to weight risk by workflow importance.
   # Examples by tracker:
@@ -128,6 +132,14 @@ tracker:
 
   # --- None (disable traceability enforcement) --------------------------------
   # none: {}                           # traceability comments will be omitted
+
+
+# -----------------------------------------------------------------------------
+# BUG REPORTER
+# -----------------------------------------------------------------------------
+bug_reporter:
+  # auto_create_threshold: when to automatically create a tracker item for logic regressions.
+  auto_create_threshold: "ask"         # options: always | ask | never
 
 
 # -----------------------------------------------------------------------------
@@ -250,7 +262,8 @@ traceability:
 # -----------------------------------------------------------------------------
 # primary: the framework used for automated tests in this repo.
 # language: the source language for generated test code.
-# test_command: how to run the full test suite locally (used by Agentic Healing).
+# test_command: how to run the full test suite locally (used by Agentic Healing)
+# targeted_test_command: how to run a single test by path/name (used by Agentic Healing)..
 # coverage_command: how to produce a coverage report (used by check-test-coverage skill).
 # test_root: path to the test directory (used by skills that scan for tests).
 # -----------------------------------------------------------------------------
@@ -262,6 +275,7 @@ test_framework:
   language: "<language>"  # options: typescript | javascript | python | java | csharp |
                           #          kotlin | go | rust | ruby | swift | php | other
   test_command: "<command to run tests>"       # e.g. "npm test" | "pytest" | "dotnet test" | "go test ./..."
+  targeted_test_command: "<command to run 1 test>" # e.g. "pytest path/test.py::TestClass::test_method"
   coverage_command: "<command to get coverage>" # e.g. "npm run coverage" | "pytest --cov" | "dotnet test /p:CollectCoverage=true"
   test_root: "./tests"                          # adjust to your repo layout
 
@@ -676,6 +690,14 @@ flake_analysis:
   min_runs_for_pattern: 10  # minimum run count before a test is flake-eligible
   report_path: "./flake-analysis-report.md"
 
+  # test_id_format: how a test is named in your results store.
+  # Examples:
+  #   pytest: "tests/test_foo.py::TestClass::test_method"
+  #   JUnit: "com.example.MyTest#testMethod"
+  #   xUnit/NUnit: "Namespace.ClassName.MethodName"
+  #   Playwright: "spec-file.ts > test title"
+  # test_id_format: "<format>" 
+
   # results_store: where historical run data lives.
   #   ci_native   → use the host CI's checks/test-results API
   #   junit_glob  → file glob over JUnit / TRX / xUnit XML artifacts
@@ -728,6 +750,12 @@ flake_analysis:
 # -----------------------------------------------------------------------------
 escape_analysis:
   report_path: "./escaped-defect-report.md"
+
+  # Five Whys discipline config
+  five_whys:
+    max_depth: 7
+    require_evidence_per_link: true
+    anti_pattern_capture: "ask"        # options: ask | off
 
   # Pattern detection — is this a one-off or part of a recurring escape
   # cluster on the same component?
@@ -807,6 +835,18 @@ risk_assessment:
 # -----------------------------------------------------------------------------
 merge_gate:
   report_path: "./merge-readiness-card.md"
+
+  # ci_provider: where build / test / lint / coverage jobs run.
+  # options: github_actions | azure_pipelines | gitlab_ci | jenkins | etc.
+  ci_provider: "<ci-provider>"
+
+  # linters: list of linters whose status counts toward the verdict.
+  # e.g. ["eslint", "prettier", "ruff", "black", "dotnet format"]
+  linters: []
+
+  # review_source: where the agent finds unresolved code-review comments.
+  # options: pr_threads | code_review_skill | sonarqube | etc.
+  review_source: "pr_threads"
 
   # required_checks: status-check names that must be green for a MERGE verdict.
   # Defaults to whatever branch protection requires (queried at runtime).
