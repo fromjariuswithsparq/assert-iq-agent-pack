@@ -52,7 +52,7 @@ param(
     [ValidateSet('workspace', 'user', 'skip', '')]
     [string]$VSCode = '',
 
-    [ValidateSet('workspace', 'skip', '')]
+    [ValidateSet('workspace', 'user', 'skip', '')]
     [string]$Hooks = '',
 
     [ValidateSet('workspace', 'skip', '')]
@@ -127,7 +127,7 @@ $manifestPath = Join-Path $Workspace '.assert-iq\.install-manifest.json'
 # =============================================================================
 
 $script:ManifestEntries = New-Object System.Collections.Generic.List[object]
-$script:ConflictBulkChoice = ''   # 'K', 'O', 'S', or ''
+$script:ConflictBulkChoice = if ($env:CONFLICT_BULK_CHOICE -in @('K','O','S')) { $env:CONFLICT_BULK_CHOICE } else { '' }
 
 function Get-Sha256($path) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return '' }
@@ -526,6 +526,14 @@ function Invoke-Uninstall {
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
     $entries  = @($manifest.paths)
 
+    # Originals that were backed up (and will be restored from a backup) must
+    # not be removed by a later 'overwritten' / 'merged_*' entry.
+    $script:RestoredOriginals = @{}
+    foreach ($be in $entries | Where-Object { $_.action -eq 'pre_install_backup' }) {
+        $orig = $be.path -replace '\.assert-iq\.pre-install$',''
+        $script:RestoredOriginals[$orig] = $true
+    }
+
     function Invoke-Entry($e) {
         if ($e.scope -eq 'user' -and -not $User) {
             $script:UninstallStats.Preserved++
@@ -534,10 +542,15 @@ function Invoke-Uninstall {
         switch ($e.action) {
             'pre_install_backup' { Restore-Backup $e.path }
             { $script:RemovableActions -contains $_ } {
-                Remove-PathOrDir $e.path
+                if ($script:RestoredOriginals.ContainsKey($e.path)) {
+                    # Backup was restored at this path; leave the user's file in place.
+                    $script:UninstallStats.Preserved++
+                } else {
+                    Remove-PathOrDir $e.path
+                }
             }
             { $script:MergedActions -contains $_ } {
-                if (Test-Path -LiteralPath ($e.path + '.assert-iq.pre-install') -PathType Leaf) {
+                if ($script:RestoredOriginals.ContainsKey($e.path)) {
                     # Will be restored by the corresponding pre_install_backup entry.
                 } else {
                     Write-Host "preserved (no pre-install backup): $($e.path)"

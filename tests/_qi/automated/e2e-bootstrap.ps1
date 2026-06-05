@@ -16,8 +16,8 @@ Run-Case "01 pod committed install" $Pattern {
     Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
     Assert-FileExists 01 "$ws\.assert-iq\.install-manifest.json"
     Assert-DirExists  01 "$ws\.github\skills"
-    Assert-DirExists  01 "$ws\.githubgents"
-    Assert-DirExists  01 "$ws\.claudegents"
+    Assert-DirExists  01 "$ws\.github\agents"
+    Assert-DirExists  01 "$ws\.claude\agents"
     Assert-FileExists 01 "$ws\CLAUDE.md"
     Assert-FileExists 01 "$ws\AGENTS.md"
     Assert-FileExists 01 "$ws\.github\copilot-instructions.md"
@@ -69,86 +69,86 @@ Run-Case "05 trial uninstall (no graduate)" $Pattern {
 
 Run-Case "06 solo install" $Pattern {
     $pair = Invoke-MkFixture
-    $ws = $pair.ws; $home = $pair.home
+    $ws = $pair.ws; $homeDir = $pair.home
     Invoke-RunBoot $pair @("--preset=solo", "--mode=committed", "--yes") | Out-Null
     Assert-DirExists  06 "$ws\.github\skills"
-    Assert-FileExists 06 "$home\.claude\CLAUDE.md"
+    Assert-FileExists 06 "$homeDir\.claude\CLAUDE.md"
     Assert-FileMissing 06 "$ws\CLAUDE.md"
     Invoke-CleanupFixture $pair $Keep
 }
 
 Run-Case "07 solo uninstall --user" $Pattern {
     $pair = Invoke-MkFixture
-    $ws = $pair.ws; $home = $pair.home
+    $ws = $pair.ws; $homeDir = $pair.home
     Invoke-RunBoot $pair @("--preset=solo", "--mode=committed", "--yes") | Out-Null
     Invoke-RunBoot $pair @("--uninstall", "--user", "--yes") | Out-Null
-    Assert-FileMissing 07 "$home\.claude\CLAUDE.md"
+    Assert-FileMissing 07 "$homeDir\.claude\CLAUDE.md"
     Assert-DirMissing  07 "$ws\.github\skills"
     Invoke-CleanupFixture $pair $Keep
 }
 
 Run-Case "08 solo uninstall (no --user)" $Pattern {
     $pair = Invoke-MkFixture
-    $ws = $pair.ws; $home = $pair.home
+    $ws = $pair.ws; $homeDir = $pair.home
     Invoke-RunBoot $pair @("--preset=solo", "--mode=committed", "--yes") | Out-Null
     Invoke-RunBoot $pair @("--uninstall", "--yes") | Out-Null
     Assert-DirMissing  08 "$ws\.github\skills"
-    Assert-FileExists  08 "$home\.claude\CLAUDE.md"
+    Assert-FileExists  08 "$homeDir\.claude\CLAUDE.md"
     Invoke-CleanupFixture $pair $Keep
 }
 
 Run-Case "09 portable install" $Pattern {
     $pair = Invoke-MkFixture
-    $ws = $pair.ws; $home = $pair.home
+    $ws = $pair.ws; $homeDir = $pair.home
     Invoke-RunBoot $pair @("--preset=portable", "--mode=committed", "--yes") | Out-Null
-    Assert-DirExists  09 "$home\.agents\skills"
+    Assert-DirExists  09 "$homeDir\.agents\skills"
     Assert-DirMissing 09 "$ws\.github\skills"
     Invoke-CleanupFixture $pair $Keep
 }
 
 Run-Case "10 portable uninstall --user" $Pattern {
     $pair = Invoke-MkFixture
-    $ws = $pair.ws; $home = $pair.home
+    $ws = $pair.ws; $homeDir = $pair.home
     Invoke-RunBoot $pair @("--preset=portable", "--mode=committed", "--yes") | Out-Null
     Invoke-RunBoot $pair @("--uninstall", "--user", "--yes") | Out-Null
-    Assert-DirMissing  10 "$home\.agents\skills"
+    Assert-DirMissing  10 "$homeDir\.agents\skills"
     Invoke-CleanupFixture $pair $Keep
 }
 
 Run-Case "11 skills-scope=both install" $Pattern {
     $pair = Invoke-MkFixture
-    $ws = $pair.ws; $home = $pair.home
+    $ws = $pair.ws; $homeDir = $pair.home
     Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--skills-scope=both", "--yes") | Out-Null
     Assert-DirExists 11 "$ws\.github\skills"
-    Assert-DirExists 11 "$home\.agents\skills"
+    Assert-DirExists 11 "$homeDir\.agents\skills"
     Invoke-CleanupFixture $pair $Keep
 }
 
 Run-Case "12 skills-scope=both uninstall --user" $Pattern {
     $pair = Invoke-MkFixture
-    $ws = $pair.ws; $home = $pair.home
+    $ws = $pair.ws; $homeDir = $pair.home
     Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--skills-scope=both", "--yes") | Out-Null
     Invoke-RunBoot $pair @("--uninstall", "--user", "--yes") | Out-Null
     Assert-DirMissing 12 "$ws\.github\skills"
-    Assert-DirMissing 12 "$home\.agents\skills"
+    Assert-DirMissing 12 "$homeDir\.agents\skills"
     Invoke-CleanupFixture $pair $Keep
 }
 
 Run-Case "13 skills-scope=user install" $Pattern {
     $pair = Invoke-MkFixture
-    $ws = $pair.ws; $home = $pair.home
+    $ws = $pair.ws; $homeDir = $pair.home
     Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--skills-scope=user", "--yes") | Out-Null
-    Assert-DirExists  13 "$home\.agents\skills"
+    Assert-DirExists  13 "$homeDir\.agents\skills"
     Assert-DirMissing 13 "$ws\.github\skills"
     Invoke-CleanupFixture $pair $Keep
 }
 
 Run-Case "14 skills-scope=user uninstall --user" $Pattern {
     $pair = Invoke-MkFixture
-    $ws = $pair.ws; $home = $pair.home
+    $ws = $pair.ws; $homeDir = $pair.home
     Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--skills-scope=user", "--yes") | Out-Null
     Invoke-RunBoot $pair @("--uninstall", "--user", "--yes") | Out-Null
-    Assert-DirMissing 14 "$home\.agents\skills"
+    Assert-DirMissing 14 "$homeDir\.agents\skills"
     Invoke-CleanupFixture $pair $Keep
 }
 
@@ -221,9 +221,9 @@ Run-Case "21 uninstall restores backup" $Pattern {
 
 Run-Case "22 install.ps1 install + reinstall" $Pattern {
     $pair = Invoke-MkPackCopy
-    $copy = $pair.copy; $home = $pair.home
+    $copy = $pair.copy; $homeDir = $pair.home
     $origHome = $env:HOME; $origProfile = $env:USERPROFILE
-    $env:HOME = $home; $env:USERPROFILE = $home
+    $env:HOME = $homeDir; $env:USERPROFILE = $homeDir
     try {
         & pwsh -NoProfile -File "$copy\install.ps1" *>&1 | Out-Null
         Assert-FileExists 22 "$copy\.claude\settings.json"
@@ -236,9 +236,9 @@ Run-Case "22 install.ps1 install + reinstall" $Pattern {
 
 Run-Case "23 install.ps1 preserves user keys" $Pattern {
     $pair = Invoke-MkPackCopy
-    $copy = $pair.copy; $home = $pair.home
+    $copy = $pair.copy; $homeDir = $pair.home
     $origHome = $env:HOME; $origProfile = $env:USERPROFILE
-    $env:HOME = $home; $env:USERPROFILE = $home
+    $env:HOME = $homeDir; $env:USERPROFILE = $homeDir
     try {
         New-Item -ItemType Directory -Path "$copy\.claude" -Force | Out-Null
         Set-Content -Path "$copy\.claude\settings.json" -Value '{ "userKey": "preserve-me" }'

@@ -23,35 +23,35 @@ Run-Case "01 workspace install layout" $Pattern {
 
 Run-Case "02 user install layout" $Pattern {
     $pair = Invoke-MkFixture
-    $ws = $pair.ws; $home = $pair.home
+    $ws = $pair.ws; $homeDir = $pair.home
     Invoke-RunBoot $pair @("--preset=portable", "--mode=committed", "--hooks=user", "--yes") | Out-Null
-    Assert-FileExists 02 "$home\.agents\hooks\hooks.json"
-    Assert-FileExists 02 "$home\.agents\hooks\scripts\lib\json-utils.ps1"
-    Assert-DirExists  02 "$home\.agents\hooks\sessions"
-    Assert-Contains   02 "$home\.agents\hooks\hooks.json" "SKILL_IMPROVE_ROOT"
+    Assert-FileExists 02 "$homeDir\.agents\hooks\hooks.json"
+    Assert-FileExists 02 "$homeDir\.agents\hooks\scripts\lib\json-utils.ps1"
+    Assert-DirExists  02 "$homeDir\.agents\hooks\sessions"
+    Assert-Contains   02 "$homeDir\.agents\hooks\hooks.json" "SKILL_IMPROVE_ROOT"
     Invoke-CleanupFixture $pair $Keep
 }
 
 Run-Case "03 workspace SessionStart writes local" $Pattern {
     $pair = Invoke-MkFixture
-    $ws = $pair.ws; $home = $pair.home
+    $ws = $pair.ws; $homeDir = $pair.home
     Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--hooks=workspace", "--yes") | Out-Null
     $out = Invoke-RunHook $pair "hooks\scripts\skill-improve-session-start.ps1" "sid-A" @{ "SKILL_IMPROVE_ROOT" = "$ws\hooks" }
     if ($out -notmatch "`"continue`":true") { Fail 03 "missing continue envelope" }
     Assert-DirExists  03 "$ws\hooks\sessions\sid-A"
     Assert-FileExists 03 "$ws\hooks\sessions\sid-A\loaded-customizations.json"
-    Assert-DirMissing 03 "$home\.agents\hooks\sessions\sid-A"
+    Assert-DirMissing 03 "$homeDir\.agents\hooks\sessions\sid-A"
     Invoke-CleanupFixture $pair $Keep
 }
 
 Run-Case "04 user SessionStart writes ~/.agents" $Pattern {
     $pair = Invoke-MkFixture
-    $ws = $pair.ws; $home = $pair.home
+    $ws = $pair.ws; $homeDir = $pair.home
     Invoke-RunBoot $pair @("--preset=portable", "--mode=committed", "--hooks=user", "--yes") | Out-Null
-    $out = Invoke-RunHookUser $pair "scripts\skill-improve-session-start.ps1" "sid-B" @{ "SKILL_IMPROVE_ROOT" = "$home\.agents\hooks" }
+    $out = Invoke-RunHookUser $pair "scripts\skill-improve-session-start.ps1" "sid-B" @{ "SKILL_IMPROVE_ROOT" = "$homeDir\.agents\hooks" }
     if ($out -notmatch "`"continue`":true") { Fail 04 "missing continue envelope" }
-    Assert-DirExists  04 "$home\.agents\hooks\sessions\sid-B"
-    Assert-FileExists 04 "$home\.agents\hooks\sessions\sid-B\loaded-customizations.json"
+    Assert-DirExists  04 "$homeDir\.agents\hooks\sessions\sid-B"
+    Assert-FileExists 04 "$homeDir\.agents\hooks\sessions\sid-B\loaded-customizations.json"
     Assert-DirMissing 04 "$ws\hooks\sessions\sid-B"
     Invoke-CleanupFixture $pair $Keep
 }
@@ -60,7 +60,7 @@ Run-Case "05 PostToolUse telemetry continues" $Pattern {
     $pair = Invoke-MkFixture
     $ws = $pair.ws
     Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--hooks=workspace", "--yes") | Out-Null
-    $out = Invoke-RunHook $pair "hooks\scripts	rack-telemetry.ps1" "sid-T" @{ "SKILL_IMPROVE_ROOT" = "$ws\hooks"; "AZURE_MCP_COLLECT_TELEMETRY" = "false" }
+    $out = Invoke-RunHook $pair "hooks\scripts\track-telemetry.ps1" "sid-T" @{ "SKILL_IMPROVE_ROOT" = "$ws\hooks"; "AZURE_MCP_COLLECT_TELEMETRY" = "false" }
     if ($out -notmatch "`"continue`":true") { Fail 05 "expected continue:true, got: $out" }
     Invoke-CleanupFixture $pair $Keep
 }
@@ -70,7 +70,7 @@ Run-Case "06 PostToolUse detect appends log" $Pattern {
     $ws = $pair.ws
     Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--hooks=workspace", "--yes") | Out-Null
     $out = Invoke-RunHook $pair "hooks\scripts\skill-improve-detect.ps1" "sid-D" @{ "SKILL_IMPROVE_ROOT" = "$ws\hooks" }
-    Assert-FileExists 06 "$ws\hooks\sessions\sid-D	ool-log.jsonl"
+    Assert-FileExists 06 "$ws\hooks\sessions\sid-D\tool-log.jsonl"
     Invoke-CleanupFixture $pair $Keep
 }
 
@@ -152,27 +152,27 @@ Run-Case "13 dedup marker created under state/" $Pattern {
 
 Run-Case "14 workspace/user installs isolated" $Pattern {
     $pair = Invoke-MkFixture
-    $ws = $pair.ws; $home = $pair.home
+    $ws = $pair.ws; $homeDir = $pair.home
     Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--hooks=workspace", "--yes") | Out-Null
     Invoke-RunBoot $pair @("--preset=portable", "--mode=committed", "--hooks=user", "--yes") | Out-Null
     $out1 = Invoke-RunHook $pair "hooks\scripts\skill-improve-session-start.ps1" "sid-WS-ONLY" @{ "SKILL_IMPROVE_ROOT" = "$ws\hooks" }
     Assert-DirExists  14 "$ws\hooks\sessions\sid-WS-ONLY"
-    Assert-DirMissing 14 "$home\.agents\hooks\sessions\sid-WS-ONLY"
+    Assert-DirMissing 14 "$homeDir\.agents\hooks\sessions\sid-WS-ONLY"
     
-    $out2 = Invoke-RunHookUser $pair "scripts\skill-improve-session-start.ps1" "sid-USR-ONLY" @{ "SKILL_IMPROVE_ROOT" = "$home\.agents\hooks" }
-    Assert-DirExists  14 "$home\.agents\hooks\sessions\sid-USR-ONLY"
+    $out2 = Invoke-RunHookUser $pair "scripts\skill-improve-session-start.ps1" "sid-USR-ONLY" @{ "SKILL_IMPROVE_ROOT" = "$homeDir\.agents\hooks" }
+    Assert-DirExists  14 "$homeDir\.agents\hooks\sessions\sid-USR-ONLY"
     Assert-DirMissing 14 "$ws\hooks\sessions\sid-USR-ONLY"
     Invoke-CleanupFixture $pair $Keep
 }
 
 Run-Case "15 --uninstall --user clears hooks" $Pattern {
     $pair = Invoke-MkFixture
-    $home = $pair.home
+    $homeDir = $pair.home
     Invoke-RunBoot $pair @("--preset=portable", "--mode=committed", "--hooks=user", "--yes") | Out-Null
-    Assert-FileExists 15 "$home\.agents\hooks\hooks.json"
+    Assert-FileExists 15 "$homeDir\.agents\hooks\hooks.json"
     Invoke-RunBoot $pair @("--uninstall", "--user", "--yes") | Out-Null
-    Assert-FileMissing 15 "$home\.agents\hooks\hooks.json"
-    Assert-DirMissing  15 "$home\.agents\hooks\scripts"
+    Assert-FileMissing 15 "$homeDir\.agents\hooks\hooks.json"
+    Assert-DirMissing  15 "$homeDir\.agents\hooks\scripts"
     Invoke-CleanupFixture $pair $Keep
 }
 
