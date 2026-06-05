@@ -5,6 +5,11 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.11] — 2026-06-05
+
+### Fixed
+- Added missing template placeholders (`ci_provider`, `linters`, `review_source`, `test_id_format`, `regression_area_path`, `bug_reporter`, `five_whys`, `targeted_test_command`) to `.assert-iq/config.yaml` so they are immediately visible to users configuring the pack out of the box without the agent needing to infer them.
+
 ## [1.1.10] — 2026-06-04
 
 ### Fixed
