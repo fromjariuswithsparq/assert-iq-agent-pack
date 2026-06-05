@@ -73,7 +73,9 @@ cd ~/code/my-app
 
 # 3. Run the bootstrap script from the clone
 bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
-# Windows PowerShell:
+# Windows (PowerShell 5.1 or PowerShell Core):
+powershell -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
+# or if you have PowerShell Core 7+ installed:
 pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
 ```
 

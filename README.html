@@ -508,7 +508,10 @@ cd ~/code/my-app
 
 <span class="comment"># 3. Run the bootstrap script from the clone</span>
 bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
-<span class="comment"># Windows: pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</span></code></pre>
+<span class="comment"># Windows (PowerShell 5.1 or PowerShell Core):</span>
+powershell -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
+<span class="comment"># or if you have PowerShell Core 7+ installed:</span>
+pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
           <p style="font-size:0.88em;">The script is fully standalone — it accepts <code>--preset=solo|pod</code>, prompts interactively, and writes everything Copilot and Claude need. <strong>No chicken-and-egg.</strong> You do not need to open VS Code or Claude Code first, and the <code>/assert-iq-bootstrap</code> skill does not need to be loaded — the script is what the skill calls under the hood.</p>
 
           <div class="callout" style="margin-top:16px;margin-bottom:16px;">
