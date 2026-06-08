@@ -132,7 +132,7 @@ editing required.
     `role=prod`, fetch tests-side signals from
     `workspace.companion_repo`; when `role=tests`, fetch the PR
     diff from the companion. Use MCP → local path → manual paste
-    per qi-foundation § Workspace topology. If the companion is
+    per `.assert-iq/workspace-topology.md`. If the companion is
     unavailable, the affected layer is reported as UNGRADED with
     `reason: "companion_repo_unset"` and the verdict shifts to
     **discuss** (not auto-block) so the human gate decides. Never

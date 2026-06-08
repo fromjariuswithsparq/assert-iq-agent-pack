@@ -117,7 +117,7 @@ per the integrity rule — the skill never fabricates positive signal.
     `prod` | `tests`, default `monorepo`). When `role=tests`,
     the **Change layer** (PR diff, blast radius, churn) lives in
     `workspace.companion_repo`; fetch via MCP → local path →
-    manual paste per qi-foundation § Workspace topology. If the
+    manual paste per `.assert-iq/workspace-topology.md`. If the
     companion is unset or unreachable, the Change layer is
     reported as UNGRADED with `reason: "companion_repo_unset"`
     (or `"companion_repo_unreachable"`); never fabricate it from

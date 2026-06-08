@@ -106,22 +106,23 @@ is there — your file browser is filtering it.
   production code wire both halves together without forking the pack.
   Default `monorepo` is backward-compatible — single-repo users see
   zero behavioral change.
-- **Centralized topology contract in qi-foundation.** New
-  "Workspace topology — read first" section in
-  `.github/instructions/qi-foundation.instructions.md` defines the
-  fetch fallback chain (MCP → local path → manual paste) and the
+- **Centralized topology contract in `.assert-iq/workspace-topology.md`.**
+  Lazy-loaded reference doc (not auto-loaded into every prompt) defines
+  the fetch fallback chain (MCP → local path → manual paste) and the
   UNGRADED contract: when the companion is unset or unreachable, the
   affected signal layer is reported as UNGRADED with
   `reason: "companion_repo_unset"` (or `"companion_repo_unreachable"`)
   per the v0.2 signal-schema `partial_signal_mode: true` rule — never
-  silently fabricated.
+  silently fabricated. `qi-foundation.instructions.md` carries an
+  80-token pointer to this file so monorepo users (the default)
+  don't pay for split-repo mechanics on every turn.
 - **Seven skills made workspace-aware.** Each of `risk-assess-pr`,
   `check-merge`, `release-confidence`, `code-review`,
   `check-test-coverage`, `generate-traceability-matrix`, and
   `analyze-escaped-defect` gained a new customization point that
   names which layer / source degrades to UNGRADED when the companion
-  is missing. The full rule lives in qi-foundation; the skills carry
-  short pointers, so the contract is not duplicated.
+  is missing. The full rule lives in `.assert-iq/workspace-topology.md`;
+  the skills carry short pointers, so the contract is not duplicated.
 - **Five Whys discipline across diagnostic skills (post-v0.8 commit
   d9bbaee).** `debug-ui-tests`, `analyze-flaky-test`, and
   `analyze-escaped-defect` now enforce a mandatory Five Whys chain

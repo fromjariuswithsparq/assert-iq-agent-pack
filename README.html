@@ -390,7 +390,7 @@
 
 <section class="hero">
   <div class="hero-content">
-    <div class="badge"><span class="badge-dot"></span>v1.1.11 · Internal Sparq asset</div>
+    <div class="badge"><span class="badge-dot"></span>v1.2.0 · Internal Sparq asset</div>
     <h1 id="assert-iq-agent-pack">Assert.IQ Agent Pack</h1>
     <p class="tagline">Quality Intelligence for every IDE, every sprint, every team.</p>
     <div class="hero-cta">
@@ -527,6 +527,11 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
       <p style="font-size:0.92em;margin-top:24px;">Bootstrap writes <strong>twelve surfaces</strong>: <code>.assert-iq/</code>, <code>.github/instructions/</code>, <code>.github/copilot-instructions.md</code>, <code>.github/skills/</code>, <code>.github/agents/</code>, <code>.claude/agents/</code>, <code>.claude/skills</code> (symlink), <code>.claude/settings.json</code>, <code>CLAUDE.md</code>, <code>AGENTS.md</code>, <code>.vscode/settings.json</code> + <code>.vscode/mcp.json</code>, and <code>hooks/</code>. Pre-existing user files are snapshotted to <code>&lt;file&gt;.assert-iq.pre-install</code> for byte-for-byte restore on uninstall.</p>
 
       <div class="callout" style="margin-top:16px;">
+        <strong>Already have a <code>copilot-instructions.md</code>, <code>CLAUDE.md</code>, or <code>AGENTS.md</code>?</strong>
+        <p style="margin:6px 0 0 0;">The interactive resolver offers <code>[m]erge (recommended)</code> for those three files. Merge wraps the pack content in idempotent HTML-comment markers (<code>&lt;!-- assert-iq:begin v=... --&gt;</code> … <code>&lt;!-- assert-iq:end --&gt;</code>) at the top of the file and leaves your existing content below the markers untouched. Re-installing replaces only the marker block, so the merge stays clean across upgrades.</p>
+      </div>
+
+      <div class="callout" style="margin-top:16px;">
         <strong>Don't want trial mode? Want skills in every workspace?</strong>
         <p style="margin:6px 0 8px 0;">Use <code>--preset=portable</code>. Skills install user-globally to <code>~/.agents/skills/</code> (VS Code Copilot Chat) and <code>~/.claude/skills/</code> (Claude Code), so every repo you open has the 24 QI skills available. Workspace footprint is minimal — only the Assert-IQ chat agent files (<code>.github/agents/</code>, <code>.claude/agents/</code>) and the manifest land in the repo; no instructions, hooks, settings, or MCP config.</p>
 <pre><code>bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --preset=portable</code></pre>
@@ -608,7 +613,7 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
         <p style="margin:8px 0 0 0;font-size:0.92em;">Once you're ready to share with the team, you use <code>--mode=committed</code> (or run <code>--graduate</code>), meaning <em>"Keep the files in the workspace, but now let git track them so my team sees them."</em></p>
       </div>
       </table>
-      <p style="font-size:0.92em;">When the companion isn't set, the affected layer is reported as <strong>UNGRADED</strong> with reason <code>companion_repo_unset</code> — never fabricated.</p>
+      <p style="font-size:0.92em;">When the companion isn't set, the affected layer is reported as <strong>UNGRADED</strong> with reason <code>companion_repo_unset</code> &mdash; never fabricated. Full contract in <a href=".assert-iq/workspace-topology.md"><code>.assert-iq/workspace-topology.md</code></a>.</p>
     </div>
 
     <div class="step">
@@ -673,7 +678,7 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
 </div>
 
 <footer>
-  <div>Assert.IQ Agent Pack · v1.1.11 · Owned by <a href="https://github.com/fromjariuswithsparq">Jarius Hayes</a> · Sparq Intelligence Studio</div>
+  <div>Assert.IQ Agent Pack · v1.2.0 · Owned by <a href="https://github.com/fromjariuswithsparq">Jarius Hayes</a> · Sparq Intelligence Studio</div>
   <div style="margin-top:12px;">
     <a href="README.md">Markdown README</a>
     <a href="README.assert-iq.html">Full Docs</a>

@@ -1,18 +1,14 @@
 ---
 name: eval-optimizer
 description: >
-  Evaluate and automatically optimize any AI instruction artifact — a Skill (SKILL.md),
-  system prompt, Claude project custom instructions, or any block of AI directives.
-  Use this skill when the user wants to: test how well a skill or prompt works, improve
-  a skill or prompt, benchmark prompt quality, see how effective their instructions are,
-  find weaknesses in their AI configuration, or get an optimized final version.
-  Trigger whenever the user says things like "eval this skill", "how good is this prompt?",
-  "optimize my instructions", "test my custom instructions", "improve this system prompt",
-  "how effective is this?", or shows you a SKILL.md or block of instructions and asks
-  how it performs or how to make it better. Also trigger when the user says "run evals"
-  on something they've built or pasted.
-  Do NOT trigger for: "just give me feedback", "review this writing", "what do you think"
-  without explicit optimization/eval intent — provide qualitative feedback instead.
+  Evaluate and automatically optimize any AI instruction artifact — a Skill
+  (SKILL.md), system prompt, Claude project custom instructions, or any block
+  of AI directives. Runs an iterative eval-and-improve loop and delivers an
+  optimized final version plus a report.
+  WHEN: eval this skill, optimize my instructions, improve this system
+  prompt, benchmark prompt quality, run evals, how effective is this.
+  Do NOT trigger for "just give me feedback" or "review this writing"
+  without explicit optimization intent — provide qualitative feedback instead.
 ---
 
 # Eval Optimizer

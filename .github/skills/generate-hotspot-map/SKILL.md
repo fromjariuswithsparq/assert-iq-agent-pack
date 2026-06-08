@@ -1,7 +1,7 @@
 ---
 name: generate-hotspot-map
 mode: agent
-description: "Audit code volatility, structural complexity, and historical defect density to produce a Hotspot Risk Index registry that drives test prioritization. WHEN: 'generate hotspot map', 'refresh hotspot registry', 'identify high-risk modules', 'sprint zero risk audit', 'code volatility audit', 'where should we focus testing', 'which modules are fragile', 'churn analysis', 'hotspot profiling', 'risk-tier our codebase'."
+description: "Audit code volatility, complexity, and defect density to produce a Hotspot Risk Index registry that drives test prioritization. WHEN: hotspot map, identify high-risk modules, sprint zero risk audit, where should we focus testing, which modules are fragile, churn analysis."
 ---
 
 <!-- markdownlint-disable MD033 -->
@@ -146,7 +146,7 @@ signal alone.
     - `role: prod`  — volatility local; defect density may still
       need companion if work-item-to-code linkage lives there.
     - `role: monorepo` — no cross-repo behavior.
-    Per qi-foundation § Workspace topology, never fabricate a
+    Per `.assert-iq/workspace-topology.md`, never fabricate a
     missing layer.
 
 14. **Platform notes** — language-, framework-, deployment-model-

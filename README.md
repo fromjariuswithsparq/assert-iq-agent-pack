@@ -99,6 +99,8 @@ The script is fully standalone — it accepts `--preset=solo|pod`, prompts inter
 
 Bootstrap writes twelve surfaces into the workspace: `.assert-iq/`, `.github/instructions/`, `.github/copilot-instructions.md`, `.github/skills/`, `.github/agents/`, `.claude/agents/`, `.claude/skills` (symlink to `../.github/skills` on macOS/Linux; copy fallback on Windows without Developer Mode), `.claude/settings.json`, `CLAUDE.md`, `AGENTS.md`, `.vscode/settings.json` + `.vscode/mcp.json`, and `hooks/`. Pre-existing user files are snapshotted to `<file>.assert-iq.pre-install` before any modification, so a later `bash scripts/bootstrap.sh --uninstall` can restore them byte-for-byte. Safe to re-run.
 
+> **Already have a `copilot-instructions.md`, `CLAUDE.md`, or `AGENTS.md` in your repo?** The interactive resolver offers `[m]erge (recommended)` for those three files. Merge wraps the pack content in idempotent HTML-comment markers (`<!-- assert-iq:begin v=... -->` … `<!-- assert-iq:end -->`) at the top of the file and leaves your existing content below the markers untouched. Re-installing replaces only the marker block, so the merge stays clean across upgrades and your team-authored content is never rewritten. Other files keep the existing `[k]eep / [o]verwrite / [s]idecar` choices.
+
 > **Don't want trial mode? Want skills available in every workspace?**
 > Use `--preset=portable` instead. Skills install user-globally to
 > `~/.agents/skills/` (VS Code Copilot Chat) and `~/.claude/skills/`
@@ -165,7 +167,7 @@ To avoid confusion regarding what files land globally versus locally, here is a 
    | This repo holds prod code; tests live in a separate repo | `prod` | Set `workspace.companion_repo` to the tests repo (path or remote) |
    | This repo holds tests; prod code lives in a separate repo | `tests` | Set `workspace.companion_repo` to the prod repo (path or remote) |
 
-   When the companion is set, cross-repo skills (`risk-assess-pr`, `check-merge`, `release-confidence`, `code-review`, `check-test-coverage`, `generate-traceability-matrix`, `analyze-escaped-defect`) fetch the other half via your VCS MCP, a local checkout, or manual paste. When it isn't set, the affected layer is reported as **UNGRADED** with reason `companion_repo_unset` — never fabricated. Full contract in [.github/instructions/qi-foundation.instructions.md](.github/instructions/qi-foundation.instructions.md). For tight test↔prod feedback loops in a split-repo team, also consider opening both folders as a multi-root VS Code workspace.
+   When the companion is set, cross-repo skills (`risk-assess-pr`, `check-merge`, `release-confidence`, `code-review`, `check-test-coverage`, `generate-traceability-matrix`, `analyze-escaped-defect`) fetch the other half via your VCS MCP, a local checkout, or manual paste. When it isn't set, the affected layer is reported as **UNGRADED** with reason `companion_repo_unset` — never fabricated. Full contract in [.assert-iq/workspace-topology.md](.assert-iq/workspace-topology.md). For tight test↔prod feedback loops in a split-repo team, also consider opening both folders as a multi-root VS Code workspace.
 
 ---
 

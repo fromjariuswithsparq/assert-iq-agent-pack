@@ -27,19 +27,13 @@ changelog: >
   Swift, Ruby. Test code calibration. Cross-file pattern analysis. Deduplication rules.
   Output format flexibility (markdown, JSON, PR comment, quick summary). Post-review follow-up.
 description: >
-  Performs a structured code review of one or more files against nine engineering principles:
-  Readability, KISS, DRY, YAGNI, Documentation, Error Handling, Performance, Security, and Code Smells.
-  Produces a per-category findings report with severity ratings, decision-tree-guided severity
-  classification, and actionable suggestions. When a PR number is provided, automatically fetches
-  PR comment threads and commit history to include reviewer feedback and claimed fixes as context,
-  then reconciles those claims against the actual committed code.
-  Framework-, language-, platform-, and VCS-host-agnostic. Ships with language-specific guidance
-  for C#/.NET, Python, JavaScript/TypeScript, Java, Go, Rust, Kotlin, Swift, and Ruby; the
-  universal checks apply to any other language.
-  WHEN: "code review", "review this file", "review these files", "check this code",
-  "analyze this code", "review my code", "critique this", "what's wrong with this code",
-  "can you review", "look at this code for issues", "security review", "audit this code",
-  "review PR", "review pull request", "check PR comments", "PR <number>"
+  Structured code review against nine principles: Readability, KISS, DRY,
+  YAGNI, Documentation, Error Handling, Performance, Security, Code Smells.
+  Per-category findings with severity decision trees. PR-aware: when a PR
+  number is given, fetches comment threads + commit history and reconciles
+  claimed fixes against committed code. Language- and VCS-agnostic.
+  WHEN: code review, review this file, review my code, security review,
+  audit this code, review PR, check PR comments, PR <number>.
 ---
 
 <!-- markdownlint-disable MD033 -->
@@ -123,9 +117,10 @@ editing required.
     `prod` | `tests`, default `monorepo`). When `role=tests`, the
     files under review and the PR Context Gathering Protocol's
     target branch live in `workspace.companion_repo`; fetch via
-    MCP → local path → manual paste per qi-foundation § Workspace
-    topology. If the companion is unavailable, refuse to render a
-    review verdict on prod-side files — state
+    MCP → local path → manual paste per
+    `.assert-iq/workspace-topology.md`. If the companion is
+    unavailable, refuse to render a review verdict on prod-side
+    files — state
     `reason: "companion_repo_unset"` and ask the user to paste
     the files, the PR diff, or both. Do **not** review against a
     stale local cache or infer code from test references.

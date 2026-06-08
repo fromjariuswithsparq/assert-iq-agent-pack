@@ -121,7 +121,7 @@ references them.
     repo). When `role=prod`, the test column is fetched from
     `workspace.companion_repo`; when `role=tests`, the code column
     is fetched from the companion. Use MCP → local path → manual
-    paste per qi-foundation § Workspace topology. If the companion
+    paste per `.assert-iq/workspace-topology.md`. If the companion
     is unavailable, the matrix is still emitted with the missing
     column flagged — each affected row is marked
     `trace_state: "partial"` with

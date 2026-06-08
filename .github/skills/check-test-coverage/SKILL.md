@@ -121,7 +121,7 @@ editing required.
     report and test inventory live in `workspace.companion_repo`;
     when `role=tests`, the source files referenced by the report
     live in the companion. Fetch via MCP → local path → manual
-    paste per qi-foundation § Workspace topology. If the companion
+    paste per `.assert-iq/workspace-topology.md`. If the companion
     side is unavailable, the Protection layer is reported as
     UNGRADED with `reason: "companion_repo_unset"`; partial reports
     that cannot resolve a source path mark those files

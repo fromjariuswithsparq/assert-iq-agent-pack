@@ -56,7 +56,7 @@ UNINSTALL=0
 UNINSTALL_USER=0
 ASSUME_YES=0
 DRY_RUN=0
-CONFLICT_BULK_CHOICE=""   # K|O|S once user picks an "-all" shortcut
+CONFLICT_BULK_CHOICE="${CONFLICT_BULK_CHOICE:-}"   # K|O|M|S once user picks an "-all" shortcut
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE="${CLAUDE_PLUGIN_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 
@@ -67,8 +67,8 @@ EXCLUDE_END="# <<< assert-iq trial mode (managed) <<<"
 # one place. REMOVABLE_ACTIONS are deleted on uninstall; EXCLUDABLE_ACTIONS
 # get emitted into .git/info/exclude in trial mode.
 REMOVABLE_ACTIONS="created unchanged_owned overwritten rendered sidecar"
-EXCLUDABLE_ACTIONS="created unchanged_owned overwritten merged_hooks_key merged_settings rendered sidecar"
-MERGED_ACTIONS="merged_settings merged_hooks_key"
+EXCLUDABLE_ACTIONS="created unchanged_owned overwritten merged_hooks_key merged_settings merged_markdown rendered sidecar"
+MERGED_ACTIONS="merged_settings merged_hooks_key merged_markdown"
 
 _in_action_set() {
   # $1 = action, $2 = space-separated set
@@ -142,6 +142,32 @@ sha256_of() {
   fi
 }
 
+record_merge_result_sha() {
+  # Records the post-install SHA of a file produced by a merge action so
+  # uninstall can tell whether the user edited the file after install.
+  # Args: abs_path
+  local p="$1"
+  [[ -f "$p" ]] || return 0
+  local sha; sha="$(sha256_of "$p")"
+  [[ -n "$sha" ]] || return 0
+  local sidecar="$WORKSPACE/.assert-iq/.merge-result-shas"
+  mkdir -p "$(dirname "$sidecar")"
+  # Replace any previous record for the same path (re-runs / re-merges).
+  if [[ -f "$sidecar" ]]; then
+    grep -v -F -- "$(printf '%s\t' "$p")" "$sidecar" > "$sidecar.tmp" 2>/dev/null || true
+    mv "$sidecar.tmp" "$sidecar"
+  fi
+  printf '%s\t%s\n' "$p" "$sha" >> "$sidecar"
+}
+
+lookup_merge_result_sha() {
+  # Prints the recorded post-install SHA for $1, or empty.
+  local p="$1"
+  local sidecar="$WORKSPACE/.assert-iq/.merge-result-shas"
+  [[ -f "$sidecar" ]] || return 0
+  awk -v want="$p" -F'\t' '$1 == want { print $2; exit }' "$sidecar"
+}
+
 backup_if_user_owned() {
   # Snapshot a pre-existing user file before we modify or overwrite it, so
   # --uninstall can restore the original. No-op if no destination file
@@ -176,14 +202,68 @@ write_or_skip_if_unchanged() {
   backup_if_user_owned "$dst" "$scope"
   mv "$tmp" "$dst"
   manifest_add "$changed_action" "$dst" "$scope"
+  record_merge_result_sha "$dst"
   record "$label" "$changed_msg" "$dst"
+}
+
+# Merge $src markdown into $dst by managing an idempotent marker block at
+# the top of $dst. On first merge, prepends pack content wrapped in
+# <!-- assert-iq:begin v=... --> ... <!-- assert-iq:end --> followed by a
+# blank line and the user's existing content. On re-merge (markers
+# present), replaces the block in place; user content outside the block
+# is never touched. Used only for the markdown allowlist files
+# (copilot-instructions.md, CLAUDE.md, AGENTS.md).
+# Args: label src dst scope
+merge_markdown_file() {
+  local label="$1" src="$2" dst="$3" scope="$4"
+  local pack_version="unknown"
+  if [[ -f "$SOURCE/VERSION" ]]; then
+    pack_version="$(head -n1 "$SOURCE/VERSION" | tr -d '[:space:]')"
+    [[ -z "$pack_version" ]] && pack_version="unknown"
+  fi
+  local begin_marker="<!-- assert-iq:begin v=$pack_version -->"
+  local end_marker="<!-- assert-iq:end -->"
+  backup_if_user_owned "$dst" "$scope"
+  local tmp; tmp="$(mktemp)"
+  if grep -q "<!-- assert-iq:begin" "$dst" 2>/dev/null; then
+    # Replace the existing marker block in place.
+    awk -v new_begin="$begin_marker" -v new_src="$src" -v end_m="$end_marker" '
+      BEGIN { in_block=0 }
+      /<!-- assert-iq:begin/ && in_block==0 {
+        in_block=1
+        print new_begin
+        while ((getline line < new_src) > 0) print line
+        close(new_src)
+        next
+      }
+      in_block==1 && index($0, end_m) > 0 {
+        print end_m
+        in_block=0
+        next
+      }
+      in_block==0 { print }
+    ' "$dst" > "$tmp"
+  else
+    # First merge: prepend pack block, blank line, then existing content.
+    {
+      echo "$begin_marker"
+      cat "$src"
+      echo "$end_marker"
+      echo ""
+      cat "$dst"
+    } > "$tmp"
+  fi
+  mv "$tmp" "$dst"
+  manifest_add "merged_markdown" "$dst" "$scope"
+  record_merge_result_sha "$dst"
+  record "$label" "merged (markdown markers)" "$dst"
 }
 
 declare -a MANIFEST_ENTRIES=()
 # Vocabulary of actions allowed in the manifest. Validation in manifest_add
 # turns silent typos into immediate errors; without this, a typo would still
 # be written but downstream action-set predicates would never match.
-KNOWN_MANIFEST_ACTIONS="created unchanged_owned overwritten rendered sidecar merged_settings merged_hooks_key pre_install_backup"
+KNOWN_MANIFEST_ACTIONS="created unchanged_owned overwritten rendered sidecar merged_settings merged_hooks_key merged_markdown pre_install_backup"
 
 manifest_add() {
   # action | abs_path | scope (workspace|user)
@@ -305,8 +385,14 @@ _strip_managed_block() {
 }
 
 write_exclude_block() {
-  # Writes the managed block to .git/info/exclude with the workspace-scoped
-  # entries from the manifest. Replaces any existing block atomically.
+  # Always-on writer for .git/info/exclude managed block. Two layers:
+  #   1) backup-globs (`*.assert-iq.pre-install`, `*.assert-iq.uninstall-saved`)
+  #      written in every mode — these are tool artifacts that must never
+  #      be committed regardless of trial vs committed install.
+  #   2) per-path entries for workspace-scoped pack files — only when
+  #      MODE == "trial" so the team-adoption (committed) path stays
+  #      visible to git on purpose.
+  # Replaces any existing block atomically.
   local excl
   excl="$(exclude_file_path)"
   if [[ -z "$excl" ]]; then
@@ -324,26 +410,28 @@ write_exclude_block() {
   tracked_list="$(mktemp)"
   ( cd "$WORKSPACE" && git ls-files 2>/dev/null ) > "$tracked_list" || true
 
-  # Collect workspace-scoped manifest paths, relative to workspace root.
-  # Filter out already-tracked files (we don't auto-untrack).
   local -a rels=() skipped_tracked=()
-  local e a p s rel
-  for e in "${MANIFEST_ENTRIES[@]}"; do
-    IFS='|' read -r a p s <<< "$e"
-    [[ "$s" == "workspace" ]] || continue
-    _in_action_set "$a" "$EXCLUDABLE_ACTIONS" || continue
-    rel="${p#"$WORKSPACE/"}"
-    if grep -Fxq "$rel" "$tracked_list" 2>/dev/null; then
-      skipped_tracked+=("$rel")
-      continue
+  if [[ "$MODE" == "trial" ]]; then
+    # Per-path entries only in trial mode. Filter out already-tracked
+    # files — those need --skip-worktree (handled by apply_skip_worktree),
+    # not .git/info/exclude (which git ignores for tracked content).
+    local e a p s rel
+    for e in "${MANIFEST_ENTRIES[@]}"; do
+      IFS='|' read -r a p s <<< "$e"
+      [[ "$s" == "workspace" ]] || continue
+      _in_action_set "$a" "$EXCLUDABLE_ACTIONS" || continue
+      rel="${p#"$WORKSPACE/"}"
+      if grep -Fxq "$rel" "$tracked_list" 2>/dev/null; then
+        skipped_tracked+=("$rel")
+        continue
+      fi
+      rels+=("$rel")
+    done
+    # Always exclude the manifest itself so it doesn't leak into git status.
+    local manifest_rel="${MANIFEST_PATH#"$WORKSPACE/"}"
+    if ! grep -Fxq "$manifest_rel" "$tracked_list" 2>/dev/null; then
+      rels+=("$manifest_rel")
     fi
-    rels+=("$rel")
-  done
-
-  # Always exclude the manifest itself so it doesn't leak into git status.
-  local manifest_rel="${MANIFEST_PATH#"$WORKSPACE/"}"
-  if ! grep -Fxq "$manifest_rel" "$tracked_list" 2>/dev/null; then
-    rels+=("$manifest_rel")
   fi
   rm -f "$tracked_list"
 
@@ -354,30 +442,123 @@ write_exclude_block() {
     cat "$excl"
     printf '%s\n' "$EXCLUDE_BEGIN"
     printf '# Managed by scripts/bootstrap.sh — do not edit by hand.\n'
-    printf '# Remove with: scripts/bootstrap.sh --graduate\n'
-    local r
-    for r in "${rels[@]}"; do
-      printf '%s\n' "$r"
-    done
+    printf '# Remove with: scripts/bootstrap.sh --uninstall (or --graduate to keep files but expose to git)\n'
+    # Layer 1: always-on backup-glob exclusions.
+    printf '# Tool artifacts — never commit:\n'
+    printf '*.assert-iq.pre-install\n'
+    printf '*.assert-iq.uninstall-saved\n'
+    printf '.assert-iq/.skip-worktree-paths\n'
+    printf '.assert-iq/.merge-result-shas\n'
+    # Layer 2: per-path entries (trial only).
+    if [[ "$MODE" == "trial" && ${#rels[@]} -gt 0 ]]; then
+      printf '# Trial-mode pack paths:\n'
+      local r
+      for r in "${rels[@]}"; do
+        printf '%s\n' "$r"
+      done
+    fi
     printf '%s\n' "$EXCLUDE_END"
   } > "$tmp"
   mv "$tmp" "$excl"
 
   echo ""
-  echo "Trial mode active. ${#rels[@]} path(s) added to .git/info/exclude."
-  if ((${#skipped_tracked[@]} > 0)); then
+  if [[ "$MODE" == "trial" ]]; then
+    echo "Trial mode active. ${#rels[@]} path(s) added to .git/info/exclude (plus backup-glob exclusions)."
+    if ((${#skipped_tracked[@]} > 0)); then
+      echo ""
+      echo "NOTE: ${#skipped_tracked[@]} path(s) already tracked by git — using --skip-worktree to hide local changes:"
+      local t
+      for t in "${skipped_tracked[@]}"; do printf '  %s\n' "$t"; done
+    fi
     echo ""
-    echo "NOTE: ${#skipped_tracked[@]} path(s) already tracked by git — left visible:"
-    local t
-    for t in "${skipped_tracked[@]}"; do printf '  %s\n' "$t"; done
-    echo ""
-    echo "If you want trial-mode behavior on those too, run (per path):"
-    echo "  git rm --cached <path>"
-    echo "Then re-run: scripts/bootstrap.sh --trial"
+    echo "To expose these files to your team's git later:"
+    echo "  scripts/bootstrap.sh --graduate"
+  else
+    echo "Wrote backup-glob exclusions to .git/info/exclude."
   fi
-  echo ""
-  echo "To expose these files to your team's git later:"
-  echo "  scripts/bootstrap.sh --graduate"
+}
+
+apply_skip_worktree() {
+  # Trial-mode helper: for each workspace-scoped manifest path with an
+  # action in EXCLUDABLE_ACTIONS, if the file is tracked by git AND not
+  # already --skip-worktree (set by the user for their own reasons), mark
+  # it --skip-worktree and remember the rel-path in a sidecar so uninstall
+  # only clears flags we actually set. Pre-existing user flags are left
+  # untouched, both at install (we don't re-mark) and at uninstall (we
+  # don't clear what we didn't track).
+  local gd; gd="$(git_dir)"
+  [[ -n "$gd" ]] || return 0
+  local tracked_list; tracked_list="$(mktemp)"
+  ( cd "$WORKSPACE" && git ls-files 2>/dev/null ) > "$tracked_list" || true
+  # Snapshot of pre-existing skip-worktree flags so we don't claim them.
+  local already_skipped; already_skipped="$(mktemp)"
+  ( cd "$WORKSPACE" && git ls-files -v 2>/dev/null | awk '/^S /{print substr($0,3)}' ) > "$already_skipped" || true
+  local sidecar="$WORKSPACE/.assert-iq/.skip-worktree-paths"
+  mkdir -p "$(dirname "$sidecar")"
+  : > "$sidecar"
+  local e a p s rel marked=0 preexisting=0
+  for e in "${MANIFEST_ENTRIES[@]}"; do
+    IFS='|' read -r a p s <<< "$e"
+    [[ "$s" == "workspace" ]] || continue
+    _in_action_set "$a" "$EXCLUDABLE_ACTIONS" || continue
+    rel="${p#"$WORKSPACE/"}"
+    grep -Fxq "$rel" "$tracked_list" 2>/dev/null || continue
+    if grep -Fxq "$rel" "$already_skipped" 2>/dev/null; then
+      preexisting=$((preexisting+1))
+      continue
+    fi
+    if ( cd "$WORKSPACE" && git update-index --skip-worktree -- "$rel" 2>/dev/null ); then
+      printf '%s\n' "$rel" >> "$sidecar"
+      marked=$((marked+1))
+    fi
+  done
+  rm -f "$tracked_list" "$already_skipped"
+  if (( marked > 0 )); then
+    echo "Marked $marked tracked path(s) --skip-worktree (local edits hidden from git status)."
+  fi
+  if (( preexisting > 0 )); then
+    echo "Left $preexisting pre-existing --skip-worktree flag(s) untouched."
+  fi
+}
+
+clear_skip_worktree() {
+  # Reverse of apply_skip_worktree. Clears ONLY flags we set ourselves,
+  # tracked via the .assert-iq/.skip-worktree-paths sidecar. Falls back
+  # to the manifest walk for installs that pre-date the sidecar. Never
+  # scans the index globally — that would clobber pre-existing flags the
+  # user set themselves on unrelated files.
+  local gd; gd="$(git_dir)"
+  [[ -n "$gd" ]] || return 0
+  local cleared=0
+  local sidecar="$WORKSPACE/.assert-iq/.skip-worktree-paths"
+  if [[ -f "$sidecar" ]]; then
+    local rel
+    while IFS= read -r rel; do
+      [[ -z "$rel" ]] && continue
+      ( cd "$WORKSPACE" && git update-index --no-skip-worktree -- "$rel" 2>/dev/null ) && cleared=$((cleared+1)) || true
+    done < "$sidecar"
+    rm -f "$sidecar"
+  elif [[ -f "$MANIFEST_PATH" ]] && command -v jq >/dev/null 2>&1; then
+    # Legacy fallback: pre-sidecar installs. Walk the manifest's excludable
+    # actions only — this can over-clear if the user had pre-existing flags
+    # on the same paths, but is bounded to paths we installed.
+    local rel
+    while IFS= read -r rel; do
+      [[ -z "$rel" ]] && continue
+      ( cd "$WORKSPACE" && git update-index --no-skip-worktree -- "$rel" 2>/dev/null ) && cleared=$((cleared+1)) || true
+    done < <(jq -r --arg ws "$WORKSPACE/" '
+        .paths[]
+        | select(.scope == "workspace")
+        | select(.action == "created" or .action == "unchanged_owned" or .action == "overwritten"
+              or .action == "rendered" or .action == "sidecar"
+              or .action == "merged_settings" or .action == "merged_hooks_key"
+              or .action == "merged_markdown")
+        | .path | sub("^" + $ws; "")
+      ' "$MANIFEST_PATH" 2>/dev/null)
+  fi
+  if (( cleared > 0 )); then
+    echo "Cleared --skip-worktree on $cleared path(s)."
+  fi
 }
 
 strip_exclude_block() {
@@ -398,11 +579,18 @@ strip_exclude_block() {
 
 if [[ $GRADUATE -eq 1 ]]; then
   echo "=== Assert.IQ graduate: trial -> committed ==="
-  strip_exclude_block
+  # Clear --skip-worktree on tracked merged files so the team can see the
+  # diff once we expose them. Must run before mode flip below.
+  clear_skip_worktree
   if [[ -f "$MANIFEST_PATH" ]] && command -v jq >/dev/null 2>&1; then
     jq '.mode = "committed"' "$MANIFEST_PATH" > "$MANIFEST_PATH.tmp" && mv "$MANIFEST_PATH.tmp" "$MANIFEST_PATH"
     echo "Updated $MANIFEST_PATH: mode -> committed"
   fi
+  # Rewrite managed block so per-path trial entries fall away but the
+  # always-on backup-globs stay in place (pre-install/uninstall-saved
+  # files may still exist on disk).
+  MODE="committed"
+  write_exclude_block
   echo ""
   echo "Pack files are now visible to git. Suggested next steps:"
   echo "  git status                       # confirm pack files are untracked"
@@ -456,13 +644,35 @@ uninstall_run() {
     esac
   fi
 
-  # Strip trial-mode exclude block first (always safe).
-  strip_exclude_block || true
+  # Clear --skip-worktree first — must happen before backup restoration
+  # writes original content back, otherwise git's worktree-status check
+  # can race the file write.
+  clear_skip_worktree
+
+  # Strip trial-mode exclude block last (after restores complete and any
+  # leftover backup files have been removed).
   echo ""
 
   # Walk manifest entries. Need jq to read JSON safely; fall back to a simple
   # line-by-line parse for the no-jq case.
   local removed=0 restored=0 preserved=0 skipped=0
+
+  # Originals that were backed up (and will be restored from a backup) must
+  # not be removed by a later 'overwritten' / 'merged_*' entry. Built once
+  # at the start of the walk. Stored as a newline-delimited string so this
+  # works on bash 3.2 (no associative arrays).
+  local RESTORED_ORIGINALS=$'\n'
+  if command -v jq >/dev/null 2>&1; then
+    local _bp
+    while IFS= read -r _bp; do
+      [[ -z "$_bp" ]] && continue
+      RESTORED_ORIGINALS+="${_bp%.assert-iq.pre-install}"$'\n'
+    done < <(jq -r '.paths[] | select(.action == "pre_install_backup") | .path' "$MANIFEST_PATH" 2>/dev/null)
+  fi
+  _is_restored_original() {
+    case "$RESTORED_ORIGINALS" in *$'\n'"$1"$'\n'*) return 0 ;; esac
+    return 1
+  }
 
   remove_path() {
     # Args: path (file or dir)
@@ -498,10 +708,40 @@ uninstall_run() {
       restored=$((restored+1))
       return 0
     fi
-    # If user has edited the merged file post-install, save current state
-    # before restoring so nothing is silently lost.
+    # Save current state to .uninstall-saved so user edits aren't silently
+    # lost — but skip the save when the current file is unchanged from
+    # what the install produced. We rely on a recorded post-install SHA
+    # (sidecar at .assert-iq/.merge-result-shas) for the uniform check
+    # across JSON and markdown merges, falling back to a markdown-marker
+    # strip-and-compare for installs that pre-date sha recording.
     if [[ -f "$original" ]]; then
-      cp -p "$original" "$original.assert-iq.uninstall-saved" 2>/dev/null || true
+      local should_save=1
+      local recorded_sha; recorded_sha="$(lookup_merge_result_sha "$original")"
+      if [[ -n "$recorded_sha" ]]; then
+        local current_sha; current_sha="$(sha256_of "$original")"
+        if [[ -n "$current_sha" && "$current_sha" == "$recorded_sha" ]]; then
+          should_save=0
+        fi
+      elif grep -q "<!-- assert-iq:begin" "$original" 2>/dev/null; then
+        local _stripped; _stripped="$(mktemp)"
+        awk '
+          BEGIN { in_block=0; just_closed=0 }
+          /<!-- assert-iq:begin/ { in_block=1; just_closed=0; next }
+          in_block && index($0, "<!-- assert-iq:end -->") { in_block=0; just_closed=1; next }
+          !in_block {
+            if (just_closed && $0 == "") { just_closed=0; next }
+            just_closed=0
+            print
+          }
+        ' "$original" > "$_stripped"
+        if cmp -s "$_stripped" "$backup"; then
+          should_save=0
+        fi
+        rm -f "$_stripped"
+      fi
+      if (( should_save == 1 )); then
+        cp -p "$original" "$original.assert-iq.uninstall-saved" 2>/dev/null || true
+      fi
     fi
     cp -p "$backup" "$original"
     rm -f -- "$backup"
@@ -521,15 +761,41 @@ uninstall_run() {
         restore_backup "$path"
         ;;
       created|unchanged_owned|overwritten|rendered|sidecar)
-        remove_path "$path"
+        if _is_restored_original "$path"; then
+          # Backup was/will be restored at this path; leave the user's file in place.
+          preserved=$((preserved+1))
+        else
+          remove_path "$path"
+        fi
         ;;
-      merged_settings|merged_hooks_key)
+      merged_settings|merged_hooks_key|merged_markdown)
         # Restoration is handled by the corresponding pre_install_backup
         # entry. If the backup was missing (e.g. install pre-dated backup
-        # support), leave the file in place so we don't destroy user data.
+        # support), excise the assert-iq marker block as a fallback for
+        # merged_markdown; JSON merges have no marker form so leave them.
         if [[ -f "$path.assert-iq.pre-install" ]]; then
           # Will be restored when we hit the pre_install_backup entry.
           :
+        elif [[ "$action" == "merged_markdown" && -f "$path" ]] \
+             && grep -q "<!-- assert-iq:begin" "$path" 2>/dev/null; then
+          if [[ $DRY_RUN -eq 1 ]]; then
+            echo "${prefix}snip marker block: $path"
+            restored=$((restored+1))
+          else
+            local _tmp; _tmp="$(mktemp)"
+            awk '
+              BEGIN { in_block=0; just_closed=0 }
+              /<!-- assert-iq:begin/ { in_block=1; just_closed=0; next }
+              in_block && index($0, "<!-- assert-iq:end -->") { in_block=0; just_closed=1; next }
+              !in_block {
+                if (just_closed && $0 == "") { just_closed=0; next }
+                just_closed=0
+                print
+              }
+            ' "$path" > "$_tmp"
+            mv "$_tmp" "$path"
+            restored=$((restored+1))
+          fi
         else
           echo "preserved (no pre-install backup): $path" >&2
           preserved=$((preserved+1))
@@ -655,12 +921,21 @@ uninstall_run() {
     fi
   fi
 
-  # Remove the manifest last.
+  # Remove the manifest last, plus our install-time tracking sidecars.
   if [[ $DRY_RUN -eq 0 ]]; then
     rm -f -- "$MANIFEST_PATH"
+    rm -f -- "$WORKSPACE/.assert-iq/.merge-result-shas"
+    rm -f -- "$WORKSPACE/.assert-iq/.skip-worktree-paths"
     rmdir "$(dirname "$MANIFEST_PATH")" 2>/dev/null || true
   else
     echo "${prefix}rm: $MANIFEST_PATH"
+  fi
+
+  # Strip the managed block from .git/info/exclude. Done last because all
+  # backups have now been restored (and removed), so the backup-glob
+  # exclusions are no longer needed.
+  if [[ $DRY_RUN -eq 0 ]]; then
+    strip_exclude_block || true
   fi
 
   echo ""
@@ -798,12 +1073,23 @@ record() {
 
 resolve_conflict() {
   # Args: src dst label
-  # Prints one of: keep|overwrite|sidecar
+  # Prints one of: keep|overwrite|merge|sidecar
   local src="$1" dst="$2" label="$3"
+  # Allowlist: only these markdown files support the merge mode.
+  local base; base="$(basename "$dst")"
+  local merge_eligible=0
+  case "$base" in
+    copilot-instructions.md|CLAUDE.md|AGENTS.md) merge_eligible=1 ;;
+  esac
   # Honor "-all" shortcut if set.
   case "$CONFLICT_BULK_CHOICE" in
     K) echo keep; return ;;
     O) echo overwrite; return ;;
+    M)
+      # Bulk merge only applies to allowlisted files; otherwise keep (safe).
+      if [[ $merge_eligible -eq 1 ]]; then echo merge; else echo keep; fi
+      return
+      ;;
     S) echo sidecar; return ;;
   esac
   if [[ ! -t 0 ]]; then
@@ -815,15 +1101,30 @@ resolve_conflict() {
   echo "Conflict: $label" >&2
   echo "  existing: $dst" >&2
   echo "  pack:     $src" >&2
+  local prompt
+  if [[ $merge_eligible -eq 1 ]]; then
+    prompt="  [k]eep / [o]verwrite / [m]erge (recommended) / [s]idecar (.assert-iq-new) / [d]iff / [K/O/M/S]all / [a]bort: "
+  else
+    prompt="  [k]eep / [o]verwrite / [s]idecar (.assert-iq-new) / [d]iff / [K/O/S]all / [a]bort: "
+  fi
   local ans=""
   while :; do
-    read -r -p "  [k]eep / [o]verwrite / [s]idecar (.assert-iq-new) / [d]iff / [K/O/S]all / [a]bort: " ans </dev/tty
+    read -r -p "$prompt" ans </dev/tty
     case "$ans" in
       k) echo keep; return ;;
       o) echo overwrite; return ;;
+      m)
+        if [[ $merge_eligible -eq 1 ]]; then echo merge; return
+        else echo "  (merge not available for this file)" >&2; fi
+        ;;
       s) echo sidecar; return ;;
       K) CONFLICT_BULK_CHOICE=K; echo keep; return ;;
       O) CONFLICT_BULK_CHOICE=O; echo overwrite; return ;;
+      M)
+        if [[ $merge_eligible -eq 1 ]]; then
+          CONFLICT_BULK_CHOICE=M; echo merge; return
+        else echo "  (merge not available for this file)" >&2; fi
+        ;;
       S) CONFLICT_BULK_CHOICE=S; echo sidecar; return ;;
       d)
         if command -v diff >/dev/null 2>&1; then
@@ -833,7 +1134,13 @@ resolve_conflict() {
         fi
         ;;
       a) echo "Aborted by user." >&2; exit 1 ;;
-      *) echo "  (please type one of k, o, s, d, K, O, S, a)" >&2 ;;
+      *)
+        if [[ $merge_eligible -eq 1 ]]; then
+          echo "  (please type one of k, o, m, s, d, K, O, M, S, a)" >&2
+        else
+          echo "  (please type one of k, o, s, d, K, O, S, a)" >&2
+        fi
+        ;;
     esac
   done
 }
@@ -873,6 +1180,9 @@ copy_file() {
       cp "$src" "$dst"
       manifest_add "overwritten" "$dst" "$scope"
       record "$label" "overwritten" "$dst"
+      ;;
+    merge)
+      merge_markdown_file "$label" "$src" "$dst" "$scope"
       ;;
     sidecar)
       local side="$dst.assert-iq-new"
@@ -1334,8 +1644,12 @@ process_claude_skills_link
 
 manifest_write
 
+# Backup-glob exclusions are always-on (every mode); per-path entries
+# and skip-worktree apply only in trial mode.
+write_exclude_block
+
 if [[ "$MODE" == "trial" ]]; then
-  write_exclude_block
+  apply_skip_worktree
 fi
 
 # =============================================================================

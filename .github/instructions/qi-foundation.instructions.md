@@ -5,59 +5,71 @@ description: "QI foundation — applied to every interaction in this repository.
 
 # QI foundation instruction
 
-**When this applies:** every interaction in this repository (Copilot loads via
-`applyTo: "**"`; Claude Code treats this as always-on baseline guidance via
-`CLAUDE.md`).
+**When this applies:** every interaction in this repository. This file is the
+single shared rulebook for both Copilot (loaded via `applyTo: "**"`) and
+Claude Code (loaded via `@.github/instructions/qi-foundation.instructions.md`
+in `CLAUDE.md`).
+
+## Always-on rules (Copilot + Claude)
+
+### Core principles
+
+1. Quality = Velocity × Customer Satisfaction × System Resilience.
+2. Reason about quality through the four-layer signal model — Change risk,
+   Protection strength, Signal trustworthiness, Outcome evidence — and
+   synthesize Decision Confidence. Never reduce a release decision to a
+   single number.
+3. Distinguish a metric (what happened) from a signal (decision-grade evidence).
+4. AI-generated code and tests are drafts. A human review gate is mandatory
+   before merge. Surface assumptions explicitly.
+5. Honor the client's existing test framework, branching model, and tracking
+   system. Do not introduce new dependencies without explicit confirmation.
+
+### Maturity awareness
+
+Read `.assert-iq/maturity-profile.md` before acting (or
+`~/.assert-iq/maturity-profile.md` as a user-global fallback). Behavior
+changes by tier:
+
+- **Early** — foundation + traceability + manual generation only. Agentic
+  Healing disabled.
+- **Mid** — add risk assessment + automated test generation. Healing operates
+  in suggest-only mode.
+- **Higher** — full pack, including autonomous healing within configured retry
+  bounds.
+
+### Governance you must enforce
+
+- Every generated test must include a traceability comment linking to the
+  source work item (ADO ID or Jira key).
+- Every healed test must record the failure signature and the fix rationale.
+- No prompt may exfiltrate code, secrets, or proprietary data outside the
+  IDE / CI boundary.
+- If a request would violate `.assert-iq/governance.md` (or
+  `~/.assert-iq/governance.md` as a user-global fallback), refuse and explain.
+
+### Output standards
+
+- Cite the work item, file path, and signal layer when producing artifacts.
+- Provide a brief Recommendation, Next Steps, Owners, Timeline section on
+  multi-step deliverables.
+- Prefer paraphrase and synthesis over copy-paste from external sources.
 
 ## Workspace topology — read first
 
 Before reasoning about any of the four signal layers, read
-`.assert-iq/config.yaml > workspace.role`. This determines which signals
-you can see directly versus which must be fetched from a companion
-workspace.
+`.assert-iq/config.yaml > workspace.role`. The default is `monorepo` —
+production code and tests live in this workspace; no cross-repo behavior
+activates and every skill behaves exactly as it did before topology was
+introduced.
 
-- **`monorepo`** (default; also applies when the block is absent) —
-  production code and tests live in this workspace. Proceed with the
-  four-layer reasoning below using normal repo lookups. No cross-repo
-  behavior is activated.
-- **`prod`** — this workspace holds production code; tests live in
-  `workspace.companion_repo`. When a skill needs test-side signals
-  (Protection layer coverage / test discovery, Trust layer flake
-  history, traceability test references), fetch them via the companion.
-- **`tests`** — this workspace holds the test suite; production code
-  lives in `workspace.companion_repo`. When a skill needs prod-side
-  signals (Change layer diff / blast radius, the code under review, the
-  introducing commit for an escape, traceability code references), fetch
-  them via the companion.
-
-### Fetch fallback chain
-
-When `companion_repo.fetch` is set, follow that single mode. When unset,
-walk this chain and stop at the first that responds:
-
-1. **MCP** — the configured VCS MCP server (`github`, `azure-devops`,
-   `gitlab`, etc.) reads `companion_repo.remote`.
-2. **Local path** — if `companion_repo.path` resolves to a checkout on
-   disk, read files directly.
-3. **Manual paste** — ask the user to paste the specific artifact needed
-   (diff, coverage report, file contents). Document the gap in the
-   resulting report.
-
-### When the companion is needed but absent
-
-If `workspace.role` is `prod` or `tests` and `companion_repo` is unset
-(or all fetch attempts fail), the affected layer or signal source is
-**UNGRADED** with `reason: "companion_repo_unset"` (or
-`"companion_repo_unreachable"`). This is a first-class outcome under the
-v0.2 signal schema (`partial_signal_mode: true`).
-
-Do **not** fabricate the missing signal. Do **not** infer test coverage
-from a prod-only checkout, or change risk from a tests-only checkout.
-State the gap and continue with the remaining layers.
-
-The `monorepo` default exists so single-repo users incur zero overhead
-from this section — in that mode every skill behaves exactly as it did
-before workspace topology was introduced.
+When `workspace.role` is `prod` or `tests`, this workspace holds only one
+half. Read `.assert-iq/workspace-topology.md` for the full contract:
+which signals fetch from `workspace.companion_repo`, the MCP → local path
+→ manual paste fallback chain, and the **UNGRADED** rules
+(`reason: "companion_repo_unset"` / `"companion_repo_unreachable"` under
+v0.2 signal schema `partial_signal_mode: true`). Never fabricate a missing
+signal. State the gap and continue with the remaining layers.
 
 ## Four-layer reasoning order
 

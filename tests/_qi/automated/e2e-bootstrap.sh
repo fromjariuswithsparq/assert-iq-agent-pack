@@ -170,8 +170,11 @@ case_04_trial_graduate() {
   run_boot "$pair" --graduate >/dev/null
   assert_file_exists 04 "$ws/.assert-iq/.install-manifest.json"
   assert_dir_exists  04 "$ws/.github/skills"
+  # After graduate: managed block stays (holds always-on backup-glob
+  # exclusions) but per-path trial entries are gone.
   if [[ -f "$ws/.git/info/exclude" ]]; then
-    assert_not_contains 04 "$ws/.git/info/exclude" "assert-iq trial mode"
+    assert_not_contains 04 "$ws/.git/info/exclude" ".github/skills"
+    assert_contains     04 "$ws/.git/info/exclude" "*.assert-iq.pre-install"
   fi
   # Manifest mode field flipped
   if command -v jq >/dev/null 2>&1; then
@@ -423,6 +426,253 @@ JSON
   cleanup_fixture "$pair"
 }
 
+# ---- Markdown-merge cases (v1.3.0) ----------------------------------------
+
+case_24_merge_fresh() {
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  mkdir -p "$ws/.github"
+  printf '# Team rules\n- 4-space indent\n' > "$ws/.github/copilot-instructions.md"
+  CONFLICT_BULK_CHOICE=M run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
+  assert_file_exists 24 "$ws/.github/copilot-instructions.md"
+  assert_contains 24 "$ws/.github/copilot-instructions.md" "<!-- assert-iq:begin"
+  assert_contains 24 "$ws/.github/copilot-instructions.md" "<!-- assert-iq:end -->"
+  assert_contains 24 "$ws/.github/copilot-instructions.md" "# Team rules"
+  assert_contains 24 "$ws/.github/copilot-instructions.md" "4-space indent"
+  assert_file_exists 24 "$ws/.github/copilot-instructions.md.assert-iq.pre-install"
+  cleanup_fixture "$pair"
+}
+
+case_25_merge_idempotent() {
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  mkdir -p "$ws/.github"
+  printf '# Team rules\n- 4-space indent\n' > "$ws/.github/copilot-instructions.md"
+  CONFLICT_BULK_CHOICE=M run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
+  local first_sha; first_sha="$(shasum -a 256 "$ws/.github/copilot-instructions.md" | awk '{print $1}')"
+  CONFLICT_BULK_CHOICE=M run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
+  local second_sha; second_sha="$(shasum -a 256 "$ws/.github/copilot-instructions.md" | awk '{print $1}')"
+  [[ "$first_sha" == "$second_sha" ]] || fail 25 "merge not idempotent ($first_sha vs $second_sha)"
+  # Marker block should appear exactly once.
+  local n_begin; n_begin="$(grep -c "<!-- assert-iq:begin" "$ws/.github/copilot-instructions.md" 2>/dev/null || echo 0)"
+  [[ "$n_begin" == "1" ]] || fail 25 "expected 1 begin marker, found $n_begin"
+  cleanup_fixture "$pair"
+}
+
+case_26_merge_uninstall_round_trip() {
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  mkdir -p "$ws/.github"
+  printf '# Team rules\n- 4-space indent\n' > "$ws/.github/copilot-instructions.md"
+  local user_sha; user_sha="$(shasum -a 256 "$ws/.github/copilot-instructions.md" | awk '{print $1}')"
+  CONFLICT_BULK_CHOICE=M run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
+  run_boot "$pair" --uninstall --yes >/dev/null
+  assert_file_exists 26 "$ws/.github/copilot-instructions.md"
+  local restored_sha; restored_sha="$(shasum -a 256 "$ws/.github/copilot-instructions.md" | awk '{print $1}')"
+  [[ "$restored_sha" == "$user_sha" ]] || fail 26 "round-trip sha mismatch ($restored_sha vs $user_sha)"
+  cleanup_fixture "$pair"
+}
+
+case_27_merge_allowlist_isolation() {
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  # Pre-seed a user .claude/settings.json with a unique key.
+  mkdir -p "$ws/.claude"
+  cat > "$ws/.claude/settings.json" << 'JSON'
+{ "userKeyZ": "keep-me" }
+JSON
+  CONFLICT_BULK_CHOICE=M run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
+  assert_file_exists 27 "$ws/.claude/settings.json"
+  # JSON deep-merge should preserve the user key — NOT inject markdown markers.
+  assert_contains     27 "$ws/.claude/settings.json" "keep-me"
+  assert_not_contains 27 "$ws/.claude/settings.json" "<!-- assert-iq:begin"
+  cleanup_fixture "$pair"
+}
+
+case_28_committed_excludes_backup_globs() {
+  # Always-on contract: even in committed mode, .git/info/exclude must
+  # carry the backup-glob lines so *.assert-iq.pre-install never leaks
+  # into git status.
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  mkdir -p "$ws/.github"
+  printf '# Team rules\n' > "$ws/.github/copilot-instructions.md"
+  CONFLICT_BULK_CHOICE=M run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
+  assert_file_exists 28 "$ws/.git/info/exclude"
+  assert_contains    28 "$ws/.git/info/exclude" "*.assert-iq.pre-install"
+  assert_contains    28 "$ws/.git/info/exclude" "*.assert-iq.uninstall-saved"
+  # Confirm the backup file actually exists on disk and is hidden by the
+  # exclusion: git check-ignore --no-index should report it ignored.
+  assert_file_exists 28 "$ws/.github/copilot-instructions.md.assert-iq.pre-install"
+  ( cd "$ws" && git check-ignore --no-index --quiet ".github/copilot-instructions.md.assert-iq.pre-install" ) \
+    || fail 28 "backup file not git-ignored despite exclude entry"
+  cleanup_fixture "$pair"
+}
+
+case_29_trial_skip_worktree_hides_tracked_merge() {
+  # Trial mode + tracked merge target → file is marked --skip-worktree
+  # so git status no longer reports the merged-in marker block.
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  mkdir -p "$ws/.github"
+  printf '# Team rules\n' > "$ws/.github/copilot-instructions.md"
+  ( cd "$ws" && git add .github/copilot-instructions.md && git commit -q -m seed )
+  CONFLICT_BULK_CHOICE=M run_boot "$pair" --preset=pod --mode=trial --yes >/dev/null
+  # File on disk now contains the marker block.
+  assert_contains 29 "$ws/.github/copilot-instructions.md" "<!-- assert-iq:begin"
+  # ...but git status sees nothing for it.
+  local porcelain; porcelain="$( cd "$ws" && git status --porcelain -- .github/copilot-instructions.md )"
+  [[ -z "$porcelain" ]] || fail 29 "git status not silent for skip-worktree path: $porcelain"
+  # Index flag confirms skip-worktree.
+  ( cd "$ws" && git ls-files -v -- .github/copilot-instructions.md | grep -q '^S ' ) \
+    || fail 29 "expected --skip-worktree flag (S) on tracked merge target"
+  cleanup_fixture "$pair"
+}
+
+case_30_uninstall_clears_skip_worktree_and_backups() {
+  # Trial install on a tracked file → uninstall must clear --skip-worktree,
+  # restore the original byte-for-byte, remove the backup file, and leave
+  # `git status` clean.
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  mkdir -p "$ws/.github"
+  printf '# Team rules\n' > "$ws/.github/copilot-instructions.md"
+  local seed_sha; seed_sha="$(shasum -a 256 "$ws/.github/copilot-instructions.md" | awk '{print $1}')"
+  ( cd "$ws" && git add .github/copilot-instructions.md && git commit -q -m seed )
+  CONFLICT_BULK_CHOICE=M run_boot "$pair" --preset=pod --mode=trial --yes >/dev/null
+  run_boot "$pair" --uninstall --yes >/dev/null
+  # Original restored.
+  assert_file_exists  30 "$ws/.github/copilot-instructions.md"
+  local restored_sha; restored_sha="$(shasum -a 256 "$ws/.github/copilot-instructions.md" | awk '{print $1}')"
+  [[ "$restored_sha" == "$seed_sha" ]] || fail 30 "restored sha differs from seed"
+  # Backup gone.
+  assert_file_missing 30 "$ws/.github/copilot-instructions.md.assert-iq.pre-install"
+  # No skip-worktree flag remains.
+  if ( cd "$ws" && git ls-files -v 2>/dev/null | grep -q '^S '); then
+    fail 30 "leftover --skip-worktree flag after uninstall"
+  fi
+  # git status clean.
+  local porcelain; porcelain="$( cd "$ws" && git status --porcelain )"
+  [[ -z "$porcelain" ]] || fail 30 "git status not clean after uninstall: $porcelain"
+  cleanup_fixture "$pair"
+}
+
+case_31_uninstall_preserves_unrelated_skip_worktree() {
+  # Regression: uninstall must NOT clear --skip-worktree flags the user set
+  # on unrelated paths before the bootstrap ever ran.
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  # Seed an unrelated tracked file with a user-managed skip-worktree flag.
+  printf '{}\n' > "$ws/tasks.json"
+  ( cd "$ws" && git add tasks.json && git commit -q -m seed-tasks )
+  ( cd "$ws" && git update-index --skip-worktree -- tasks.json )
+  # Sanity: pre-existing flag is set.
+  ( cd "$ws" && git ls-files -v -- tasks.json | grep -q '^S ' ) \
+    || fail 31 "test setup: failed to set pre-existing --skip-worktree on tasks.json"
+  run_boot "$pair" --preset=pod --mode=trial --yes >/dev/null
+  run_boot "$pair" --uninstall --yes >/dev/null
+  # User's unrelated flag must survive the uninstall.
+  ( cd "$ws" && git ls-files -v -- tasks.json | grep -q '^S ' ) \
+    || fail 31 "uninstall cleared user's pre-existing --skip-worktree on tasks.json"
+  # And tasks.json itself must be untouched (still {}).
+  local sha; sha="$(shasum -a 256 "$ws/tasks.json" | awk '{print $1}')"
+  local expect; expect="$(printf '{}\n' | shasum -a 256 | awk '{print $1}')"
+  [[ "$sha" == "$expect" ]] || fail 31 "tasks.json content changed during install/uninstall"
+  cleanup_fixture "$pair"
+}
+
+case_32_install_respects_existing_skip_worktree() {
+  # Regression: install must NOT re-mark a path that was already
+  # --skip-worktree before the bootstrap ran. Uninstall then must not
+  # clear that pre-existing flag either.
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  mkdir -p "$ws/.github"
+  printf '# Team rules\n' > "$ws/.github/copilot-instructions.md"
+  ( cd "$ws" && git add .github/copilot-instructions.md && git commit -q -m seed )
+  ( cd "$ws" && git update-index --skip-worktree -- .github/copilot-instructions.md )
+  CONFLICT_BULK_CHOICE=M run_boot "$pair" --preset=pod --mode=trial --yes >/dev/null
+  # Sidecar must NOT contain a path the user already had flagged.
+  if [[ -f "$ws/.assert-iq/.skip-worktree-paths" ]]; then
+    grep -Fxq ".github/copilot-instructions.md" "$ws/.assert-iq/.skip-worktree-paths" \
+      && fail 32 "install claimed pre-existing user flag in sidecar"
+  fi
+  run_boot "$pair" --uninstall --yes >/dev/null
+  # Pre-existing flag must still be set.
+  ( cd "$ws" && git ls-files -v -- .github/copilot-instructions.md | grep -q '^S ' ) \
+    || fail 32 "uninstall cleared pre-existing user --skip-worktree on tracked merge target"
+  cleanup_fixture "$pair"
+}
+
+case_33_json_merge_clean_roundtrip_no_uninstall_saved() {
+  # Regression: when a JSON additive merge target is unedited between
+  # install and uninstall, no .uninstall-saved artifact is left behind.
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  mkdir -p "$ws/.claude"
+  printf '{ "userKey": "preserve-me" }\n' > "$ws/.claude/settings.json"
+  CONFLICT_BULK_CHOICE=M run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
+  # Confirm a merge happened (file got pack keys added).
+  grep -q '"hooks"' "$ws/.claude/settings.json" \
+    || fail 33 "test setup: expected pack to merge keys into .claude/settings.json"
+  # Confirm result-sha sidecar recorded the merge target.
+  [[ -f "$ws/.assert-iq/.merge-result-shas" ]] \
+    || fail 33 "merge-result-shas sidecar was not written"
+  grep -Fq ".claude/settings.json" "$ws/.assert-iq/.merge-result-shas" \
+    || fail 33 "merge-result-shas sidecar missing entry for .claude/settings.json"
+  run_boot "$pair" --uninstall --yes >/dev/null
+  # Original restored and NO .uninstall-saved litter left behind.
+  assert_file_exists  33 "$ws/.claude/settings.json"
+  assert_file_missing 33 "$ws/.claude/settings.json.assert-iq.uninstall-saved"
+  grep -q '"userKey"' "$ws/.claude/settings.json" \
+    || fail 33 "user key missing after uninstall restore"
+  cleanup_fixture "$pair"
+}
+
+case_34_install_state_sidecars_hidden_from_git() {
+  # Always-on contract: the .assert-iq install-state sidecars
+  # (.skip-worktree-paths, .merge-result-shas) are pure local install
+  # bookkeeping and must never appear in git status, in any mode.
+  local pair ws ignored porcelain
+  # --- trial mode ---
+  pair="$(mkfixture)"
+  ws="${pair%:*}"
+  mkdir -p "$ws/.github"
+  printf '# Team rules\n' > "$ws/.github/copilot-instructions.md"
+  ( cd "$ws" && git add .github/copilot-instructions.md && git commit -q -m seed )
+  CONFLICT_BULK_CHOICE=M run_boot "$pair" --preset=pod --mode=trial --yes >/dev/null
+  # The merge-result-shas sidecar should exist after install.
+  assert_file_exists 34 "$ws/.assert-iq/.merge-result-shas"
+  # Both sidecars must be ignored by git.
+  ( cd "$ws" && git check-ignore --no-index --quiet ".assert-iq/.merge-result-shas" ) \
+    || fail 34 "trial: .assert-iq/.merge-result-shas not git-ignored"
+  if [[ -f "$ws/.assert-iq/.skip-worktree-paths" ]]; then
+    ( cd "$ws" && git check-ignore --no-index --quiet ".assert-iq/.skip-worktree-paths" ) \
+      || fail 34 "trial: .assert-iq/.skip-worktree-paths not git-ignored"
+  fi
+  porcelain="$( cd "$ws" && git status --porcelain )"
+  echo "$porcelain" | grep -q '\.assert-iq/\.skip-worktree-paths' \
+    && fail 34 "trial: .skip-worktree-paths leaked into git status"
+  echo "$porcelain" | grep -q '\.assert-iq/\.merge-result-shas' \
+    && fail 34 "trial: .merge-result-shas leaked into git status"
+  cleanup_fixture "$pair"
+  # --- committed mode ---
+  pair="$(mkfixture)"
+  ws="${pair%:*}"
+  mkdir -p "$ws/.claude"
+  printf '{ "userKey": "preserve-me" }\n' > "$ws/.claude/settings.json"
+  CONFLICT_BULK_CHOICE=M run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
+  assert_file_exists 34 "$ws/.assert-iq/.merge-result-shas"
+  ( cd "$ws" && git check-ignore --no-index --quiet ".assert-iq/.merge-result-shas" ) \
+    || fail 34 "committed: .assert-iq/.merge-result-shas not git-ignored"
+  porcelain="$( cd "$ws" && git status --porcelain )"
+  echo "$porcelain" | grep -q '\.assert-iq/\.skip-worktree-paths' \
+    && fail 34 "committed: .skip-worktree-paths leaked into git status"
+  echo "$porcelain" | grep -q '\.assert-iq/\.merge-result-shas' \
+    && fail 34 "committed: .merge-result-shas leaked into git status"
+  cleanup_fixture "$pair"
+}
+
 # ============================================================================
 # RUN
 # ============================================================================
@@ -457,6 +707,17 @@ run_case "20 conflict creates pre-install backup"    case_20_conflict_keep_user_
 run_case "21 uninstall restores backup"              case_21_uninstall_restores_backup
 run_case "22 install.sh install + reinstall"         case_22_install_sh_install
 run_case "23 install.sh preserves user keys"         case_23_install_sh_preserves_user_keys
+run_case "24 markdown merge fresh"                   case_24_merge_fresh
+run_case "25 markdown merge idempotent"              case_25_merge_idempotent
+run_case "26 markdown merge uninstall round-trip"    case_26_merge_uninstall_round_trip
+run_case "27 merge allowlist isolation (JSON)"       case_27_merge_allowlist_isolation
+run_case "28 committed excludes backup-globs"        case_28_committed_excludes_backup_globs
+run_case "29 trial skip-worktree on tracked merge"   case_29_trial_skip_worktree_hides_tracked_merge
+run_case "30 uninstall clears skip-worktree+backups" case_30_uninstall_clears_skip_worktree_and_backups
+run_case "31 preserves unrelated skip-worktree"      case_31_uninstall_preserves_unrelated_skip_worktree
+run_case "32 install respects existing skip-worktree" case_32_install_respects_existing_skip_worktree
+run_case "33 json merge clean roundtrip no .uninstall-saved" case_33_json_merge_clean_roundtrip_no_uninstall_saved
+run_case "34 install state sidecars hidden from git" case_34_install_state_sidecars_hidden_from_git
 
 echo ""
 echo "Summary: $(grn $CASES_PASS pass)  $(red $CASES_FAIL fail)  $(ylw $CASES_SKIP skip)"

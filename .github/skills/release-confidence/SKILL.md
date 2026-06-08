@@ -121,7 +121,7 @@ fabricates.
     radius) lives in `workspace.companion_repo`; when `role=prod`,
     the **Protection** and **Trust** layers (test results, flake
     history) live in the companion. Fetch via MCP → local path →
-    manual paste per qi-foundation § Workspace topology. If the
+    manual paste per `.assert-iq/workspace-topology.md`. If the
     companion is unavailable, the affected layer is reported as
     UNGRADED with `reason: "companion_repo_unset"`. This skill
     already supports `partial_signal_mode: true` — the verdict

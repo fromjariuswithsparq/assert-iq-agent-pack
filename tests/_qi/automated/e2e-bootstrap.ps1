@@ -53,7 +53,9 @@ Run-Case "04 trial -> graduate" $Pattern {
     Invoke-RunBoot $pair @("--preset=pod", "--mode=trial", "--yes") | Out-Null
     Invoke-RunBoot $pair @("--graduate") | Out-Null
     Assert-DirExists  04 "$ws\.github\skills"
-    Assert-NotContains 04 "$ws\.git\info\exclude" "assert-iq trial mode"
+    # Per-path trial entries should be gone; backup-glob block must remain.
+    Assert-NotContains 04 "$ws\.git\info\exclude" ".github/skills"
+    Assert-Contains    04 "$ws\.git\info\exclude" "*.assert-iq.pre-install"
     Invoke-CleanupFixture $pair $Keep
 }
 
@@ -249,6 +251,278 @@ Run-Case "23 install.ps1 preserves user keys" $Pattern {
     } finally {
         $env:HOME = $origHome; $env:USERPROFILE = $origProfile
     }
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "24 markdown merge fresh" $Pattern {
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    New-Item -ItemType Directory -Path "$ws\.github" -Force | Out-Null
+    Set-Content -Path "$ws\.github\copilot-instructions.md" -Value "# Team rules`n- 4-space indent"
+    $env:CONFLICT_BULK_CHOICE = "M"
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
+    $env:CONFLICT_BULK_CHOICE = $null
+    Assert-FileExists 24 "$ws\.github\copilot-instructions.md"
+    Assert-Contains   24 "$ws\.github\copilot-instructions.md" "<!-- assert-iq:begin"
+    Assert-Contains   24 "$ws\.github\copilot-instructions.md" "<!-- assert-iq:end -->"
+    Assert-Contains   24 "$ws\.github\copilot-instructions.md" "# Team rules"
+    Assert-Contains   24 "$ws\.github\copilot-instructions.md" "4-space indent"
+    Assert-FileExists 24 "$ws\.github\copilot-instructions.md.assert-iq.pre-install"
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "25 markdown merge idempotent" $Pattern {
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    New-Item -ItemType Directory -Path "$ws\.github" -Force | Out-Null
+    Set-Content -Path "$ws\.github\copilot-instructions.md" -Value "# Team rules`n- 4-space indent"
+    $env:CONFLICT_BULK_CHOICE = "M"
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
+    $first = (Get-FileHash "$ws\.github\copilot-instructions.md" -Algorithm SHA256).Hash
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
+    $env:CONFLICT_BULK_CHOICE = $null
+    $second = (Get-FileHash "$ws\.github\copilot-instructions.md" -Algorithm SHA256).Hash
+    if ($first -ne $second) { Fail 25 "merge not idempotent ($first vs $second)" }
+    $matches = Select-String -Path "$ws\.github\copilot-instructions.md" -Pattern '<!-- assert-iq:begin' -AllMatches
+    $count = if ($matches) { @($matches).Count } else { 0 }
+    if ($count -ne 1) { Fail 25 "expected 1 begin marker, found $count" }
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "26 markdown merge uninstall round-trip" $Pattern {
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    New-Item -ItemType Directory -Path "$ws\.github" -Force | Out-Null
+    Set-Content -Path "$ws\.github\copilot-instructions.md" -Value "# Team rules`n- 4-space indent"
+    $userSha = (Get-FileHash "$ws\.github\copilot-instructions.md" -Algorithm SHA256).Hash
+    $env:CONFLICT_BULK_CHOICE = "M"
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
+    $env:CONFLICT_BULK_CHOICE = $null
+    Invoke-RunBoot $pair @("--uninstall", "--yes") | Out-Null
+    Assert-FileExists 26 "$ws\.github\copilot-instructions.md"
+    $restoredSha = (Get-FileHash "$ws\.github\copilot-instructions.md" -Algorithm SHA256).Hash
+    if ($restoredSha -ne $userSha) { Fail 26 "round-trip sha mismatch ($restoredSha vs $userSha)" }
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "27 merge allowlist isolation (JSON)" $Pattern {
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    New-Item -ItemType Directory -Path "$ws\.claude" -Force | Out-Null
+    Set-Content -Path "$ws\.claude\settings.json" -Value '{ "userKeyZ": "keep-me" }'
+    $env:CONFLICT_BULK_CHOICE = "M"
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
+    $env:CONFLICT_BULK_CHOICE = $null
+    Assert-FileExists    27 "$ws\.claude\settings.json"
+    Assert-Contains      27 "$ws\.claude\settings.json" "keep-me"
+    Assert-NotContains   27 "$ws\.claude\settings.json" "<!-- assert-iq:begin"
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "28 committed excludes backup-globs" $Pattern {
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    New-Item -ItemType Directory -Path "$ws\.github" -Force | Out-Null
+    Set-Content -Path "$ws\.github\copilot-instructions.md" -Value "# Team rules`n"
+    $env:CONFLICT_BULK_CHOICE = "M"
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
+    $env:CONFLICT_BULK_CHOICE = $null
+    Assert-FileExists 28 "$ws\.git\info\exclude"
+    Assert-Contains   28 "$ws\.git\info\exclude" "*.assert-iq.pre-install"
+    Assert-Contains   28 "$ws\.git\info\exclude" "*.assert-iq.uninstall-saved"
+    Assert-FileExists 28 "$ws\.github\copilot-instructions.md.assert-iq.pre-install"
+    Push-Location $ws
+    try {
+        git check-ignore --no-index --quiet ".github/copilot-instructions.md.assert-iq.pre-install"
+        if ($LASTEXITCODE -ne 0) { Fail 28 "backup file not git-ignored despite exclude entry" }
+    } finally { Pop-Location }
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "29 trial skip-worktree on tracked merge" $Pattern {
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    New-Item -ItemType Directory -Path "$ws\.github" -Force | Out-Null
+    Set-Content -Path "$ws\.github\copilot-instructions.md" -Value "# Team rules`n"
+    Push-Location $ws
+    try {
+        git add .github/copilot-instructions.md | Out-Null
+        git commit -q -m seed | Out-Null
+    } finally { Pop-Location }
+    $env:CONFLICT_BULK_CHOICE = "M"
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=trial", "--yes") | Out-Null
+    $env:CONFLICT_BULK_CHOICE = $null
+    Assert-Contains 29 "$ws\.github\copilot-instructions.md" "<!-- assert-iq:begin"
+    Push-Location $ws
+    try {
+        $porcelain = git status --porcelain -- .github/copilot-instructions.md
+        if ($porcelain) { Fail 29 "git status not silent for skip-worktree path: $porcelain" }
+        $idx = git ls-files -v -- .github/copilot-instructions.md
+        if (-not ($idx -match '^S ')) { Fail 29 "expected --skip-worktree flag (S) on tracked merge target" }
+    } finally { Pop-Location }
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "30 uninstall clears skip-worktree+backups" $Pattern {
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    New-Item -ItemType Directory -Path "$ws\.github" -Force | Out-Null
+    Set-Content -Path "$ws\.github\copilot-instructions.md" -Value "# Team rules`n"
+    $seedSha = (Get-FileHash "$ws\.github\copilot-instructions.md" -Algorithm SHA256).Hash
+    Push-Location $ws
+    try {
+        git add .github/copilot-instructions.md | Out-Null
+        git commit -q -m seed | Out-Null
+    } finally { Pop-Location }
+    $env:CONFLICT_BULK_CHOICE = "M"
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=trial", "--yes") | Out-Null
+    $env:CONFLICT_BULK_CHOICE = $null
+    Invoke-RunBoot $pair @("--uninstall", "--yes") | Out-Null
+    Assert-FileExists 30 "$ws\.github\copilot-instructions.md"
+    $restoredSha = (Get-FileHash "$ws\.github\copilot-instructions.md" -Algorithm SHA256).Hash
+    if ($restoredSha -ne $seedSha) { Fail 30 "restored sha differs from seed" }
+    Assert-FileMissing 30 "$ws\.github\copilot-instructions.md.assert-iq.pre-install"
+    Push-Location $ws
+    try {
+        $flagged = git ls-files -v 2>$null | Where-Object { $_ -match '^S ' }
+        if ($flagged) { Fail 30 "leftover --skip-worktree flag after uninstall" }
+        $porcelain = git status --porcelain
+        if ($porcelain) { Fail 30 "git status not clean after uninstall: $porcelain" }
+    } finally { Pop-Location }
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "31 preserves unrelated skip-worktree" $Pattern {
+    # Regression: uninstall must NOT clear --skip-worktree flags the user set
+    # on unrelated paths before the bootstrap ever ran.
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    Set-Content -Path "$ws\tasks.json" -Value '{}'
+    Push-Location $ws
+    try {
+        git add tasks.json | Out-Null
+        git commit -q -m seed-tasks | Out-Null
+        git update-index --skip-worktree -- tasks.json | Out-Null
+        $idx = git ls-files -v -- tasks.json
+        if (-not ($idx -match '^S ')) { Fail 31 "test setup: failed to set pre-existing --skip-worktree on tasks.json" }
+    } finally { Pop-Location }
+    $seedSha = (Get-FileHash "$ws\tasks.json" -Algorithm SHA256).Hash
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=trial", "--yes") | Out-Null
+    Invoke-RunBoot $pair @("--uninstall", "--yes") | Out-Null
+    Push-Location $ws
+    try {
+        $idx = git ls-files -v -- tasks.json
+        if (-not ($idx -match '^S ')) { Fail 31 "uninstall cleared user's pre-existing --skip-worktree on tasks.json" }
+    } finally { Pop-Location }
+    $finalSha = (Get-FileHash "$ws\tasks.json" -Algorithm SHA256).Hash
+    if ($finalSha -ne $seedSha) { Fail 31 "tasks.json content changed during install/uninstall" }
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "32 install respects existing skip-worktree" $Pattern {
+    # Regression: install must NOT re-mark a path that was already
+    # --skip-worktree before the bootstrap ran. Uninstall must not
+    # clear that pre-existing flag either.
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    New-Item -ItemType Directory -Path "$ws\.github" -Force | Out-Null
+    Set-Content -Path "$ws\.github\copilot-instructions.md" -Value "# Team rules`n"
+    Push-Location $ws
+    try {
+        git add .github/copilot-instructions.md | Out-Null
+        git commit -q -m seed | Out-Null
+        git update-index --skip-worktree -- .github/copilot-instructions.md | Out-Null
+    } finally { Pop-Location }
+    $env:CONFLICT_BULK_CHOICE = "M"
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=trial", "--yes") | Out-Null
+    $env:CONFLICT_BULK_CHOICE = $null
+    $sidecar = "$ws\.assert-iq\.skip-worktree-paths"
+    if (Test-Path -LiteralPath $sidecar) {
+        $rels = Get-Content -LiteralPath $sidecar -ErrorAction SilentlyContinue
+        if ($rels -contains ".github/copilot-instructions.md") {
+            Fail 32 "install claimed pre-existing user flag in sidecar"
+        }
+    }
+    Invoke-RunBoot $pair @("--uninstall", "--yes") | Out-Null
+    Push-Location $ws
+    try {
+        $idx = git ls-files -v -- .github/copilot-instructions.md
+        if (-not ($idx -match '^S ')) { Fail 32 "uninstall cleared pre-existing user --skip-worktree on tracked merge target" }
+    } finally { Pop-Location }
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "33 json merge clean roundtrip no .uninstall-saved" $Pattern {
+    # Regression: when a JSON additive merge target is unedited between
+    # install and uninstall, no .uninstall-saved artifact is left behind.
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    New-Item -ItemType Directory -Path "$ws\.claude" -Force | Out-Null
+    Set-Content -Path "$ws\.claude\settings.json" -Value '{ "userKey": "preserve-me" }'
+    $env:CONFLICT_BULK_CHOICE = "M"
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
+    $env:CONFLICT_BULK_CHOICE = $null
+    Assert-Contains 33 "$ws\.claude\settings.json" '"hooks"'
+    Assert-FileExists 33 "$ws\.assert-iq\.merge-result-shas"
+    $shaSidecar = Get-Content -LiteralPath "$ws\.assert-iq\.merge-result-shas" -Raw
+    if ($shaSidecar -notmatch '\.claude[\\/]settings\.json') {
+        Fail 33 "merge-result-shas sidecar missing entry for .claude/settings.json"
+    }
+    Invoke-RunBoot $pair @("--uninstall", "--yes") | Out-Null
+    Assert-FileExists  33 "$ws\.claude\settings.json"
+    Assert-FileMissing 33 "$ws\.claude\settings.json.assert-iq.uninstall-saved"
+    Assert-Contains    33 "$ws\.claude\settings.json" '"userKey"'
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "34 install state sidecars hidden from git" $Pattern {
+    # Always-on contract: the .assert-iq install-state sidecars
+    # (.skip-worktree-paths, .merge-result-shas) are local install
+    # bookkeeping and must never appear in git status, in any mode.
+    # --- trial mode ---
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    New-Item -ItemType Directory -Path "$ws\.github" -Force | Out-Null
+    Set-Content -Path "$ws\.github\copilot-instructions.md" -Value "# Team rules`n"
+    Push-Location $ws
+    try {
+        git add .github/copilot-instructions.md | Out-Null
+        git commit -q -m seed | Out-Null
+    } finally { Pop-Location }
+    $env:CONFLICT_BULK_CHOICE = "M"
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=trial", "--yes") | Out-Null
+    $env:CONFLICT_BULK_CHOICE = $null
+    Assert-FileExists 34 "$ws\.assert-iq\.merge-result-shas"
+    Push-Location $ws
+    try {
+        git check-ignore --no-index --quiet ".assert-iq/.merge-result-shas"
+        if ($LASTEXITCODE -ne 0) { Fail 34 "trial: .assert-iq/.merge-result-shas not git-ignored" }
+        if (Test-Path -LiteralPath "$ws\.assert-iq\.skip-worktree-paths") {
+            git check-ignore --no-index --quiet ".assert-iq/.skip-worktree-paths"
+            if ($LASTEXITCODE -ne 0) { Fail 34 "trial: .assert-iq/.skip-worktree-paths not git-ignored" }
+        }
+        $porcelain = git status --porcelain
+        if ($porcelain -match '\.assert-iq[\\/]\.skip-worktree-paths') { Fail 34 "trial: .skip-worktree-paths leaked into git status" }
+        if ($porcelain -match '\.assert-iq[\\/]\.merge-result-shas')   { Fail 34 "trial: .merge-result-shas leaked into git status" }
+    } finally { Pop-Location }
+    Invoke-CleanupFixture $pair $Keep
+    # --- committed mode ---
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    New-Item -ItemType Directory -Path "$ws\.claude" -Force | Out-Null
+    Set-Content -Path "$ws\.claude\settings.json" -Value '{ "userKey": "preserve-me" }'
+    $env:CONFLICT_BULK_CHOICE = "M"
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
+    $env:CONFLICT_BULK_CHOICE = $null
+    Assert-FileExists 34 "$ws\.assert-iq\.merge-result-shas"
+    Push-Location $ws
+    try {
+        git check-ignore --no-index --quiet ".assert-iq/.merge-result-shas"
+        if ($LASTEXITCODE -ne 0) { Fail 34 "committed: .assert-iq/.merge-result-shas not git-ignored" }
+        $porcelain = git status --porcelain
+        if ($porcelain -match '\.assert-iq[\\/]\.skip-worktree-paths') { Fail 34 "committed: .skip-worktree-paths leaked into git status" }
+        if ($porcelain -match '\.assert-iq[\\/]\.merge-result-shas')   { Fail 34 "committed: .merge-result-shas leaked into git status" }
+    } finally { Pop-Location }
     Invoke-CleanupFixture $pair $Keep
 }
 

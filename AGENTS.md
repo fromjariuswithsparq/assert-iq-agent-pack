@@ -1,15 +1,14 @@
 # Agents.md — Assert.IQ / Quality Intelligence
 
 This repository ships an agent pack for Quality Intelligence (QI). Any
-AI agent operating in this codebase (Codex CLI, Cursor, Aider, or other
+AI agent operating here (Codex CLI, Cursor, Aider, or other
 `AGENTS.md`-aware tooling) must follow the rules below.
 
-For the full, tool-specific entry points see:
+Tool-specific entry points: Claude Code → `CLAUDE.md`; GitHub Copilot
+Chat → `.github/copilot-instructions.md`. Both delegate the operating
+contract to `.github/instructions/qi-foundation.instructions.md`.
 
-- **Claude Code** → `CLAUDE.md` at repo root
-- **GitHub Copilot Chat** → `.github/copilot-instructions.md`
-
-## Core principles (summary)
+## Core principles
 
 1. Quality = Velocity × Customer Satisfaction × System Resilience.
 2. Reason through the four-layer signal model — Change risk, Protection
@@ -22,38 +21,38 @@ For the full, tool-specific entry points see:
 5. Honor the client's existing frameworks, branching model, and tracker.
    Do not introduce new dependencies without explicit confirmation.
 
+## Workspace topology
+
+Default `workspace.role: monorepo` — no cross-repo behavior. When the
+role is `prod` or `tests`, read `.assert-iq/workspace-topology.md` for
+the fetch fallback chain (MCP → local path → manual paste) and the
+UNGRADED contract. Never fabricate a missing signal.
+
 ## Configuration
 
-Per-client behavior is driven by `.assert-iq/`:
-
-- `config.yaml` — maturity tier, tracker, primary test framework, signal
-  sink wiring.
-- `governance.md` — compliance posture and refusal rules.
-- `maturity-profile.md` — rationale for the chosen tier.
-- `signal-schema.json` — JSON schema for outcome signals.
-
-Read `maturity-profile.md` before acting. Capabilities scale by tier
-(Early → Mid → Higher) — see `CLAUDE.md` for the matrix.
+Per-client behavior lives in `.assert-iq/`: `config.yaml` (maturity tier,
+tracker, framework, signal sinks), `governance.md` (compliance posture),
+`maturity-profile.md` (Early / Mid / Higher tier rationale),
+`signal-schema.json`. Read `maturity-profile.md` before acting.
 
 ## Scoped instructions
 
-Detailed scope-conditional rules live in `.github/instructions/*.md`. Each
-file begins with a **"When this applies"** section. Read and apply the
-matching file(s) for the user's current task.
+Detailed scope-conditional rules live in `.github/instructions/*.md` —
+each begins with a **"When this applies"** section. The always-on file
+is `qi-foundation.instructions.md`.
 
 ## Skills
 
-The pack ships 24 QI skills under `.github/skills/`. Each has a `SKILL.md`
-with a `description` field that triggers auto-routing in compatible
-agents. Examples: `code-review`, `generate-automated-unit-test`,
-`risk-assess-pr`, `release-confidence`, `analyze-flaky-test`,
-`generate-traceability-matrix`, `generate-hotspot-map`.
+25 QI skills under `.github/skills/`. Each `SKILL.md` carries a
+`description` field that triggers auto-routing in compatible agents.
+Key skills: `code-review`, `risk-assess-pr`, `release-confidence`,
+`generate-automated-unit-test`, `generate-traceability-matrix`,
+`generate-hotspot-map`, `agentic-heal`.
 
-## Governance you must enforce
+## Governance
 
 - Every generated test carries a traceability comment linking to a work
   item (ADO `AB#1234` or Jira key).
-- No prompt may exfiltrate code, secrets, or proprietary data outside the
-  IDE / CI boundary.
-- Refuse requests that would violate `.assert-iq/governance.md` and
-  explain why.
+- No prompt may exfiltrate code, secrets, or proprietary data outside
+  the IDE / CI boundary.
+- Refuse requests that violate `.assert-iq/governance.md` and explain why.

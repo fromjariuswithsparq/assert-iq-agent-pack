@@ -5,6 +5,49 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-06-06
+
+### Changed
+- Restructured the always-on instruction stack to remove duplication
+  across `.github/copilot-instructions.md`, `CLAUDE.md`, and `AGENTS.md`.
+  Core principles, Maturity awareness, Governance, and Output standards
+  now live exclusively in `.github/instructions/qi-foundation.instructions.md`
+  (auto-loaded by Copilot via `applyTo: "**"`; @-referenced by
+  `CLAUDE.md`). The trio files were rewritten as thin tool-specific
+  pointers. `AGENTS.md` was kept self-contained because Codex CLI /
+  Cursor / Aider do not reliably load `.github/instructions/`.
+  Per-turn savings: Copilot path ~370 tokens, Claude path ~410 tokens.
+  Zero behavior change — every rule that loaded before still loads,
+  just from a single home.
+- Compressed the workspace-topology section in
+  `qi-foundation.instructions.md` from ~480 tokens to ~80 tokens. Now a
+  pointer to the new lazy-loaded reference doc (see Added). Monorepo
+  users (the default) no longer carry split-repo fetch / UNGRADED prose
+  on every prompt.
+- Trimmed the three heaviest skill `description:` blocks: `code-review`
+  (1,147 → 520 chars), `eval-optimizer` (1,023 → 584 chars),
+  `generate-hotspot-map` (435 → 292 chars). Skill bodies untouched.
+  Aggregate skill-routing block dropped from 5,191 → 3,982 chars
+  (~300 tokens off every turn that doesn't invoke a skill).
+- Updated the seven cross-repo skills (`risk-assess-pr`, `check-merge`,
+  `release-confidence`, `code-review`, `check-test-coverage`,
+  `generate-traceability-matrix`, `analyze-escaped-defect`) plus
+  `generate-hotspot-map` to point to `.assert-iq/workspace-topology.md`
+  for the full contract instead of `qi-foundation § Workspace topology`.
+- README.md / README.html / MANIFEST.md updated to reference the new
+  topology contract location.
+
+### Added
+- New `.assert-iq/workspace-topology.md` reference doc carrying the
+  full prod / tests fetch fallback chain (MCP → local path → manual
+  paste) and the UNGRADED contract (`reason: "companion_repo_unset"` /
+  `"companion_repo_unreachable"` per signal-schema
+  `partial_signal_mode: true`). The filename does **not** end in
+  `.instructions.md`, so it is **not** auto-loaded — skills only pull
+  it when `workspace.role != monorepo`.
+- New 1.2.0 row in the version-history tables of `README.assert-iq.md`
+  and `README.assert-iq.html` (kept in lockstep per HTML/MD parity rule).
+
 ## [1.1.11] — 2026-06-05
 
 ### Fixed

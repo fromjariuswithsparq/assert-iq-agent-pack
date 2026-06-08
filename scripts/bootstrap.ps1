@@ -127,7 +127,7 @@ $manifestPath = Join-Path $Workspace '.assert-iq\.install-manifest.json'
 # =============================================================================
 
 $script:ManifestEntries = New-Object System.Collections.Generic.List[object]
-$script:ConflictBulkChoice = if ($env:CONFLICT_BULK_CHOICE -in @('K','O','S')) { $env:CONFLICT_BULK_CHOICE } else { '' }
+$script:ConflictBulkChoice = if ($env:CONFLICT_BULK_CHOICE -in @('K','O','M','S')) { $env:CONFLICT_BULK_CHOICE } else { '' }
 
 function Get-Sha256($path) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return '' }
@@ -138,11 +138,11 @@ function Get-Sha256($path) {
 # place. RemovableActions are deleted on uninstall; ExcludableActions are
 # emitted into .git/info/exclude in trial mode.
 $script:RemovableActions  = @('created','unchanged_owned','overwritten','rendered','sidecar')
-$script:ExcludableActions = @('created','unchanged_owned','overwritten','merged_hooks_key','merged_settings','rendered','sidecar')
-$script:MergedActions     = @('merged_settings','merged_hooks_key')
+$script:ExcludableActions = @('created','unchanged_owned','overwritten','merged_hooks_key','merged_settings','merged_markdown','rendered','sidecar')
+$script:MergedActions     = @('merged_settings','merged_hooks_key','merged_markdown')
 # Vocabulary of actions allowed in the manifest. Validation in
 # Add-ManifestEntry turns silent typos into immediate errors.
-$script:KnownActions      = @('created','unchanged_owned','overwritten','rendered','sidecar','merged_settings','merged_hooks_key','pre_install_backup')
+$script:KnownActions      = @('created','unchanged_owned','overwritten','rendered','sidecar','merged_settings','merged_hooks_key','merged_markdown','pre_install_backup')
 
 function Add-ManifestEntry($action, $path, $scope) {
     if ($action -notin $script:KnownActions) {
@@ -170,6 +170,45 @@ function Backup-IfUserOwned {
     Add-ManifestEntry 'pre_install_backup' $backup $Scope
 }
 
+function Get-FileSha256 {
+    param([Parameter(Mandatory)][string] $Path)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return '' }
+    try { return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash }
+    catch { return '' }
+}
+
+function Save-MergeResultSha {
+    # Records the post-install SHA of a file produced by a merge action so
+    # uninstall can tell whether the user edited the file after install.
+    param([Parameter(Mandatory)][string] $Path)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return }
+    $sha = Get-FileSha256 -Path $Path
+    if (-not $sha) { return }
+    $sidecar = Join-Path $Workspace '.assert-iq/.merge-result-shas'
+    $sidecarDir = Split-Path -Parent $sidecar
+    if (-not (Test-Path -LiteralPath $sidecarDir)) {
+        New-Item -ItemType Directory -Force -Path $sidecarDir | Out-Null
+    }
+    $existing = @()
+    if (Test-Path -LiteralPath $sidecar) {
+        $existing = Get-Content -LiteralPath $sidecar -ErrorAction SilentlyContinue |
+            Where-Object { $_ -and -not $_.StartsWith("$Path`t") }
+    }
+    $existing += "$Path`t$sha"
+    Set-Content -LiteralPath $sidecar -Value $existing -Encoding UTF8
+}
+
+function Get-MergeResultSha {
+    param([Parameter(Mandatory)][string] $Path)
+    $sidecar = Join-Path $Workspace '.assert-iq/.merge-result-shas'
+    if (-not (Test-Path -LiteralPath $sidecar)) { return '' }
+    foreach ($line in Get-Content -LiteralPath $sidecar -ErrorAction SilentlyContinue) {
+        $parts = $line -split "`t", 2
+        if ($parts.Length -eq 2 -and $parts[0] -eq $Path) { return $parts[1] }
+    }
+    return ''
+}
+
 # Stage-then-commit a merged JSON string. If the staged content is
 # byte-identical to the existing dst, records unchanged_owned; otherwise
 # backs up (if user-owned) and atomically writes dst, recording
@@ -192,6 +231,7 @@ function Write-OrSkipIfUnchanged {
     Backup-IfUserOwned -Path $Dst -Scope $Scope
     Write-AtomicFile -Path $Dst -Content $MergedContent
     Add-ManifestEntry $ChangedAction $Dst $Scope
+    Save-MergeResultSha -Path $Dst
     Record $Label $ChangedMessage $Dst
 }
 
@@ -319,6 +359,11 @@ function Remove-ManagedBlockLines([string[]]$Lines) {
 }
 
 function Write-ExcludeBlock {
+    # Always-on writer for .git/info/exclude managed block. Two layers:
+    #   1) backup-globs (`*.assert-iq.pre-install`, `*.assert-iq.uninstall-saved`)
+    #      written in every mode — tool artifacts that must never be committed.
+    #   2) per-path entries for workspace-scoped pack files — only when
+    #      $Mode -eq 'trial' so committed-mode adoption stays visible to git.
     $excl = Get-ExcludeFilePath
     if (-not $excl) {
         Write-Warning "Not inside a git repo — skipping .git/info/exclude wiring."
@@ -335,21 +380,22 @@ function Write-ExcludeBlock {
 
     $rels = New-Object System.Collections.Generic.List[string]
     $skippedTracked = New-Object System.Collections.Generic.List[string]
-    foreach ($e in $script:ManifestEntries) {
-        if ($e.scope -ne 'workspace') { continue }
-        if ($script:ExcludableActions -notcontains $e.action) { continue }
-        $rel = (ConvertTo-WorkspaceRelative $e.path) -replace '\\','/'
-        if (Test-Tracked $e.path) {
-            $skippedTracked.Add($rel) | Out-Null
-        } else {
-            $rels.Add($rel) | Out-Null
+    if ($Mode -eq 'trial') {
+        foreach ($e in $script:ManifestEntries) {
+            if ($e.scope -ne 'workspace') { continue }
+            if ($script:ExcludableActions -notcontains $e.action) { continue }
+            $rel = (ConvertTo-WorkspaceRelative $e.path) -replace '\\','/'
+            if (Test-Tracked $e.path) {
+                $skippedTracked.Add($rel) | Out-Null
+            } else {
+                $rels.Add($rel) | Out-Null
+            }
         }
-    }
-
-    # Always exclude the manifest itself.
-    $manifestRel = (ConvertTo-WorkspaceRelative $manifestPath) -replace '\\','/'
-    if (-not (Test-Tracked $manifestPath)) {
-        $rels.Add($manifestRel) | Out-Null
+        # Always exclude the manifest itself.
+        $manifestRel = (ConvertTo-WorkspaceRelative $manifestPath) -replace '\\','/'
+        if (-not (Test-Tracked $manifestPath)) {
+            $rels.Add($manifestRel) | Out-Null
+        }
     }
 
     # Read current exclude, strip any prior managed block, then append fresh block.
@@ -361,26 +407,124 @@ function Write-ExcludeBlock {
     foreach ($l in $kept) { $newLines.Add($l) | Out-Null }
     $newLines.Add($ExcludeBegin) | Out-Null
     $newLines.Add('# Managed by scripts/bootstrap.ps1 — do not edit by hand.') | Out-Null
-    $newLines.Add('# Remove with: scripts/bootstrap.ps1 -Graduate') | Out-Null
-    foreach ($r in $rels) { $newLines.Add($r) | Out-Null }
+    $newLines.Add('# Remove with: scripts/bootstrap.ps1 -Uninstall (or -Graduate to keep files but expose to git)') | Out-Null
+    # Layer 1: always-on backup-glob exclusions.
+    $newLines.Add('# Tool artifacts — never commit:') | Out-Null
+    $newLines.Add('*.assert-iq.pre-install') | Out-Null
+    $newLines.Add('*.assert-iq.uninstall-saved') | Out-Null
+    $newLines.Add('.assert-iq/.skip-worktree-paths') | Out-Null
+    $newLines.Add('.assert-iq/.merge-result-shas') | Out-Null
+    # Layer 2: per-path entries (trial only).
+    if ($Mode -eq 'trial' -and $rels.Count -gt 0) {
+        $newLines.Add('# Trial-mode pack paths:') | Out-Null
+        foreach ($r in $rels) { $newLines.Add($r) | Out-Null }
+    }
     $newLines.Add($ExcludeEnd) | Out-Null
 
     Set-Content -LiteralPath $excl -Value $newLines -Encoding UTF8
 
     Write-Host ''
-    Write-Host ("Trial mode active. {0} path(s) added to .git/info/exclude." -f $rels.Count)
-    if ($skippedTracked.Count -gt 0) {
+    if ($Mode -eq 'trial') {
+        Write-Host ("Trial mode active. {0} path(s) added to .git/info/exclude (plus backup-glob exclusions)." -f $rels.Count)
+        if ($skippedTracked.Count -gt 0) {
+            Write-Host ''
+            Write-Host ("NOTE: {0} path(s) already tracked by git — using --skip-worktree to hide local changes:" -f $skippedTracked.Count)
+            foreach ($t in $skippedTracked) { Write-Host "  $t" }
+        }
         Write-Host ''
-        Write-Host ("NOTE: {0} path(s) already tracked by git — left visible:" -f $skippedTracked.Count)
-        foreach ($t in $skippedTracked) { Write-Host "  $t" }
-        Write-Host ''
-        Write-Host "If you want trial-mode behavior on those too, run (per path):"
-        Write-Host "  git rm --cached <path>"
-        Write-Host "Then re-run: scripts\bootstrap.ps1 -Trial"
+        Write-Host "To expose these files to your team's git later:"
+        Write-Host "  scripts\bootstrap.ps1 -Graduate"
+    } else {
+        Write-Host "Wrote backup-glob exclusions to .git/info/exclude."
     }
-    Write-Host ''
-    Write-Host "To expose these files to your team's git later:"
-    Write-Host "  scripts\bootstrap.ps1 -Graduate"
+}
+
+function Invoke-SkipWorktree {
+    # Trial-mode helper: for each workspace-scoped manifest path with an
+    # action in ExcludableActions, if the file is tracked by git AND not
+    # already --skip-worktree (set by the user), mark it --skip-worktree
+    # and remember the rel-path in a sidecar so uninstall only clears
+    # flags we actually set. Pre-existing user flags are left untouched.
+    $gd = Get-GitDir
+    if (-not $gd) { return }
+    $alreadySkipped = @{}
+    $rawFlagged = git -C $Workspace ls-files -v 2>$null
+    if ($rawFlagged) {
+        foreach ($line in $rawFlagged) {
+            if ($line -match '^S (.+)$') { $alreadySkipped[$matches[1]] = $true }
+        }
+    }
+    $sidecar = Join-Path $Workspace '.assert-iq/.skip-worktree-paths'
+    $sidecarDir = Split-Path -Parent $sidecar
+    if (-not (Test-Path -LiteralPath $sidecarDir)) {
+        New-Item -ItemType Directory -Force -Path $sidecarDir | Out-Null
+    }
+    Set-Content -LiteralPath $sidecar -Value @() -Encoding UTF8
+    $marked = 0
+    $preexisting = 0
+    $marks = New-Object System.Collections.Generic.List[string]
+    foreach ($e in $script:ManifestEntries) {
+        if ($e.scope -ne 'workspace') { continue }
+        if ($script:ExcludableActions -notcontains $e.action) { continue }
+        if (-not (Test-Tracked $e.path)) { continue }
+        $rel = (ConvertTo-WorkspaceRelative $e.path) -replace '\\','/'
+        if ($alreadySkipped.ContainsKey($rel)) {
+            $preexisting++
+            continue
+        }
+        git -C $Workspace update-index --skip-worktree -- $rel 2>$null | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            $marks.Add($rel) | Out-Null
+            $marked++
+        }
+    }
+    if ($marks.Count -gt 0) {
+        Set-Content -LiteralPath $sidecar -Value $marks -Encoding UTF8
+    }
+    if ($marked -gt 0) {
+        Write-Host ("Marked {0} tracked path(s) --skip-worktree (local edits hidden from git status)." -f $marked)
+    }
+    if ($preexisting -gt 0) {
+        Write-Host ("Left {0} pre-existing --skip-worktree flag(s) untouched." -f $preexisting)
+    }
+}
+
+function Clear-SkipWorktree {
+    # Reverse of Invoke-SkipWorktree. Clears ONLY flags we set ourselves,
+    # tracked via the .assert-iq/.skip-worktree-paths sidecar. Falls back
+    # to the manifest walk for installs that pre-date the sidecar. Never
+    # scans the index globally — that would clobber pre-existing flags the
+    # user set themselves on unrelated files.
+    $gd = Get-GitDir
+    if (-not $gd) { return }
+    $cleared = 0
+    $sidecar = Join-Path $Workspace '.assert-iq/.skip-worktree-paths'
+    if (Test-Path -LiteralPath $sidecar) {
+        $rels = Get-Content -LiteralPath $sidecar -ErrorAction SilentlyContinue
+        foreach ($rel in $rels) {
+            if (-not $rel) { continue }
+            git -C $Workspace update-index --no-skip-worktree -- $rel 2>$null | Out-Null
+            if ($LASTEXITCODE -eq 0) { $cleared++ }
+        }
+        Remove-Item -LiteralPath $sidecar -Force -ErrorAction SilentlyContinue
+    } elseif (Test-Path -LiteralPath $manifestPath) {
+        # Legacy fallback: pre-sidecar installs. Walk the manifest's
+        # excludable actions only.
+        try {
+            $m = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+            $exclSet = @($script:ExcludableActions + $script:MergedActions)
+            foreach ($e in $m.paths) {
+                if ($e.scope -ne 'workspace') { continue }
+                if ($exclSet -notcontains $e.action) { continue }
+                $rel = (ConvertTo-WorkspaceRelative $e.path) -replace '\\','/'
+                git -C $Workspace update-index --no-skip-worktree -- $rel 2>$null | Out-Null
+                if ($LASTEXITCODE -eq 0) { $cleared++ }
+            }
+        } catch { }
+    }
+    if ($cleared -gt 0) {
+        Write-Host ("Cleared --skip-worktree on {0} path(s)." -f $cleared)
+    }
 }
 
 function Remove-ExcludeBlock {
@@ -405,17 +549,24 @@ function Remove-ExcludeBlock {
 
 if ($doGraduate) {
     Write-Host '=== Assert.IQ graduate: trial -> committed ==='
-    Remove-ExcludeBlock
+    Clear-SkipWorktree
     if (Test-Path -LiteralPath $manifestPath) {
         try {
             $m = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
             $m.mode = 'committed'
             Write-AtomicFile -Path $manifestPath -Content ($m | ConvertTo-Json -Depth 10)
             Write-Host "Updated ${manifestPath}: mode -> committed"
+            # Repopulate ManifestEntries from disk so Write-ExcludeBlock sees them.
+            $script:ManifestEntries = New-Object System.Collections.Generic.List[object]
+            foreach ($p in $m.paths) { $script:ManifestEntries.Add($p) | Out-Null }
         } catch {
             Write-Warning "Could not update manifest mode: $_"
         }
     }
+    # Re-write the managed block in committed mode so the always-on backup-glob
+    # exclusions remain — only the per-path entries are dropped.
+    $Mode = 'committed'
+    Write-ExcludeBlock
     Write-Host ''
     Write-Host 'Pack files are now visible to git. Suggested next steps:'
     Write-Host '  git status                       # confirm pack files are untracked'
@@ -466,12 +617,13 @@ function Invoke-Uninstall {
         }
     }
 
-    Remove-ExcludeBlock | Out-Null
-    Write-Host ''
-
     $script:UninstallStats = [pscustomobject]@{
         Removed = 0; Restored = 0; Preserved = 0; Skipped = 0
     }
+
+    # Clear --skip-worktree BEFORE restoring backups, otherwise the file write
+    # appears as a phantom modification to git after the flag is finally cleared.
+    Clear-SkipWorktree
 
     function Remove-PathOrDir([string]$p) {
         if (-not (Test-Path -LiteralPath $p)) {
@@ -516,7 +668,32 @@ function Invoke-Uninstall {
             return
         }
         if (Test-Path -LiteralPath $original -PathType Leaf) {
-            Copy-Item -LiteralPath $original -Destination "$original.assert-iq.uninstall-saved" -Force -ErrorAction SilentlyContinue
+            # Smart-save: only emit .uninstall-saved when the user genuinely
+            # edited the original between install and uninstall. Compare
+            # current SHA to the recorded post-install SHA when available
+            # (works for both JSON and markdown merges); fall back to
+            # markdown-marker strip-and-compare for installs that pre-date
+            # SHA recording.
+            $shouldSave = $true
+            $recordedSha = Get-MergeResultSha -Path $original
+            if ($recordedSha) {
+                $currentSha = Get-FileSha256 -Path $original
+                if ($currentSha -and $currentSha -eq $recordedSha) {
+                    $shouldSave = $false
+                }
+            } else {
+                try {
+                    $rawCurrent = [System.IO.File]::ReadAllText($original)
+                    if ($rawCurrent -match '<!-- assert-iq:begin') {
+                        $stripped = [regex]::Replace($rawCurrent, '(?s)<!-- assert-iq:begin[^\n]*-->.*?<!-- assert-iq:end -->(\r?\n)?(\r?\n)?', '')
+                        $rawBackup = [System.IO.File]::ReadAllText($backup)
+                        if ($stripped -eq $rawBackup) { $shouldSave = $false }
+                    }
+                } catch { }
+            }
+            if ($shouldSave) {
+                Copy-Item -LiteralPath $original -Destination "$original.assert-iq.uninstall-saved" -Force -ErrorAction SilentlyContinue
+            }
         }
         Copy-Item -LiteralPath $backup -Destination $original -Force
         Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
@@ -552,6 +729,28 @@ function Invoke-Uninstall {
             { $script:MergedActions -contains $_ } {
                 if ($script:RestoredOriginals.ContainsKey($e.path)) {
                     # Will be restored by the corresponding pre_install_backup entry.
+                } elseif ($e.action -eq 'merged_markdown' -and (Test-Path -LiteralPath $e.path -PathType Leaf)) {
+                    # Fallback when the backup is gone: snip the assert-iq
+                    # marker block (and one trailing blank line if present).
+                    $content = Get-Content -LiteralPath $e.path -Raw -ErrorAction SilentlyContinue
+                    if ($content -and $content -match '<!-- assert-iq:begin') {
+                        if ($DryRun) {
+                            Write-Host "${prefix}snip marker block: $($e.path)"
+                            $script:UninstallStats.Restored++
+                        } else {
+                            $pattern = "(?s)<!-- assert-iq:begin[^\n]*-->.*?<!-- assert-iq:end -->(\r?\n)?(\r?\n)?"
+                            $cleaned = [regex]::Replace($content, $pattern, '')
+                            if ([string]::IsNullOrEmpty($cleaned)) {
+                                Remove-Item -LiteralPath $e.path -Force -ErrorAction SilentlyContinue
+                            } else {
+                                Write-AtomicFile -Path $e.path -Content $cleaned
+                            }
+                            $script:UninstallStats.Restored++
+                        }
+                    } else {
+                        Write-Host "preserved (no pre-install backup): $($e.path)"
+                        $script:UninstallStats.Preserved++
+                    }
                 } else {
                     Write-Host "preserved (no pre-install backup): $($e.path)"
                     $script:UninstallStats.Preserved++
@@ -669,12 +868,19 @@ function Invoke-Uninstall {
         Write-Host "${prefix}rm: $manifestPath"
     } else {
         Remove-Item -LiteralPath $manifestPath -Force -ErrorAction SilentlyContinue
+        $shaSidecar = Join-Path $Workspace '.assert-iq/.merge-result-shas'
+        $swSidecar  = Join-Path $Workspace '.assert-iq/.skip-worktree-paths'
+        Remove-Item -LiteralPath $shaSidecar -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $swSidecar  -Force -ErrorAction SilentlyContinue
         $mDir = Split-Path -Parent $manifestPath
         if ((Test-Path -LiteralPath $mDir) -and `
             -not (Get-ChildItem -LiteralPath $mDir -Force -ErrorAction SilentlyContinue)) {
             Remove-Item -LiteralPath $mDir -Force -ErrorAction SilentlyContinue
         }
     }
+
+    # Strip the managed exclude block last, after the manifest is gone.
+    Remove-ExcludeBlock | Out-Null
 
     Write-Host ''
     Write-Host ("Summary: {0} removed, {1} restored from backup, {2} preserved, {3} skipped." -f `
@@ -800,9 +1006,15 @@ function Record($label, $result, $dst) {
 
 function Resolve-Conflict {
     param([string]$Src, [string]$Dst, [string]$Label)
+    # Allowlist: only these markdown files support the merge mode.
+    $base = Split-Path -Leaf $Dst
+    $mergeEligible = $base -in @('copilot-instructions.md','CLAUDE.md','AGENTS.md')
     switch ($script:ConflictBulkChoice) {
         'K' { return 'keep' }
         'O' { return 'overwrite' }
+        'M' {
+            if ($mergeEligible) { return 'merge' } else { return 'keep' }
+        }
         'S' { return 'sidecar' }
     }
     $isInteractive = [Environment]::UserInteractive -and -not [Console]::IsInputRedirected
@@ -811,14 +1023,28 @@ function Resolve-Conflict {
     Write-Host "Conflict: $Label"
     Write-Host "  existing: $Dst"
     Write-Host "  pack:     $Src"
+    if ($mergeEligible) {
+        $prompt = '  [k]eep / [o]verwrite / [m]erge (recommended) / [s]idecar (.assert-iq-new) / [d]iff / [K/O/M/S]all / [a]bort'
+    } else {
+        $prompt = '  [k]eep / [o]verwrite / [s]idecar (.assert-iq-new) / [d]iff / [K/O/S]all / [a]bort'
+    }
     while ($true) {
-        $ans = Read-Host '  [k]eep / [o]verwrite / [s]idecar (.assert-iq-new) / [d]iff / [K/O/S]all / [a]bort'
+        $ans = Read-Host $prompt
         switch ($ans) {
             'k' { return 'keep' }
             'o' { return 'overwrite' }
+            'm' {
+                if ($mergeEligible) { return 'merge' }
+                else { Write-Host '  (merge not available for this file)' }
+            }
             's' { return 'sidecar' }
             'K' { $script:ConflictBulkChoice = 'K'; return 'keep' }
             'O' { $script:ConflictBulkChoice = 'O'; return 'overwrite' }
+            'M' {
+                if ($mergeEligible) {
+                    $script:ConflictBulkChoice = 'M'; return 'merge'
+                } else { Write-Host '  (merge not available for this file)' }
+            }
             'S' { $script:ConflictBulkChoice = 'S'; return 'sidecar' }
             'd' {
                 try {
@@ -830,9 +1056,58 @@ function Resolve-Conflict {
                 }
             }
             'a' { Write-Host 'Aborted by user.'; exit 1 }
-            default { Write-Host '  (please type one of k, o, s, d, K, O, S, a)' }
+            default {
+                if ($mergeEligible) {
+                    Write-Host '  (please type one of k, o, m, s, d, K, O, M, S, a)'
+                } else {
+                    Write-Host '  (please type one of k, o, s, d, K, O, S, a)'
+                }
+            }
         }
     }
+}
+
+# Merge $Src markdown into $Dst by managing an idempotent marker block at
+# the top of $Dst. First merge prepends pack content wrapped in
+# <!-- assert-iq:begin v=... --> ... <!-- assert-iq:end --> followed by a
+# blank line and the user's existing content. Re-merge replaces the block
+# in place; user content outside the markers is never touched. Used only
+# for the markdown allowlist files (copilot-instructions.md, CLAUDE.md,
+# AGENTS.md).
+function Merge-MarkdownFile {
+    param([string]$Label, [string]$Src, [string]$Dst, [string]$Scope)
+    $packVersion = 'unknown'
+    $versionFile = Join-Path $Source 'VERSION'
+    if (Test-Path -LiteralPath $versionFile -PathType Leaf) {
+        try {
+            $pv = (Get-Content -LiteralPath $versionFile -TotalCount 1).Trim()
+            if ($pv) { $packVersion = $pv }
+        } catch { }
+    }
+    $beginMarker = "<!-- assert-iq:begin v=$packVersion -->"
+    $endMarker   = '<!-- assert-iq:end -->'
+    Backup-IfUserOwned -Path $Dst -Scope $Scope
+    $existing = Get-Content -LiteralPath $Dst -Raw -ErrorAction SilentlyContinue
+    if ($null -eq $existing) { $existing = '' }
+    $packContent = Get-Content -LiteralPath $Src -Raw -ErrorAction Stop
+    if ($null -eq $packContent) { $packContent = '' }
+    $nl = "`n"
+    if ($existing -match '<!-- assert-iq:begin') {
+        # Replace existing block in place (regex DOTALL via (?s)). There is
+        # only ever one assert-iq block per file, so a global replace is fine.
+        $pattern = '(?s)<!-- assert-iq:begin[^\n]*-->.*?<!-- assert-iq:end -->'
+        $newBlock = "$beginMarker$nl$($packContent.TrimEnd("`r","`n"))$nl$endMarker"
+        $evaluator = [System.Text.RegularExpressions.MatchEvaluator]{ param($m) $newBlock }
+        $merged = [regex]::Replace($existing, $pattern, $evaluator)
+    } else {
+        $userPart = $existing
+        $merged = "$beginMarker$nl$($packContent.TrimEnd("`r","`n"))$nl$endMarker$nl$nl$userPart"
+    }
+    # Write atomically (Write-AtomicFile rejects empty content; merged is always non-empty).
+    Write-AtomicFile -Path $Dst -Content $merged
+    Add-ManifestEntry 'merged_markdown' $Dst $Scope
+    Save-MergeResultSha -Path $Dst
+    Record $Label 'merged (markdown markers)' $Dst
 }
 
 function Copy-FileScoped {
@@ -871,6 +1146,9 @@ function Copy-FileScoped {
             Copy-Item -LiteralPath $Src -Destination $Dst -Force
             Add-ManifestEntry 'overwritten' $Dst $Scope
             Record $Label 'overwritten' $Dst
+        }
+        'merge' {
+            Merge-MarkdownFile -Label $Label -Src $Src -Dst $Dst -Scope $Scope
         }
         'sidecar' {
             $side = "$Dst.assert-iq-new"
@@ -1351,8 +1629,11 @@ Step-ClaudeSkillsLink
 
 Write-Manifest
 
+# Always write the managed exclude block — Layer 1 (backup-globs) applies in
+# every mode; Layer 2 (per-path entries) only fires when $Mode -eq 'trial'.
+Write-ExcludeBlock
 if ($Mode -eq 'trial') {
-    Write-ExcludeBlock
+    Invoke-SkipWorktree
 }
 
 # =============================================================================

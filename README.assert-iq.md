@@ -4,7 +4,7 @@
 > instructions, modes, and tools that turn GitHub Copilot Chat **and**
 > Claude Code into a QI-aware delivery partner inside the IDE.
 
-**Version**: v1.1.11
+**Version**: v1.2.0
 **Status**: Internal Sparq asset — Intelligence Studio
 **Owner**: Jarius Hayes
 **Repo**: <https://github.com/fromjariuswithsparq/assert-iq-agent-pack>
@@ -235,8 +235,21 @@ Three install modes, all driven by the bootstrap script
 file. If the destination matches the pack version, it's silently
 recorded as `unchanged_owned`. If the user has a different file at that
 path, the script falls back to an interactive resolver:
-`[k]eep` / `[o]verwrite` / `[s]idecar (writes .assert-iq-new)` /
-`[d]iff` / `[K/O/S]all` / `[a]bort`. Non-TTY runs auto-keep.
+`[k]eep` / `[o]verwrite` / `[m]erge` / `[s]idecar (writes .assert-iq-new)` /
+`[d]iff` / `[K/O/M/S]all` / `[a]bort`. Non-TTY runs auto-keep.
+
+For the three Markdown allowlist files — `.github/copilot-instructions.md`,
+`CLAUDE.md`, and `AGENTS.md` — the resolver shows `[m]erge (recommended)`
+as an extra choice. Merge wraps the pack content in idempotent HTML-comment
+markers (`<!-- assert-iq:begin v=... -->` / `<!-- assert-iq:end -->`) at the
+top of the file, leaving everything below untouched. Re-installing replaces
+only the marker block in place, so re-runs are fully idempotent and your
+team-authored content outside the markers is never rewritten. Other files
+(JSON settings, hooks, skills, etc.) keep the existing K / O / S behavior
+— the `m` option is hidden for them, and a JSON deep-merge still applies
+to `.vscode/settings.json` and `.claude/settings.json`. To force one mode
+non-interactively, pass `CONFLICT_BULK_CHOICE=K|O|M|S` as an environment
+variable.
 
 **Pre-install backups for safe uninstall.** Whenever the bootstrap
 overwrites or merges into a file you already had, it first snapshots the
@@ -647,6 +660,7 @@ or `qi-traceability.instructions.md` with examples drawn from your codebase.
 | **1.0.0** | **First stable release.** API-stable surface: bootstrap CLI flags, manifest schema, skill names, and workspace surface layout will not change incompatibly without a major-version bump. Adds the `assert-iq-bootstrap` skill (the `/assert-iq-bootstrap` slash command itself), the `generate-hotspot-map` skill (churn × complexity × defect-density audit producing a Hotspot Risk Index registry), HTML snapshots of the README family for offline / static-host distribution, and the `e2e-bootstrap.sh` regression suite (23 cases covering pod / solo / portable presets, committed / trial / ask modes, skills-scope variants, idempotent reinstall, conflict + backup + restore, dry-run, invalid-arg rejection — all isolated under mktemp `$HOME` so it's safe to run on a developer machine). |
 | **1.1.0** | **Hindsight Hooks: scope-aware install + double-fire dedup.** New `--hooks=user` / `-Hooks user` install mode in `scripts/bootstrap.{sh,ps1}` lets power users install hooks once at `~/.agents/hooks/` and have them fire across every VS Code workspace; the per-workspace install path is unchanged and remains the default. New `si_dedup_or_exit` / `Invoke-SiDedupOrExit` helpers suppress duplicate fires of the same `(session_id, event)` pair within `SKILL_IMPROVE_DEDUP_WINDOW_SECONDS` (default 5; set to 0 to disable) via atomic `set -o noclobber` (bash) / `FileMode.CreateNew` (PowerShell) marker claims under `hooks/state/.dedup-<sha256>`; wired into SessionStart and Stop only — PostToolUse legitimately fires once per tool call. Hook scripts now resolve `SKILL_IMPROVE_ROOT` from the environment (set by the wrapper template) so workspace and user installs route to their own roots deterministically. Janitor sweep prunes stale `.dedup-*` markers older than 1 hour. New `e2e-hooks.sh` suite (15 cases) verifies workspace + user layouts, SessionStart routing, PostToolUse telemetry + detect, Stop log entry, `config.enabled=false` and `SKILL_IMPROVE_DISABLED=1` no-ops, dedup behavior, and user uninstall. |
 | **1.1.1** | **Patch.** Hides Hindsight Hooks runtime artifacts from git so workspaces don't see hook state files appear as untracked changes. Per-directory `.gitignore` files now ship inside `hooks/state/`, `hooks/logs/`, and `hooks/sessions/` at the pack source; `copy_tree()` already copies dotfiles, so the rules propagate verbatim into every workspace install — no mutation of the workspace `.gitignore` required (consistent with the design rule that bootstrap never touches the user's `.gitignore`). Untracks the previously-committed runtime seeds `hooks/logs/skill-improve.log` and `hooks/state/.last-janitor`; structural seeds `dismissed-lessons.json` and `edit-frequency.json` remain tracked. Also enables GitHub Pages at `https://fromjariuswithsparq.github.io/assert-iq-agent-pack/` with `README.assert-iq.html` as the landing page, and refreshes stale current-version banners across the README family. |
+| **1.2.0** | **Token economy: ~15–20% lighter always-on stack.** Shared rules (Core principles, Maturity awareness, Governance, Output standards) consolidated into `.github/instructions/qi-foundation.instructions.md`; `.github/copilot-instructions.md`, `CLAUDE.md`, and `AGENTS.md` rewritten as thin pointers (Copilot path: 6,617 → 5,128 chars; Claude path: 9,630 → 7,977 chars per turn). Workspace-topology mechanics (fetch fallback chain, UNGRADED contract) moved out of the always-on `qi-foundation.instructions.md` into a new lazy-loaded reference doc `.assert-iq/workspace-topology.md` that only gets pulled when `workspace.role != monorepo` — monorepo users (the default) no longer carry split-repo prose on every prompt. Two heaviest skill descriptions trimmed: `code-review` (1,147 → 520 chars), `eval-optimizer` (1,023 → 584 chars), `generate-hotspot-map` (435 → 292 chars); skill bodies untouched. Net always-on savings: roughly **670 tokens/turn (Copilot)** and **715 tokens/turn (Claude)** plus **~300 tokens** off the skill-routing block — zero behavior change, every rule that loaded before still loads, just from a new home. The seven cross-repo skills (`risk-assess-pr`, `check-merge`, `release-confidence`, `code-review`, `check-test-coverage`, `generate-traceability-matrix`, `analyze-escaped-defect`) plus `generate-hotspot-map` now point to `.assert-iq/workspace-topology.md` for the full contract. |
 
 Tag releases. Keep a CHANGELOG in `.assert-iq/CHANGELOG.md`.
 

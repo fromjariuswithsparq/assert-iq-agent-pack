@@ -106,8 +106,9 @@ editing required.
     Change-layer drill-down in the Five Whys chain, and the
     "responsible code path" both live in the **prod repo**. When
     `role=tests`, fetch these from `workspace.companion_repo` via
-    MCP → local path → manual paste per qi-foundation § Workspace
-    topology. If the companion is unavailable, mark the Change
+    MCP → local path → manual paste per
+    `.assert-iq/workspace-topology.md`. If the companion is
+    unavailable, mark the Change
     layer (and any Five Whys link that depends on prod-side
     evidence) as UNGRADED with
     `reason: "companion_repo_unset"`; do **not** infer the
