@@ -132,7 +132,7 @@ signal alone.
     rather than silently using stale data.
 
 12. **PII / sensitive-data redaction** — inherits
-    `bug_reporter.redaction_rules`. Used when summarising defect
+    `bug_reporter.pii_redaction_extras`. Used when summarising defect
     titles in the registry; verbatim quoting is forbidden.
 
 13. **Workspace topology** — inherits
@@ -254,7 +254,7 @@ treated as evidence of low risk.
    weight). Severity weights default to `{critical: 4, high: 3,
    medium: 2, low: 1}`; override via
    `hotspot_map.defect_density.severity_weights`.
-5. Apply `bug_reporter.redaction_rules` to any defect titles that
+5. Apply `bug_reporter.pii_redaction_extras` to any defect titles that
    surface in the registry.
 
 ### Step 4 — Compute HRI per module
@@ -348,7 +348,7 @@ The "Suggested control" column is advisory text. Consumer skills
 - **Do not distribute defects evenly** across modules when mapping
   fails. Exclude with a logged reason.
 - **Do not expose verbatim defect descriptions** in the registry —
-  apply `bug_reporter.redaction_rules`.
+  apply `bug_reporter.pii_redaction_extras`.
 - **Do not invent a registry** when the workspace is `tests` and
   the companion repo is unreachable. Volatility is UNGRADED;
   output a partial-signal registry with the reason.

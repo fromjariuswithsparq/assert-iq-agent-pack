@@ -94,6 +94,9 @@ maturity:
 # -----------------------------------------------------------------------------
 tracker:
   type: "github"        # options: github | ado | jira | linear | none
+  system: "github"      # alias used by hotspot-map, release-confidence and other
+                        # skills; mirror of `type` (github | ado | jira | linear |
+                        # markdown_only | none).
 
   # regression_area_path: where new regression-test work items land.
   # e.g. "qe/regression", "area-path/Quality", "team:platform-qe"
@@ -134,12 +137,10 @@ tracker:
   # none: {}                           # traceability comments will be omitted
 
 
-# -----------------------------------------------------------------------------
-# BUG REPORTER
-# -----------------------------------------------------------------------------
-bug_reporter:
-  # auto_create_threshold: when to automatically create a tracker item for logic regressions.
-  auto_create_threshold: "ask"         # options: always | ask | never
+# Note: the full BUG REPORTER block lives further down (search for
+# `^bug_reporter:`). It was previously declared twice at top-level; the
+# duplicate stub here silently overrode the full block under strict YAML
+# loaders, dropping every field except `auto_create_threshold`. Removed.
 
 
 # -----------------------------------------------------------------------------
@@ -208,16 +209,19 @@ pr:
 # -----------------------------------------------------------------------------
 traceability:
   marker_style: "generic"   # options:
-                            #   generic    → // qi-trace: <WORK-ITEM>
-                            #   csharp_xml → /// <qi-trace work-item="AB#1234" />
-                            #   javadoc    → /** @qi-trace AB#1234 */
-                            #   jsdoc      → /** @qi-trace JIRA-1234 */
-                            #   python_doc → """:qi-trace: JIRA-1234"""
+                            #   generic      → // qi-trace: <WORK-ITEM>
+                            #   qi_trace_xml → /// <qi-trace work-item="AB#1234" />
+                            #                  (C# / XAML doc comments)
+                            #   javadoc      → /** @qi-trace AB#1234 */
+                            #   jsdoc        → /** @qi-trace JIRA-1234 */
+                            #   python_doc   → """:qi-trace: JIRA-1234"""
                             #   python_decorator → @qi_trace("JIRA-1234")
-                            #   go_comment → // qi-trace: GH-1234
-                            #   rust_doc   → /// qi-trace: LIN-1234
-                            #   ruby       → # qi-trace: SHORTCUT-1234
-                            #   swift_doc  → /// - qi-trace: PROJ-1234
+                            #   go_comment   → // qi-trace: GH-1234
+                            #   rust_doc     → /// qi-trace: LIN-1234
+                            #   ruby         → # qi-trace: SHORTCUT-1234
+                            #   swift_doc    → /// - qi-trace: PROJ-1234
+                            # Legacy alias: `csharp_xml` is accepted for one release
+                            # as a synonym of `qi_trace_xml`; prefer the new name.
 
   # Optional: regex the agent uses to detect markers across the codebase.
   # Leave blank to use the built-in detector for marker_style.

@@ -327,6 +327,63 @@ case_15_user_uninstall_removes_user_hooks() {
   cleanup_fixture "$pair"
 }
 
+# Stop hook with silent_on_zero_corrections=false and no signals must emit the
+# user-visible "no corrections detected this session." systemMessage envelope.
+# Regression guard: prior 15 cases only checked log lines, never the emitted JSON.
+case_16_stop_emits_systemMessage_when_announced() {
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  run_boot "$pair" --preset=pod --mode=committed --hooks=workspace --yes >/dev/null
+  python3 -c "import json; p='$ws/hooks/config/skill-improve.config.json'; c=json.load(open(p)); c.setdefault('behavior',{})['silent_on_zero_corrections']=False; json.dump(c, open(p,'w'), indent=2)"
+  local out
+  out=$(SKILL_IMPROVE_ROOT="$ws/hooks" bash "$ws/hooks/scripts/skill-improve-session-end.sh" \
+        <<<'{"session_id":"sid-ANN","hook_event_name":"Stop"}' 2>&1)
+  echo "$out" | grep -q '"systemMessage":"skill-improve: no corrections detected this session."' \
+    || fail 16 "expected systemMessage envelope, got: $out"
+  echo "$out" | grep -q '"continue":true' || fail 16 "missing continue:true: $out"
+  cleanup_fixture "$pair"
+}
+
+# Stop hook with silent_on_zero_corrections=true must NOT emit a systemMessage.
+case_17_stop_silent_when_configured_silent() {
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  run_boot "$pair" --preset=pod --mode=committed --hooks=workspace --yes >/dev/null
+  python3 -c "import json; p='$ws/hooks/config/skill-improve.config.json'; c=json.load(open(p)); c.setdefault('behavior',{})['silent_on_zero_corrections']=True; json.dump(c, open(p,'w'), indent=2)"
+  local out
+  out=$(SKILL_IMPROVE_ROOT="$ws/hooks" bash "$ws/hooks/scripts/skill-improve-session-end.sh" \
+        <<<'{"session_id":"sid-SIL","hook_event_name":"Stop"}' 2>&1)
+  if echo "$out" | grep -q 'systemMessage'; then
+    fail 17 "expected no systemMessage when silent=true, got: $out"
+  fi
+  echo "$out" | grep -q '"continue":true' || fail 17 "missing continue:true: $out"
+  cleanup_fixture "$pair"
+}
+
+# Stop hook with a transcript containing a strong correction signal must emit
+# a decision:block envelope referencing the SKILL-IMPROVE task block.
+case_18_stop_emits_decision_block_when_corrections_detected() {
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  run_boot "$pair" --preset=pod --mode=committed --hooks=workspace --yes >/dev/null
+  local tx="$ws/hooks/sessions/.fake-transcript.jsonl"
+  mkdir -p "$ws/hooks/sessions"
+  printf '%s\n' \
+    '{"role":"assistant","content":"Scratch that — my mistake, the correct answer is different."}' \
+    '{"role":"assistant","content":"Apologize for the oversight; I should have checked first."}' \
+    > "$tx"
+  local payload
+  payload=$(python3 -c "import json,sys; print(json.dumps({'session_id':'sid-CORR','hook_event_name':'Stop','transcript_path':sys.argv[1]}))" "$tx")
+  local out
+  out=$(SKILL_IMPROVE_ROOT="$ws/hooks" bash "$ws/hooks/scripts/skill-improve-session-end.sh" <<<"$payload" 2>&1)
+  echo "$out" | grep -q '"decision":\s*"block"' \
+    || fail 18 "expected decision:block envelope when corrections fire, got: $out"
+  echo "$out" | grep -q 'SKILL-IMPROVE: sid-CORR' \
+    || fail 18 "expected SKILL-IMPROVE task block in reason, got: $out"
+  ok_contains 18 "$ws/hooks/logs/skill-improve.log" "Stop sid=sid-CORR corrections=true" || true
+  cleanup_fixture "$pair"
+}
+
 # ---- runner ----------------------------------------------------------------
 echo ""
 echo "=== Assert.IQ hooks E2E ==="
@@ -348,6 +405,9 @@ run_case "12 dedup is per-event"                   case_12_dedup_per_event
 run_case "13 dedup marker created under state/"    case_13_dedup_marker_created
 run_case "14 workspace/user installs isolated"     case_14_workspace_and_user_isolated
 run_case "15 --uninstall --user clears hooks"      case_15_user_uninstall_removes_user_hooks
+run_case "16 Stop emits systemMessage when announced" case_16_stop_emits_systemMessage_when_announced
+run_case "17 Stop silent when silent_on_zero=true"    case_17_stop_silent_when_configured_silent
+run_case "18 Stop emits decision:block on corrections" case_18_stop_emits_decision_block_when_corrections_detected
 
 echo ""
 echo "=== Summary ==="

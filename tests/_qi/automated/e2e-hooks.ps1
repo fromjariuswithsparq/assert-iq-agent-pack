@@ -176,6 +176,66 @@ Run-Case "15 --uninstall --user clears hooks" $Pattern {
     Invoke-CleanupFixture $pair $Keep
 }
 
+Run-Case "16 Stop emits systemMessage when announced" $Pattern {
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--hooks=workspace", "--yes") | Out-Null
+    $cfgPath = "$ws\hooks\config\skill-improve.config.json"
+    $cfg = Get-Content -Raw $cfgPath | ConvertFrom-Json
+    if (-not $cfg.behavior) { $cfg | Add-Member -NotePropertyName behavior -NotePropertyValue (New-Object PSObject) -Force }
+    $cfg.behavior | Add-Member -NotePropertyName silent_on_zero_corrections -NotePropertyValue $false -Force
+    $cfg | ConvertTo-Json -Depth 10 | Set-Content -Path $cfgPath -Encoding UTF8
+    $out = Invoke-RunHook $pair "hooks\scripts\skill-improve-session-end.ps1" "sid-ANN" @{ "SKILL_IMPROVE_ROOT" = "$ws\hooks" }
+    if ($out -notmatch '"systemMessage":"skill-improve: no corrections detected this session."') {
+        Fail 16 "expected systemMessage envelope, got: $out"
+    }
+    if ($out -notmatch '"continue":true') { Fail 16 "missing continue:true: $out" }
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "17 Stop silent when silent_on_zero=true" $Pattern {
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--hooks=workspace", "--yes") | Out-Null
+    $cfgPath = "$ws\hooks\config\skill-improve.config.json"
+    $cfg = Get-Content -Raw $cfgPath | ConvertFrom-Json
+    if (-not $cfg.behavior) { $cfg | Add-Member -NotePropertyName behavior -NotePropertyValue (New-Object PSObject) -Force }
+    $cfg.behavior | Add-Member -NotePropertyName silent_on_zero_corrections -NotePropertyValue $true -Force
+    $cfg | ConvertTo-Json -Depth 10 | Set-Content -Path $cfgPath -Encoding UTF8
+    $out = Invoke-RunHook $pair "hooks\scripts\skill-improve-session-end.ps1" "sid-SIL" @{ "SKILL_IMPROVE_ROOT" = "$ws\hooks" }
+    if ($out -match 'systemMessage') { Fail 17 "expected no systemMessage when silent=true, got: $out" }
+    if ($out -notmatch '"continue":true') { Fail 17 "missing continue:true: $out" }
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "18 Stop emits decision:block on corrections" $Pattern {
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--hooks=workspace", "--yes") | Out-Null
+    $sessionsDir = "$ws\hooks\sessions"
+    if (-not (Test-Path $sessionsDir)) { New-Item -ItemType Directory -Path $sessionsDir -Force | Out-Null }
+    $tx = "$sessionsDir\.fake-transcript.jsonl"
+    @(
+        '{"role":"assistant","content":"Scratch that - my mistake, the correct answer is different."}'
+        '{"role":"assistant","content":"Apologize for the oversight; I should have checked first."}'
+    ) | Set-Content -Path $tx -Encoding UTF8
+    $payload = (@{ session_id = "sid-CORR"; hook_event_name = "Stop"; transcript_path = $tx } | ConvertTo-Json -Compress)
+    $homeDir = $pair.home
+    $origHome = $env:HOME; $env:HOME = $homeDir
+    $origRoot = [Environment]::GetEnvironmentVariable("SKILL_IMPROVE_ROOT")
+    [Environment]::SetEnvironmentVariable("SKILL_IMPROVE_ROOT", "$ws\hooks")
+    try {
+        $out = $payload | & pwsh -NoProfile -File "$ws\hooks\scripts\skill-improve-session-end.ps1" 2>&1 | Out-String
+    } finally {
+        $env:HOME = $origHome
+        [Environment]::SetEnvironmentVariable("SKILL_IMPROVE_ROOT", $origRoot)
+    }
+    if ($out -notmatch '"decision":\s*"block"') { Fail 18 "expected decision:block envelope when corrections fire, got: $out" }
+    if ($out -notmatch 'SKILL-IMPROVE: sid-CORR') { Fail 18 "expected SKILL-IMPROVE task block in reason, got: $out" }
+    Assert-Contains 18 "$ws\hooks\logs\skill-improve.log" "Stop sid=sid-CORR corrections=true"
+    Invoke-CleanupFixture $pair $Keep
+}
+
 echo "`nSummary: $($global:CASES_PASS) pass, $($global:CASES_FAIL) fail"
 if ($global:CASES_FAIL -gt 0) {
     echo "Failures:"

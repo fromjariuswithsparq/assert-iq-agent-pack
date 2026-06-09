@@ -104,7 +104,7 @@ per the integrity rule — the skill never fabricates positive signal.
     comment.
 
 12. **PII / sensitive-data redaction** — inherits
-    `bug_reporter.redaction_rules`. Used when summarising escape
+    `bug_reporter.pii_redaction_extras`. Used when summarising escape
     defects in the Outcome layer; verbatim quoting is forbidden.
 
 13. **Platform notes** — deployment-model-agnostic. Works for
