@@ -386,9 +386,12 @@ _strip_managed_block() {
 
 write_exclude_block() {
   # Always-on writer for .git/info/exclude managed block. Two layers:
-  #   1) backup-globs (`*.assert-iq.pre-install`, `*.assert-iq.uninstall-saved`)
-  #      written in every mode — these are tool artifacts that must never
-  #      be committed regardless of trial vs committed install.
+  #   1) backup-globs (`*.assert-iq.pre-install`, `*.assert-iq.pre-tailor`,
+  #      `*.assert-iq.uninstall-saved`) written in every mode — these are
+  #      tool artifacts that must never be committed regardless of trial vs
+  #      committed install. `pre-tailor` snapshots are produced by the
+  #      `/assert-iq-tailor` skill, not by this script, but we exclude them
+  #      here so they never leak into git even if the skill ran first.
   #   2) per-path entries for workspace-scoped pack files — only when
   #      MODE == "trial" so the team-adoption (committed) path stays
   #      visible to git on purpose.
@@ -446,6 +449,7 @@ write_exclude_block() {
     # Layer 1: always-on backup-glob exclusions.
     printf '# Tool artifacts — never commit:\n'
     printf '*.assert-iq.pre-install\n'
+    printf '*.assert-iq.pre-tailor\n'
     printf '*.assert-iq.uninstall-saved\n'
     printf '.assert-iq/.skip-worktree-paths\n'
     printf '.assert-iq/.merge-result-shas\n'
@@ -629,6 +633,7 @@ uninstall_run() {
     echo "This will:"
     echo "  - delete files the bootstrap created in this workspace"
     echo "  - restore originals where the bootstrap modified your files (from .assert-iq.pre-install backups)"
+    echo "  - remove any /assert-iq-tailor snapshots (.assert-iq.pre-tailor)"
     echo "  - strip the trial-mode block from .git/info/exclude (if any)"
     echo "  - clear hooks/state/, hooks/logs/, hooks/sessions/ runtime data"
     if [[ $UNINSTALL_USER -eq 1 ]]; then
@@ -853,6 +858,19 @@ uninstall_run() {
       [[ -e "$d" ]] && remove_path "$d"
     done
   fi
+
+  # Sweep orphaned /assert-iq-tailor snapshots. These `*.assert-iq.pre-tailor`
+  # files are created by the tailor skill (not this script, so they aren't in
+  # the manifest). The pack files they snapshot are being removed above, so
+  # the snapshots are now meaningless — clean them up rather than leave litter.
+  # Confined to the dirs the tailor skill writes to, and the suffix is unique
+  # to our tooling, so this can't touch unrelated user files.
+  for d in "$WORKSPACE/.assert-iq" "$WORKSPACE/.github/instructions" "$WORKSPACE/.vscode"; do
+    [[ -d "$d" ]] || continue
+    while IFS= read -r snap; do
+      [[ -n "$snap" ]] && remove_path "$snap"
+    done < <(find "$d" -type f -name '*.assert-iq.pre-tailor' 2>/dev/null)
+  done
 
   # Remove now-empty parent dirs (bottom-up). Safe: rmdir refuses non-empty.
   if [[ $DRY_RUN -eq 0 ]]; then

@@ -218,6 +218,7 @@ skill the executing agent should invoke during implementation.
 | Open a PR | `/new-pull-request` |
 | Debug UI tests | `/debug-ui-tests` |
 | Bootstrap into a new workspace | `/assert-iq-bootstrap` |
+| Tailor / customize the pack to this repo | `/assert-iq-tailor` |
 
 ## Things you proactively raise
 

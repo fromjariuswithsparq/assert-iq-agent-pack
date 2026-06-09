@@ -34,7 +34,7 @@ The immediate impact:
 
 Assert.IQ is the accelerator. It drops a QI reasoning layer directly into **GitHub Copilot Chat** and **Claude Code** so teams don't have to learn a new tool or change their workflow. The IDE they already use becomes QI-aware.
 
-- **24 skills** covering the full QE lifecycle — test generation, code review, risk assessment, hotspot mapping, traceability matrices, release confidence, escaped-defect analysis, exploratory charters, and more.
+- **26 skills** covering the full QE lifecycle — test generation, code review, risk assessment, hotspot mapping, traceability matrices, release confidence, escaped-defect analysis, exploratory charters, and more.
 - **Two agents** (`Assert-IQ` for full execution, `Assert-IQ-PLAN` for plan-first workflows) with a built-in handoff button between them.
 - **Maturity-aware behavior** — a one-file config scales the pack from "early / manual generation only" to "higher / autonomous healing," meeting teams where they are.
 - **MCP wiring** to GitHub, ADO, Jira, Sentry, Grafana, Playwright, Slack, and 13 more tool surfaces — configured in one file, credentials kept in your OS keychain.
@@ -104,7 +104,7 @@ Bootstrap writes twelve surfaces into the workspace: `.assert-iq/`, `.github/ins
 > **Don't want trial mode? Want skills available in every workspace?**
 > Use `--preset=portable` instead. Skills install user-globally to
 > `~/.agents/skills/` (VS Code Copilot Chat) and `~/.claude/skills/`
-> (Claude Code), so every repo you open has the 24 QI skills available.
+> (Claude Code), so every repo you open has the 26 QI skills available.
 > Workspace footprint is minimal: just the Assert-IQ chat agent files
 > (`.github/agents/`, `.claude/agents/`) and the manifest — no
 > instructions, hooks, settings, or MCP config touch your repo.
@@ -130,7 +130,7 @@ To avoid confusion regarding what files land globally versus locally, here is a 
 |---|---|---|---|---|
 | `--preset=pod` (default) | **Workspace** (`.github/instructions/`) | **Workspace** (`.github/skills/`) | Full (12 configuration surfaces) | The entire team adopting Assert.IQ simultaneously in a shared repository. |
 | `--preset=solo` | **User-global** (`~/Library/..`) | **Workspace** (`.github/skills/`) | High (Skills & config, no instructions) | A single developer who wants the core QI reasoning rules active *everywhere*, but skills isolated strictly to this project. |
-| `--preset=portable` | *(Not installed)* | **User-global** (`~/.agents/skills/`) | Minimal (Chat agents & manifest only) | A developer who wants the 24 QI skills available in *any* repository without writing configs into the codebase. |
+| `--preset=portable` | *(Not installed)* | **User-global** (`~/.agents/skills/`) | Minimal (Chat agents & manifest only) | A developer who wants the 26 QI skills available in *any* repository without writing configs into the codebase. |
 
 > **Presets vs. Modes: What's the difference?**
 > - **Presets (`--preset`) control _Placement_:** Where do the files physically go on your hard drive? (Global OS directories vs. local workspace folders).
@@ -189,7 +189,7 @@ The agent pulls context from your connected tools and reasons through all four s
 .github/
   copilot-instructions.md     ← always-on QI reasoning rules for Copilot
   instructions/               ← scoped rule sheets (tests, C#/XAML, CI, etc.)
-  skills/                     ← 24 QI skills, one subfolder each
+  skills/                     ← 26 QI skills, one subfolder each
   agents/                     ← Assert-IQ and Assert-IQ-PLAN agent definitions
 .claude/
   agents/                     ← Claude Code subagent counterparts

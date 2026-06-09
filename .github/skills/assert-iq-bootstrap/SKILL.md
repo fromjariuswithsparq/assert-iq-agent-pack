@@ -38,7 +38,7 @@ ship into the target repo.
 |---|---|
 | `.assert-iq/` | Per-client config: `config.yaml`, `governance.md`, `maturity-profile.md`, `signal-schema.json` |
 | `.github/instructions/*.instructions.md` | Five QI rule sheets that load via `applyTo` globs |
-| `.github/skills/` | All 24 QI skills — Copilot Chat reads them from this workspace path |
+| `.github/skills/` | All 26 QI skills — Copilot Chat reads them from this workspace path |
 | `.github/agents/` | `Assert-IQ.agent.md` and `Assert-IQ-PLAN.agent.md` custom chat modes |
 | `.claude/agents/` | Claude Code subagent counterparts (`assert-iq.md`, `assert-iq-plan.md`) |
 | `.claude/skills` | Symlink to `../.github/skills` (copy fallback when symlinks unavailable) so Claude Code discovers the same skills |
@@ -175,6 +175,14 @@ disk are untouched.
 8. **Tell the user to reload the editor window** (VS Code: `⇧⌘P` →
    "Reload Window"; Claude Code: restart the session). Instruction
    files only get picked up after a reload.
+
+9. **Offer the tailoring pass.** Placement is done, but every file the
+   bootstrap copied still carries `<PLACEHOLDER>` values and
+   universal-template defaults. Tell the user the natural next step is
+   `/assert-iq-tailor`, which discovers their stack and customizes
+   `config.yaml`, governance, the maturity profile, the instruction
+   files, the skills, and `mcp.json` to this codebase. Bootstrap places
+   the pack; tailor makes it theirs.
 
 ## Flags reference
 

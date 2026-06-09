@@ -5,6 +5,45 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-06-09
+
+### Added
+- `assert-iq-tailor` skill (`/assert-iq-tailor`) — a guided, evidence-driven
+  customization pass that takes a freshly **placed** pack (from
+  `/assert-iq-bootstrap`) and **tailors** it to the host codebase. It
+  discovers the stack once (languages, test frameworks, CI system,
+  tracker, VCS host, API contracts, topology, sensitive paths,
+  traceability idiom), presents a Stack Profile at a human-review gate,
+  then edits the configurable surfaces in dependency order — keystone
+  `config.yaml` first, then `governance.md` + `maturity-profile.md`, the
+  five instruction files, a config-driven (light) skills pass, and
+  `mcp.json` last. Compliance regimes are **ask-only** (never inferred);
+  deep skill-body rewrites are opt-in and gated to `mid`/`higher`
+  maturity. Every edited file is snapshotted to
+  `<file>.assert-iq.pre-tailor` so the pass is reversible and idempotent.
+
+### Changed
+- `assert-iq-bootstrap` skill now closes with a handoff to
+  `/assert-iq-tailor` (placement → tailoring) and the surfaces table
+  reflects the new count.
+- Routing tables in both Copilot agents (`.github/agents/`) and both
+  Claude subagents (`.claude/agents/`) gain the `/assert-iq-tailor` row.
+- Skill count is now 26 in `.github/skills/`. Note: the published count
+  had drifted (narrative docs read 24, `MANIFEST.md` read 23); both are
+  reconciled to the true directory count here.
+- `bootstrap.sh` / `bootstrap.ps1` now treat `*.assert-iq.pre-tailor`
+  snapshots as managed tool artifacts: the glob is added to the always-on
+  `.git/info/exclude` block (so tailor snapshots never leak into git), and
+  `--uninstall` sweeps any leftover `*.assert-iq.pre-tailor` files under
+  `.assert-iq/`, `.github/instructions/`, and `.vscode/` so a full
+  uninstall leaves no tailor litter behind. The uninstall confirmation
+  prompt lists this step.
+- HTML doc snapshots (`README.html`, `README.assert-iq.html`) refreshed:
+  skill count → 26, version → v1.3.0, and the install/customize guidance
+  now leads with the one-command `/assert-iq-tailor` flow (with a fixed
+  callout that was previously nested inside a table) plus a Setup section
+  in the skill registry.
+
 ## [1.2.0] — 2026-06-06
 
 ### Changed

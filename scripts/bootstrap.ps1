@@ -360,8 +360,10 @@ function Remove-ManagedBlockLines([string[]]$Lines) {
 
 function Write-ExcludeBlock {
     # Always-on writer for .git/info/exclude managed block. Two layers:
-    #   1) backup-globs (`*.assert-iq.pre-install`, `*.assert-iq.uninstall-saved`)
-    #      written in every mode — tool artifacts that must never be committed.
+    #   1) backup-globs (`*.assert-iq.pre-install`, `*.assert-iq.pre-tailor`,
+    #      `*.assert-iq.uninstall-saved`) written in every mode — tool
+    #      artifacts that must never be committed. `pre-tailor` snapshots come
+    #      from the /assert-iq-tailor skill, excluded here so they never leak.
     #   2) per-path entries for workspace-scoped pack files — only when
     #      $Mode -eq 'trial' so committed-mode adoption stays visible to git.
     $excl = Get-ExcludeFilePath
@@ -411,6 +413,7 @@ function Write-ExcludeBlock {
     # Layer 1: always-on backup-glob exclusions.
     $newLines.Add('# Tool artifacts — never commit:') | Out-Null
     $newLines.Add('*.assert-iq.pre-install') | Out-Null
+    $newLines.Add('*.assert-iq.pre-tailor') | Out-Null
     $newLines.Add('*.assert-iq.uninstall-saved') | Out-Null
     $newLines.Add('.assert-iq/.skip-worktree-paths') | Out-Null
     $newLines.Add('.assert-iq/.merge-result-shas') | Out-Null
@@ -605,6 +608,7 @@ function Invoke-Uninstall {
             Write-Host 'This will:'
             Write-Host '  - delete files the bootstrap created in this workspace'
             Write-Host '  - restore originals where the bootstrap modified your files (from .assert-iq.pre-install backups)'
+            Write-Host '  - remove any /assert-iq-tailor snapshots (.assert-iq.pre-tailor)'
             Write-Host '  - strip the trial-mode block from .git/info/exclude (if any)'
             Write-Host '  - clear hooks/state, hooks/logs, hooks/sessions runtime data'
             if ($User) {
@@ -784,6 +788,23 @@ function Invoke-Uninstall {
                 (Join-Path $userHooksRuntime 'logs'),
                 (Join-Path $userHooksRuntime 'sessions'))) {
             if (Test-Path -LiteralPath $d) { Remove-PathOrDir $d }
+        }
+    }
+
+    # Sweep orphaned /assert-iq-tailor snapshots. These *.assert-iq.pre-tailor
+    # files are created by the tailor skill (not this script, so they aren't in
+    # the manifest). The pack files they snapshot are being removed above, so
+    # the snapshots are now meaningless — clean them up rather than leave litter.
+    # Confined to the dirs the tailor skill writes to, and the suffix is unique
+    # to our tooling, so this can't touch unrelated user files.
+    foreach ($d in @(
+            (Join-Path $Workspace '.assert-iq'),
+            (Join-Path $Workspace '.github\instructions'),
+            (Join-Path $Workspace '.vscode'))) {
+        if (Test-Path -LiteralPath $d -PathType Container) {
+            foreach ($snap in (Get-ChildItem -LiteralPath $d -Recurse -File -Filter '*.assert-iq.pre-tailor' -ErrorAction SilentlyContinue)) {
+                Remove-PathOrDir $snap.FullName
+            }
         }
     }
 

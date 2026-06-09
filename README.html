@@ -445,7 +445,7 @@
   <div class="features">
     <div class="feature">
       <div class="feature-icon" aria-hidden="true">⚡</div>
-      <h4>24 Skills</h4>
+      <h4>26 Skills</h4>
       <p>Test generation, code review, risk assessment, hotspot mapping, traceability matrices, release confidence, escaped-defect analysis, exploratory charters, and more.</p>
     </div>
     <div class="feature">
@@ -533,7 +533,7 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
 
       <div class="callout" style="margin-top:16px;">
         <strong>Don't want trial mode? Want skills in every workspace?</strong>
-        <p style="margin:6px 0 8px 0;">Use <code>--preset=portable</code>. Skills install user-globally to <code>~/.agents/skills/</code> (VS Code Copilot Chat) and <code>~/.claude/skills/</code> (Claude Code), so every repo you open has the 24 QI skills available. Workspace footprint is minimal — only the Assert-IQ chat agent files (<code>.github/agents/</code>, <code>.claude/agents/</code>) and the manifest land in the repo; no instructions, hooks, settings, or MCP config.</p>
+        <p style="margin:6px 0 8px 0;">Use <code>--preset=portable</code>. Skills install user-globally to <code>~/.agents/skills/</code> (VS Code Copilot Chat) and <code>~/.claude/skills/</code> (Claude Code), so every repo you open has the 26 QI skills available. Workspace footprint is minimal — only the Assert-IQ chat agent files (<code>.github/agents/</code>, <code>.claude/agents/</code>) and the manifest land in the repo; no instructions, hooks, settings, or MCP config.</p>
 <pre><code>bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --preset=portable</code></pre>
         <p style="font-size:0.88em;margin:6px 0 0 0;">Reverse with <code>bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --uninstall --user</code>.</p>
       </div>
@@ -562,7 +562,7 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
         <tbody>
           <tr><td><code>--preset=pod</code> (default)</td><td><strong>Workspace</strong> (<code>.github/instructions/</code>)</td><td><strong>Workspace</strong> (<code>.github/skills/</code>)</td><td>Full (12 config surfaces)</td><td>The entire team adopting Assert.IQ simultaneously in a shared repository.</td></tr>
           <tr><td><code>--preset=solo</code></td><td><strong>User-global</strong> (OS config dir)</td><td><strong>Workspace</strong></td><td>High (Skills &amp; config)</td><td>A single developer who wants core QI rules active everywhere, but skills isolated dynamically.</td></tr>
-          <tr><td><code>--preset=portable</code></td><td><em>(Not installed)</em></td><td><strong>User-global</strong> (<code>~/.agents/skills/</code>)</td><td>Minimal (Manifest &amp; agents only)</td><td>A developer who wants the 24 QI skills available in <em>any</em> repository without writing configs into the codebase.</td></tr>
+          <tr><td><code>--preset=portable</code></td><td><em>(Not installed)</em></td><td><strong>User-global</strong> (<code>~/.agents/skills/</code>)</td><td>Minimal (Manifest &amp; agents only)</td><td>A developer who wants the 26 QI skills available in <em>any</em> repository without writing configs into the codebase.</td></tr>
         </tbody>
       </table>
 
@@ -578,20 +578,22 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
     </div>
 
     <div class="step">
-      <h3 id="customize-and-wire-everything-in">Customize and wire everything in</h3>
-      <h4>Set your maturity tier</h4>
-      <p>Open <code>.assert-iq/maturity-profile.md</code> and choose <strong>Early</strong>, <strong>Mid</strong>, or <strong>Higher</strong>. Agents read this on every quality and release question and scale their behavior accordingly.</p>
+      <h3 id="customize-and-wire-everything-in">Tailor the pack to your codebase</h3>
+      <p>Bootstrap <em>places</em> the pack; one command <em>tailors</em> it. In Copilot Chat (or Claude Code), select the <code>Assert-IQ</code> agent and run:</p>
+<pre><code>/assert-iq-tailor</code></pre>
+      <p>It scans your workspace once, shows you what it detected, then customizes every configurable surface <strong>in the right order</strong> — gated by your review:</p>
+      <ul style="font-size:0.92em;color:var(--text-dim);padding-left:20px;">
+        <li><strong><code>.assert-iq/config.yaml</code></strong> — the keystone. Tracker, VCS, test frameworks &amp; run commands, traceability marker, sensitive paths. Every skill reads from here, so filling it once flows into all 26.</li>
+        <li><strong><code>.assert-iq/governance.md</code></strong> &amp; <strong><code>maturity-profile.md</code></strong> — compliance posture (ask-only, never inferred) and your Early / Mid / Higher tier.</li>
+        <li><strong>The five instruction files</strong> — traceability marker, CI signal-emission, and test-design examples aligned to your stack.</li>
+        <li><strong><code>.vscode/mcp.json</code></strong> — keeps the MCP servers your stack needs, comments out the rest. Secrets stay as <code>${input:…}</code> prompts.</li>
+      </ul>
+      <p style="font-size:0.92em;">Every file it edits is snapshotted to <code>&lt;file&gt;.assert-iq.pre-tailor</code> first, so the pass is reversible and safe to re-run. Review the <code>git diff</code> before committing — AI-tailored config is a draft pending your sign-off.</p>
 
-      <h4>Set your governance posture</h4>
-      <p>Open <code>.assert-iq/governance.md</code> — compliance constraints the agents must respect (data handling, naming, refusal rules).</p>
-
-      <h4>Wire your tools</h4>
-      <p>The pack ships 20 pre-configured MCP servers in <code>.vscode/mcp.json</code>. Add credentials when VS Code prompts — they go to your OS keychain, not the file. See <a href="MCP.html">.vscode/MCP.html</a> for a per-server setup guide.</p>
-
-      <h4>Tailor <code>config.yaml</code></h4>
-      <p>Open <code>.assert-iq/config.yaml</code>. Edit manually — every field has inline comments — or attach the file to chat and say:</p>
-<pre><code>Customize this config.yaml file to my codebase and workspace.</code></pre>
-      <p style="font-size:0.92em;">The agent will ask a few targeted questions about your stack, tracker, and team, then fill in the placeholders.</p>
+      <div class="callout" style="margin-top:16px;margin-bottom:16px;">
+        <strong>Prefer to do it by hand?</strong>
+        <p style="margin:6px 0 0 0;font-size:0.92em;">Every file has inline comments — open <code>.assert-iq/config.yaml</code>, <code>governance.md</code>, and <code>maturity-profile.md</code> and edit directly. <code>/assert-iq-tailor</code> just does a thorough first pass for you; you stay in control of the result.</p>
+      </div>
 
       <h4>Pick your workspace topology</h4>
       <table>
@@ -603,22 +605,13 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
           <tr><td>This repo = prod; tests elsewhere</td><td><code>prod</code></td><td>Set <code>workspace.companion_repo</code> to tests repo</td></tr>
           <tr><td>This repo = tests; prod elsewhere</td><td><code>tests</code></td><td>Set <code>workspace.companion_repo</code> to prod repo</td></tr>
         </tbody>
-      <div class="callout" style="margin-top:16px;">
-        <strong>Presets vs. Modes: What's the difference?</strong>
-        <ul style="margin-top:8px;padding-left:20px;font-size:0.92em;color:var(--text-dim);">
-          <li style="margin-bottom:6px;"><strong>Presets (<code>--preset</code>) control <em>Placement</em>:</strong> Where do the files physically go on your hard drive? (Global OS directories vs. local workspace folders).</li>
-          <li><strong>Modes (<code>--mode</code>) control <em>Git Visibility</em>:</strong> For the files that <em>do</em> land in your workspace, how does git treat them?</li>
-        </ul>
-        <p style="margin:8px 0 0 0;font-size:0.92em;">You mix and match them. For example, <code>--preset=pod --mode=trial</code> means <em>"Put everything in my workspace (pod), but hide them in `.git/info/exclude` so I can evaluate them locally without bothering my team (trial)."</em></p>
-        <p style="margin:8px 0 0 0;font-size:0.92em;">Once you're ready to share with the team, you use <code>--mode=committed</code> (or run <code>--graduate</code>), meaning <em>"Keep the files in the workspace, but now let git track them so my team sees them."</em></p>
-      </div>
       </table>
       <p style="font-size:0.92em;">When the companion isn't set, the affected layer is reported as <strong>UNGRADED</strong> with reason <code>companion_repo_unset</code> &mdash; never fabricated. Full contract in <a href=".assert-iq/workspace-topology.md"><code>.assert-iq/workspace-topology.md</code></a>.</p>
     </div>
 
     <div class="step">
       <h3 id="run-a-skill">Run a skill</h3>
-      <p>In Copilot Chat, select the <code>Assert-IQ</code> agent and try:</p>
+      <p>With the pack tailored, put it to work. In Copilot Chat, select the <code>Assert-IQ</code> agent and try:</p>
 <pre><code>/risk-assess-pr</code></pre>
       <p>The agent pulls context from your connected tools and reasons through all four signal layers.</p>
     </div>
@@ -631,7 +624,7 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
   <pre class="tree"><span class="dir">.github/</span>
   <span class="file">copilot-instructions.md</span>     <span class="comment">← always-on QI reasoning rules</span>
   <span class="dir">instructions/</span>               <span class="comment">← scoped rule sheets (tests, C#/XAML, CI…)</span>
-  <span class="dir">skills/</span>                     <span class="comment">← 24 QI skills, one subfolder each</span>
+  <span class="dir">skills/</span>                     <span class="comment">← 26 QI skills, one subfolder each</span>
   <span class="dir">agents/</span>                     <span class="comment">← Assert-IQ &amp; Assert-IQ-PLAN agents</span>
 <span class="dir">.claude/</span>
   <span class="dir">agents/</span>                     <span class="comment">← Claude Code subagent counterparts</span>

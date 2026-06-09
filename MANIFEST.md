@@ -90,7 +90,7 @@ is there — your file browser is filtering it.
 ---
 
 **Pack root**: `assert-iq-agent-pack/`
-**Skill count**: 23 (in `.github/skills/`)
+**Skill count**: 26 (in `.github/skills/`)
 **Instruction count**: 5 (in `.github/instructions/`)
 **Agents (Copilot)**: 2 (in `.github/agents/`) — `Assert-IQ` (default), `Assert-IQ-PLAN` (planner)
 **Subagents (Claude)**: 2 (in `.claude/agents/`) — `assert-iq`, `assert-iq-plan`

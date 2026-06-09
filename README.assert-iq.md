@@ -24,7 +24,7 @@ The pack operationalizes Sparq's Quality Intelligence framework:
 
 - The four-layer signal model (Change → Protection → Trust → Outcome →
   Decision Confidence) is loaded as Copilot's reasoning lens on every interaction.
-- 24 skills cover the QE lifecycle: planning, development, review, execution,
+- 26 skills cover the QE lifecycle: planning, development, review, execution,
   decision, and post-incident learning.
 - A QI Advisor chat mode provides maturity-aware coaching.
 - MCP wiring connects to ADO or Jira and to GitHub for first-class
@@ -176,7 +176,7 @@ the start).
 If you'd rather not put the full pack into your workspace (not even in
 trial mode), use `--preset=portable`. Skills install to
 `~/.agents/skills/` (VS Code Copilot Chat) and `~/.claude/skills/`
-(Claude Code) so every workspace you open has the 24 QI skills
+(Claude Code) so every workspace you open has the 26 QI skills
 available. Workspace footprint shrinks to just the Assert-IQ chat
 agent files (`.github/agents/`, `.claude/agents/`) and the install
 manifest — no instructions, hooks, settings, MCP config, or `CLAUDE.md`
@@ -211,7 +211,7 @@ aren't physically present in the workspace, so all of them ship in.
 | `.assert-iq/governance.md` | Compliance posture — varies by client / regulatory regime. |
 | `.assert-iq/maturity-profile.md` | Tier rationale — team-specific. |
 | `.github/copilot-instructions.md` + `.github/instructions/qi-*.instructions.md` | Copilot reads these only from the workspace; their `applyTo` globs scope to repo files. |
-| `.github/skills/` | All 24 QI skills — Copilot Chat reads them from this workspace path. |
+| `.github/skills/` | All 26 QI skills — Copilot Chat reads them from this workspace path. |
 | `.github/agents/` | `Assert-IQ.agent.md` and `Assert-IQ-PLAN.agent.md` custom chat modes. |
 | `.claude/agents/` | Claude Code subagent counterparts (`assert-iq.md`, `assert-iq-plan.md`). |
 | `.claude/skills` | Symlink to `../.github/skills` (copy fallback on Windows without Developer Mode) so Claude Code discovers the same skills. |
@@ -307,7 +307,7 @@ Upgrades are an explicit, intentional act. To move to a later tag:
 
 The installer creates `.claude/skills` as a **directory symlink** pointing
 at `../.github/skills/`, so Copilot and Claude share one canonical copy of
-the 24 skills. Behavior varies by platform:
+the 26 skills. Behavior varies by platform:
 
 | Platform | What happens | What you need to do |
 |---|---|---|

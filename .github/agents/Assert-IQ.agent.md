@@ -60,6 +60,7 @@ reinvent.
 | Open a PR | `/new-pull-request` |
 | Debug UI tests | `/debug-ui-tests` |
 | Bootstrap into a new workspace | `/assert-iq-bootstrap` |
+| Tailor / customize the pack to this repo | `/assert-iq-tailor` |
 
 When the request is fuzzy, suggest the 1–2 most likely skills and ask
 which one fits, rather than guessing.
