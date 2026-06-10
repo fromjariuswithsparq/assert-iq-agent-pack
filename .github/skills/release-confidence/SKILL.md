@@ -384,11 +384,38 @@ not just line coverage gaming), Protection upgrades → stronger GO."
 ```
 ---
 
+## HTML rendering (required deliverable)
+
+Every Release Confidence Report must ALSO be produced as a standalone,
+self-contained HTML file, in addition to the Markdown. This is the
+preferred artifact for Go/No-Go meetings and for sharing.
+
+- **Template (authoritative):** reproduce
+  [`references/release-confidence-template.html`](references/release-confidence-template.html)
+  exactly — keep the `<style>` block verbatim and swap only the
+  `{{TOKEN}}` content. Do not invent a new layout; this is the
+  approved look and feel.
+- **Verdict color:** set the `.verdict` background to `var(--go)`
+  (GO), `var(--gomit)` (GO-WITH-MITIGATION), or `var(--hold)` (HOLD).
+  Match each layer's bar width/color to its band (High ≈ 85% green,
+  Medium ≈ 55% orange, Low ≈ 28% red; unable-to-assess uses the
+  `s-na` pill).
+- **Self-contained:** inline CSS only, no external assets, print/PDF
+  friendly. Save next to the Markdown report (same `release.report_path`
+  directory) as `release-confidence-<release-id>.html`.
+- **Redaction:** never embed PII, driver/consignee data, COD/payment
+  values, secrets, or employee IDs in the HTML. For external audiences,
+  generalize client/work-item specifics on request.
+
+
 ## Output
 
 - A `release-confidence-<release-id>.md` (or `release.report_path`)
   containing the full report shell from Step 6, including any
   partial-signal mode header and operational-readiness section.
+- A standalone `release-confidence-<release-id>.html` rendered from
+  [`references/release-confidence-template.html`](references/release-confidence-template.html)
+  (see **HTML rendering** above) — the meeting-ready artifact.
 - When `release.compliance_lock` is `release_freeze` or
   `regulatory`: an immutable copy of the report tagged with the
   release identifier (plus `.sha256` digest under `regulatory`)
