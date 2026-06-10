@@ -150,8 +150,11 @@ This skill assesses **release-level** confidence (multiple PRs, a release scope)
 ## Inputs
 
 - **Release identifier** — tag, branch, or build number
-- **Scope** — work items/features included (fetch via MCP; otherwise ask user)
+- **Scope** — explicit in-scope IDs by type: Epics, Features, User Stories, Bugs,
+  Tasks, and PRs (fetch via MCP; otherwise ask user to provide IDs or a query)
 - **Available signals** — what data sources are accessible (CI, coverage, telemetry, incident history)
+- **Evidence contract** — for each in-scope work item, capture at least one factual
+  evidence link (PR, file diff, test run, incident, or reviewer trace)
 
 ## Procedure
 
@@ -165,6 +168,24 @@ This skill assesses **release-level** confidence (multiple PRs, a release scope)
 | **Outcome evidence** | Prod telemetry, incident history, escaped defects | Recent incidents, error rate trends, SLO status |
 
 **If a signal source is unavailable:** Note it explicitly. Don't fabricate. Score that layer with reduced confidence.
+
+### Step 1A: Build the work-item evidence ledger (required)
+
+Before scoring, enumerate all in-scope items by type and map each to evidence:
+
+| Type | Required evidence |
+|---|---|
+| **Epic / Feature** | Child stories/tasks + PR mapping + impacted component summary |
+| **User Story** | Acceptance criteria status + covering tests (or explicit gap) |
+| **Bug** | State/severity + repro/escape relevance + fix/mitigation status |
+| **Task** | Delivery artifact or verification proof (code/test/config/doc) |
+| **PR** | Diff scope + review status + CI/test outcomes |
+
+Rules:
+1. Do not collapse types into a single aggregate bucket.
+2. Do not infer completion from parent-only status.
+3. If a type has zero items in scope, state `None in scope` explicitly.
+4. If any in-scope item lacks evidence, mark it `Unverified` and apply a confidence penalty.
 
 ### Step 2: Score each layer
 
@@ -204,9 +225,11 @@ Before computing verdict, check for patterns that invalidate surface metrics:
 
 | Verdict | Criteria |
 |---|---|
-| **GO** | All layers High, OR 3 High + 1 Medium with no red flags |
-| **GO-WITH-MITIGATION** | At least 2 High, no Low, mitigations address Medium areas |
-| **HOLD** | Any layer Low, OR unmitigatable red flag, OR multiple Medium + red flags |
+| **GO** | All layers High, OR 3 High + 1 Medium with no red flags, and all in-scope work-item types are evidence-complete (no `Unverified` items) |
+| **GO-WITH-MITIGATION** | At least 2 High, no Low, mitigations address Medium areas, and every `Unverified` item has a dated owner/action |
+| **HOLD** | Any layer Low, OR unmitigatable red flag, OR multiple Medium + red flags, OR missing evidence for in-scope work items without a credible mitigation plan |
+
+**Completeness gate:** A verdict cannot be based on a high-level sweep. It must cite item-level evidence across all in-scope types (Epic, Feature, Story, Bug, Task, PR), or explicitly state `None in scope` per type.
 
 **HOLD framing:** "What needs to happen before this ships" — list specific resolution criteria.
 
@@ -241,6 +264,17 @@ These don't override layer verdicts but can add mitigations to a GO verdict.
 | Protection | High/Med/Low | <coverage %, traceability, reviews> |
 | Signal trust | High/Med/Low | <pass rate, flakes, overrides, test age> |
 | Outcome evidence | High/Med/Low | <incidents, trends, or "unable to assess — no baseline"> |
+
+## Work-Item Evidence Ledger (required)
+
+| Type | In Scope Count | Assessed Count | Unverified Count | Evidence Links |
+|---|---:|---:|---:|---|
+| Epic | <n/none> | <n> | <n> | <links> |
+| Feature | <n/none> | <n> | <n> | <links> |
+| User Story | <n/none> | <n> | <n> | <links> |
+| Bug | <n/none> | <n> | <n> | <links> |
+| Task | <n/none> | <n> | <n> | <links> |
+| PR | <n/none> | <n> | <n> | <links> |
 
 ## Red Flags
 - [Flag]: [Evidence] → [Scoring impact]
@@ -300,6 +334,8 @@ If initial scan shows: all changes are low-criticality (UI copy, config, styling
 - All risk acceptances require a named person/role.
 - HOLD includes specific resolution criteria (not just "fix it").
 - Verdict must be justified by layer scores — no overriding the framework with "gut feel."
+- Verdict conclusion must include item-level evidence across all in-scope work-item types; high-level sweeps are not acceptable.
+- Any in-scope item without evidence is `Unverified` and must either block GO or be covered by explicit owner/date mitigation.
 
 ## Worked examples
 
