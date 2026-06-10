@@ -22,9 +22,20 @@
   • Repeat <tr> rows in the defects and mitigations tables as needed.
   • Drop any section that does not apply (e.g. no HOLD blockers on a GO).
   • Self-contained: no external assets. Print/PDF friendly (Cmd/Ctrl+P).
-  • REDACTION: do not embed PII, driver/consignee data, COD/payment values,
+  • WORK-ITEM LINKS: wrap every work-item ID in a clickable tracker link so
+    readers can open it directly. Build the href as {{ITEM_URL}} — the full
+    URL to that item in whatever tracker the team uses. Pick the form that
+    matches yours:
+      • Azure DevOps : https://<org>/<project>/_workitems/edit/<ID>
+      • Jira         : https://<base_url>/browse/<KEY>
+      • GitHub       : https://github.com/<owner>/<repo>/issues/<NUMBER>
+      • GitLab       : https://<base_url>/<group>/<project>/-/issues/<IID>
+      • other        : the tracker's canonical item/issue URL
+    Use class="wi" + target="_blank" rel="noopener" (see the defects row below).
+  • REDACTION: do not embed PII, customer/end-user data, payment values,
     secrets, or employee IDs. Work-item IDs and feature names are fine for
-    internal audiences; for external sharing, generalize per request.
+    internal audiences; for external sharing, generalize per request (and
+    drop the work-item links if the tracker is not reachable by the audience).
   ============================================================================
 -->
 <head>
@@ -81,6 +92,9 @@
   .t-p1{background:var(--p1)} .t-p2{background:var(--p2)} .t-p3{background:#6b6b76}
   .t-new{background:#8a8a94} .t-unassigned{background:#b5320e}
   code{background:#eef0f6;padding:1px 6px;border-radius:5px;font-size:12px;color:#3a3a44;font-family:'SF Mono',Consolas,monospace;}
+  a.wi{text-decoration:none;}
+  a.wi code{cursor:pointer;color:var(--info);border-bottom:1px dotted var(--info);transition:background .15s;}
+  a.wi:hover code{background:#dceaf8;}
   /* FLAGS / MITIGATION */
   ul.flags{list-style:none;padding:0;margin:0;}
   ul.flags li{padding:9px 0 9px 28px;position:relative;border-bottom:1px dashed var(--line);font-size:13.5px;}
@@ -159,8 +173,9 @@
   <table>
     <thead><tr><th>ID</th><th>Pri</th><th>State</th><th>Surface</th><th>Note</th></tr></thead>
     <tbody>
-      <!-- Repeat one <tr> per defect. Tag classes: t-p1/t-p2/t-p3, t-new, t-unassigned -->
-      <tr><td><code>{{ID}}</code></td><td><span class="tag t-p2">{{PRI}}</span></td><td><span class="tag t-unassigned">{{STATE}}</span></td><td><b>{{SURFACE}}</b></td><td>{{NOTE}}</td></tr>
+      <!-- Repeat one <tr> per defect. Tag classes: t-p1/t-p2/t-p3, t-new, t-unassigned.
+           Wrap the ID in a tracker link: href = {{ITEM_URL}} (full item URL — see header). -->
+      <tr><td><a class="wi" href="{{ITEM_URL}}" target="_blank" rel="noopener"><code>{{ID}}</code></a></td><td><span class="tag t-p2">{{PRI}}</span></td><td><span class="tag t-unassigned">{{STATE}}</span></td><td><b>{{SURFACE}}</b></td><td>{{NOTE}}</td></tr>
     </tbody>
   </table>
   <p style="font-size:12px;color:var(--muted);margin-top:8px;">{{DEFECTS_FOOTNOTE — scope of bugs reviewed}}</p>
@@ -190,7 +205,7 @@
   <table>
     <thead><tr><th>#</th><th>Mitigation</th><th>Owner</th><th>By When</th><th>Addresses</th></tr></thead>
     <tbody>
-      <!-- Repeat one <tr> per mitigation -->
+      <!-- Repeat one <tr> per mitigation. Link any work-item IDs: href = {{ITEM_URL}} -->
       <tr><td>1</td><td>{{MITIGATION}}</td><td>{{OWNER}}</td><td>{{BY_WHEN}}</td><td>{{ADDRESSES}}</td></tr>
     </tbody>
   </table>
