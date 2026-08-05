@@ -119,8 +119,20 @@ use.
 - **Traceability**: Every `/// <qi-trace />` comment must reference a work
   item that is resolvable via MCP. Unresolvable traces are flagged as a
   coverage gap, not counted as a pass.
-- **Audit log retention**: `hooks/sessions/` and `hooks/logs/` must be
-  retained for `<N days / sprints / quarters>` per your compliance posture.
+- **Dreaming write sandbox**: The `/dream` consolidation pass (and the
+  optional background dreamer) may write ONLY inside the memory store
+  (`.assert-iq/memory/`). Source code, config, and the `.github/instructions/*`
+  rule files are read-only during a dream — human-authored rules outrank
+  consolidated memory and are never modified by dreaming.
+- **Dreaming human review**: Every dream cycle produces a git-diffable change
+  to `.assert-iq/memory/`. Skim the diff per your review cadence; `git revert`
+  is the undo. Memory promoted to long-term must be multi-session-confirmed or
+  explicitly saved (guards against memory poisoning).
+- **Audit log retention**: The memory store `.assert-iq/memory/` (index,
+  topics, and daily logs under `logs/`) is retained for
+  `<N days / sprints / quarters>` per your compliance posture. Its git
+  visibility follows the install mode — committed installs track it (reviewable
+  diffs); trial installs keep it local-only via `.git/info/exclude`.
 
 
 ## 5. Approval

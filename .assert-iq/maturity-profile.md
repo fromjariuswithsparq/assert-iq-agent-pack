@@ -102,6 +102,7 @@ reflects your current selection above. Update it when the tier changes.
 | Automated test generation | enabled (mid+) / advisory (early) |
 | Risk assessment on PRs | enabled (mid+) / advisory (early) |
 | Agentic Healing | enabled in suggest-only mode (mid) / autonomous (higher) / disabled (early) |
+| Dreaming (memory consolidation) | manual `/dream` only (early) / gate nudge at session start, user-run (mid) / may auto-fire on gate + optional background service (higher) |
 | Release confidence reports | enabled (mid+) / disabled (early) |
 | Routing classifier flags manual ACs as automation candidates | enabled (higher only) |
 | Manual fallback produced even when AC routes to automation | enabled (early only) |

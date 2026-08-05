@@ -7,7 +7,7 @@
 # 1. Copy this file into the root of your repo at .assert-iq/config.yaml.
 # 2. Replace every <PLACEHOLDER> with your project's actual value.
 # 3. Delete or comment out sections for tools/features you don't use.
-# 4. Re-run the installer (install.sh / install.ps1) if hook paths changed.
+# 4. Re-run the installer (install.sh / install.ps1) if session-event paths changed.
 #
 # All fields are optional unless marked REQUIRED.
 # Uncomment the alternatives shown in # options: comments to switch modes.
@@ -84,6 +84,49 @@ workspace:
 maturity:
   tier: "early"         # options: early | mid | higher
   rationale: "<Why this tier? e.g. 'New team, building baseline coverage first.'>"
+
+
+# -----------------------------------------------------------------------------
+# DREAMING  — markdown memory consolidation (replaces the retired hooks feature)
+# -----------------------------------------------------------------------------
+# The waking loop records a one-line note per session into memory/logs/ and
+# increments a session counter. The /dream skill runs an offline consolidation
+# pass (Orient -> Gather -> Consolidate -> Prune & Index) that rewrites the
+# memory store, resolving contradictions, pruning stale entries, and keeping
+# MEMORY.md under the index cap. The dream pass may write ONLY inside the
+# memory store; instruction/rule files are immutable.
+#
+# Maturity gating mirrors Agentic Healing:
+#   early   → manual /dream only; review every diff.
+#   mid     → dual-gate nudge surfaces at session start; still user-run.
+#   higher  → may auto-fire on the next session start when the gate is met
+#             (and, if configured, the optional background service).
+# -----------------------------------------------------------------------------
+dreaming:
+  enabled: true
+
+  # memory_dir: where the long-term store lives. Git visibility follows your
+  # install mode: committed installs track it (every dream cycle is a
+  # reviewable diff); trial installs keep it local-only via .git/info/exclude
+  # (dreams update it autonomously, never seen by git). `--graduate` exposes it.
+  memory_dir: ".assert-iq/memory"
+
+  # index_max_lines: hard cap on MEMORY.md (the startup-loaded index).
+  index_max_lines: 200
+
+  # Dual-gate trigger: BOTH must be met before a dream is suggested.
+  gate:
+    min_hours_between_dreams: 24     # time gate
+    min_sessions_between_dreams: 5   # volume gate
+
+  # background_service: optional cron/post-session dreamer
+  # (.assert-iq/dreaming/service/dreaming_service.py). Off by default. The
+  # core /dream skill NEVER depends on this — it only activates when enabled
+  # here, tier is `higher`, and an Anthropic API key is present in the env.
+  background_service:
+    enabled: false
+    requires_env: "ANTHROPIC_API_KEY"
+    model: "claude-Opus-4-8"
 
 
 # -----------------------------------------------------------------------------
@@ -1057,10 +1100,10 @@ hotspot_map:
     - "**/.venv/**"
     - "**/vendor/**"
     - "**/generated/**"
-    # Runtime-generated hook output (not engineering churn)
-    - "hooks/sessions/**"
-    - "hooks/logs/**"
-    - "hooks/state/**"
+    # Dreaming memory store + raw stream (not engineering churn)
+    - ".assert-iq/memory/logs/**"
+    - ".assert-iq/memory/.dream/**"
+    - ".assert-iq/dreaming/**"
 
   # --- Volatility (V) signal ------------------------------------------------
   volatility:
