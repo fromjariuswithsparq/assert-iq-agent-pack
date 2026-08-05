@@ -45,8 +45,8 @@ ship into the target repo.
 | `CLAUDE.md` | Always-on QI guidance for Claude Code |
 | `.github/copilot-instructions.md` | Always-on QI guidance for Copilot |
 | `AGENTS.md` | Generic agent-spec pointer (Codex, Cursor, Aider) |
-| `.vscode/settings.json` + `.vscode/mcp.json` | Wires VS Code Copilot to read instructions, prompts, and **hooks** from the workspace; declares the GitHub / ADO / Jira MCP servers. **JSON deep-merged** if the user already has these files (additive; user's values win on scalar conflicts). |
-| `hooks/` (`scripts/`, `lib/`, `config/`, rendered `hooks.json`) | The hook scripts `chat.hookFilesLocations` points at. `hooks.json` is rendered with `__PACK_ROOT__` = workspace root so scripts resolve to the workspace copies. |
+| `.vscode/settings.json` + `.vscode/mcp.json` | Wires VS Code Copilot to read instructions, prompts, and **Dreaming session events** from the workspace; declares the GitHub / ADO / Jira MCP servers. **JSON deep-merged** if the user already has these files (additive; user's values win on scalar conflicts). |
+| `.assert-iq/dreaming/` + `.assert-iq/memory/` | The Dreaming machinery `chat.hookFilesLocations` points at, plus the markdown memory store. `session-events.json` is rendered with `__PACK_ROOT__` = workspace root so the scripts resolve to the workspace copies; the memory store is scaffolded alongside. |
 | `.claude/settings.json` | Claude Code reads the `hooks` block from here. Bootstrap merges only the `.hooks` key, preserving everything else. The Copilot side disables this file via `chat.hookFilesLocations` to avoid double-fire. |
 
 ## Install modes (trial vs committed)
@@ -88,11 +88,11 @@ disk are untouched.
    - **`portable`**: skills land user-globally at `~/.agents/skills/`
      (VS Code) and `~/.claude/skills/` (Claude Code). Workspace
      footprint shrinks to the Assert-IQ chat agent files and the
-     install manifest; instructions, hooks, settings, MCP config, and
+     install manifest; instructions, dreaming, settings, MCP config, and
      `CLAUDE.md` stay out of the repo. Best for users who don't want
      trial-mode pack files in their repo, or who want skills available
      in every workspace they open. Sets `--skills-scope=user` and skips
-     workspace surfaces (copilot/agents/vscode/hooks/claude-settings).
+     workspace surfaces (copilot/agents/vscode/dreaming/claude-settings).
 
 4. **If preset is chosen**, confirm and skip to step 6. Otherwise, walk
    through each surface and ask `workspace` / `user-global` / `skip`.
@@ -205,7 +205,7 @@ disk are untouched.
 | `--copilot` / `-Copilot` | `workspace`, `user` (→skip+warn), `skip` | preset default |
 | `--agents` / `-Agents` | `workspace`, `user` (→skip+warn), `skip` | preset default |
 | `--vscode` / `-VSCode` | `workspace`, `user` (→skip+warn), `skip` | `workspace` (both presets) |
-| `--hooks` / `-Hooks` | `workspace`, `skip` | `workspace` (both presets) |
+| `--dreaming` / `-Dreaming` (alias `--hooks` / `-Hooks`) | `workspace`, `skip` | `workspace` (both presets) |
 | `--claude-settings` / `-ClaudeSettings` | `workspace`, `skip` | `workspace` (both presets) |
 | `--workspace` / `-Workspace` | path | `$PWD` |
 | `--source` / `-Source` | path | `$CLAUDE_PLUGIN_ROOT` if set, else script's parent dir |

@@ -17,7 +17,7 @@ folder on their own.
 | `instructions/` | Extra rule sheets that switch on automatically when you open certain kinds of files (for example, when you're working on tests). |
 | `skills/` | Step-by-step playbooks Copilot can run when you ask. Each one is a little expert. Type `/` in chat to see them. Examples: `/generate-bug-report`, `/code-review`, `/risk-assess-pr`. |
 | `agents/` | Specialist agents you can pick from the chat agent dropdown. **`Assert-IQ`** is the default front door (full tools, routes to the right skill). **`Assert-IQ-PLAN`** is the read-only planning sibling — researches and writes a plan, then offers a **Start Implementation** button that hands off to `Assert-IQ`. |
-| `../hooks/hooks.json` + `../hooks/scripts/` | Small background scripts that fire when Copilot does things (like saving a file). They keep telemetry and help the pack learn from your sessions. You don't interact with these directly. |
+| `../.assert-iq/dreaming/` + `../.assert-iq/memory/` | The **Dreaming** feature: small background scripts that record session activity and nudge you to run `/dream`, plus the markdown memory store the agent consolidates over time. You don't interact with these directly. |
 
 ---
 
@@ -43,7 +43,7 @@ folder on their own.
 Yes. The same content is mirrored to the `.claude/` folder at the repo
 root. See [`.claude/claude-readme.md`](../.claude/claude-readme.md) for the Claude
 side. You can use either tool — they share the same skills, instructions,
-and hooks.
+and Dreaming memory.
 
 ---
 
@@ -59,11 +59,12 @@ bash install.sh --uninstall          # macOS / Linux / WSL
 pwsh ./install.ps1 -Uninstall        # Windows
 ```
 
-That removes `.claude/skills`, the rendered `hooks/hooks.json`, and the
-`hooks` key from `.claude/settings.json` (preserving any other keys you
-had). The committed pack files (`.github/`, `CLAUDE.md`, `AGENTS.md`,
-the `hooks/` scripts and template) remain — delete them or `git rm`
-them when you're done with the clone.
+That removes `.claude/skills`, the rendered
+`.assert-iq/dreaming/session-events.json`, and the `hooks` key from
+`.claude/settings.json` (preserving any other keys you had). Your
+`.assert-iq/memory/` store is preserved. The committed pack files
+(`.github/`, `CLAUDE.md`, `AGENTS.md`, the `.assert-iq/dreaming/`
+machinery) remain — delete them or `git rm` them when you're done with the clone.
 
 **Path B — codebase install** (`/assert-iq-bootstrap` or
 `bash scripts/bootstrap.sh --mode=trial` inside your target repo):
@@ -79,8 +80,9 @@ The uninstall reads `.assert-iq/.install-manifest.json`, restores any
 pre-existing files from their `<file>.assert-iq.pre-install` snapshots,
 removes pack-owned files (including `.github/skills/`, `.github/agents/`,
 `.claude/agents/`, and the `.claude/skills` symlink), strips the
-trial-mode block from `.git/info/exclude`, and clears `hooks/state`,
-`hooks/logs`, and `hooks/sessions`. Files you edited post-install are
+trial-mode block from `.git/info/exclude`, and removes the rendered
+`.assert-iq/dreaming/session-events.json` (the `.assert-iq/memory/` store
+is preserved). Files you edited post-install are
 preserved at `<file>.assert-iq.uninstall-saved` so nothing is silently
 lost.
 
@@ -106,12 +108,13 @@ specific set of paths. Eight surfaces have to live in the **workspace**
   if they're missing.
 - `.vscode/settings.json` + `.vscode/mcp.json` — wires Copilot to
   read instructions and prompts from `.github/`, and points
-  `chat.hookFilesLocations` at `./hooks/hooks.json`. JSON
+  `chat.hookFilesLocations` at `./.assert-iq/dreaming/session-events.json`. JSON
   deep-merged into any pre-existing files (additive — your scalar
   values win on conflicts; object keys union from both sides).
-- `hooks/` (`scripts/`, `lib/`, `config/`, `hooks.json`) — the hook
-  scripts themselves. `hooks.json` is rendered at bootstrap time so
-  the script paths resolve to the workspace copies.
+- `.assert-iq/dreaming/` (`scripts/`, `service/`, `session-events.template.json`)
+  — the Dreaming machinery. `session-events.json` is rendered at bootstrap
+  time so the script paths resolve to the workspace copies; the memory store
+  is scaffolded alongside at `.assert-iq/memory/`.
 - `.claude/settings.json` — Claude Code reads its `hooks` block from
   here. Bootstrap merges only the `hooks` key, preserving anything
   else you have.
@@ -136,7 +139,7 @@ clean uninstall.
 > `--preset=portable` (or `--skills-scope=user`) to land skills at
 > `~/.agents/skills/` (VS Code Copilot Chat). The workspace still gets
 > `.github/agents/`, `.claude/agents/`, and the install manifest, but
-> instructions, hooks, settings, and MCP config stay out.
+> instructions, dreaming, settings, and MCP config stay out.
 
 > If the cloned pack itself is open in VS Code, or its skills are
 > installed user-globally to `~/.agents/skills/`, the same wizard is

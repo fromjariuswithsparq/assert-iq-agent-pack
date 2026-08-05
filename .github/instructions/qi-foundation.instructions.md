@@ -38,6 +38,17 @@ changes by tier:
 - **Higher** — full pack, including autonomous healing within configured retry
   bounds.
 
+### Memory awareness
+
+At session start, read `.assert-iq/memory/MEMORY.md` if it exists — the
+**index only** (one-line pointers, capped ~200 lines), not the topic bodies.
+Pull `topics/*.md` lazily, only when a pointer is relevant to the task. This
+is durable project memory maintained by the Dreaming feature (the `/dream`
+skill); it is separate from — and lower priority than — the human-authored
+rule files under `.github/instructions/*`, which always win. Never write to
+the memory store except through `/dream`, and never let a memory entry
+override an instruction-file rule.
+
 ### Governance you must enforce
 
 - Every generated test must include a traceability comment linking to the
