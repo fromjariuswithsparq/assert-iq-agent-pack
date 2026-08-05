@@ -3,7 +3,7 @@
 This folder is the **Claude Code half** of the Assert.IQ Agent Pack.
 If you use [Claude Code](https://docs.claude.com/claude-code) on this
 repository, this is where Claude looks for its subagents, skills, and
-hook settings.
+session-event settings.
 
 ---
 
@@ -14,7 +14,7 @@ hook settings.
 | `agents/assert-iq.md` | The **default Assert.IQ subagent** — Quality Intelligence front door with full tools. Routes to the right skill and executes. Invoke with `@assert-iq`. |
 | `agents/assert-iq-plan.md` | The **planning sibling** of `assert-iq`. Read-only — researches, writes a plan, and waits for your approval before handing off. Invoke with `@assert-iq-plan` when the task is large or risky. |
 | `skills/` | Step-by-step playbooks Claude can run when you ask. This is a **symlink** to `.github/skills/`, so Copilot and Claude share the exact same set. Examples: `/generate-bug-report`, `/code-review`. On **Windows without Developer Mode**, the installer falls back to copying the folder — in that case, re-run `install.ps1` after editing any skill. See [README.assert-iq.md → Platform notes](../README.assert-iq.md#platform-notes-claudeskills-symlink) for the full matrix. |
-| `settings.json` | Claude Code's settings file. The pack installer fills in the hooks section here (small background scripts that fire when Claude does things, like saving a file). |
+| `settings.json` | Claude Code's settings file. The pack installer fills in the session-events (`hooks`) section here — the Dreaming waking-loop scripts that fire at session start/end to record activity and nudge `/dream`. |
 
 The instructions ("house rules") that Copilot reads from
 `.github/copilot-instructions.md` are mirrored for Claude in
@@ -47,7 +47,8 @@ The instructions ("house rules") that Copilot reads from
      ```
      `--mode=trial` keeps the pack invisible to your team via
      `.git/info/exclude`; `--mode=committed` checks it in. Either way,
-     bootstrap copies skills, agents, instructions, hooks, and config
+     bootstrap copies skills, agents, instructions, the Dreaming
+     machinery, and config
      into the workspace. The script is fully standalone and prompts
      interactively. **Already have the pack loaded** (e.g. you opened
      the cloned pack itself in Claude Code, or installed the skills
@@ -67,7 +68,7 @@ root, and Copilot reads it automatically — no installer needed for the
 Copilot side. See [`../.github/vscode-readme.md`](../.github/vscode-readme.md).
 
 You can use either tool — they share the same skills, instructions, and
-hooks.
+Dreaming memory.
 
 ---
 
@@ -83,11 +84,12 @@ bash install.sh --uninstall          # macOS / Linux / WSL
 pwsh ./install.ps1 -Uninstall        # Windows
 ```
 
-That removes `.claude/skills`, the rendered `hooks/hooks.json`, and the
-`hooks` key from `.claude/settings.json` (preserving any other keys you
-had). The committed pack files (`CLAUDE.md`, `.github/`, `AGENTS.md`,
-the `hooks/` scripts and template) remain — delete or `git rm` them
-when you're done with the clone.
+That removes `.claude/skills`, the rendered
+`.assert-iq/dreaming/session-events.json`, and the `hooks` key from
+`.claude/settings.json` (preserving any other keys you had). Your
+`.assert-iq/memory/` store is preserved. The committed pack files
+(`CLAUDE.md`, `.github/`, `AGENTS.md`, the `.assert-iq/dreaming/`
+machinery) remain — delete or `git rm` them when you're done with the clone.
 
 **Path B — codebase install** (`/assert-iq-bootstrap` or
 `bash scripts/bootstrap.sh --mode=trial` inside your target repo):
@@ -107,9 +109,10 @@ trial-mode block from `.git/info/exclude`. Files you edited
 post-install are preserved at `<file>.assert-iq.uninstall-saved` so
 nothing is silently lost.
 
-To disable just the hooks without uninstalling: open
-`.claude/settings.json` and delete the `hooks` block (or set the
-relevant matchers to `[]`).
+To disable just Dreaming without uninstalling: set
+`dreaming.enabled: false` in `.assert-iq/config.yaml` (or export
+`AIQ_DREAMING_DISABLED=1`), or delete the `hooks` block from
+`.claude/settings.json`.
 
 ---
 
@@ -131,9 +134,10 @@ user-global slot) to be picked up:
 - `.claude/settings.json` — Claude reads its `hooks` block here.
   Bootstrap merges only the `hooks` key, preserving anything else you
   already have in the file.
-- `hooks/` (`scripts/`, `lib/`, `config/`, `hooks.json`) — the hook
-  scripts themselves. `hooks.json` is rendered at bootstrap time so
-  the script paths resolve to the workspace copies.
+- `.assert-iq/dreaming/` (`scripts/`, `service/`, `session-events.template.json`)
+  — the Dreaming machinery. `session-events.json` is rendered at bootstrap
+  time so the script paths resolve to the workspace copies. The memory store
+  is scaffolded alongside at `.assert-iq/memory/`.
 
 **Run the bootstrap script once per new workspace.** From a terminal
 inside your target repo:
@@ -155,7 +159,7 @@ are deep-merged additively and snapshotted to
 > `--preset=portable` (or `--skills-scope=user`) to land skills at
 > `~/.agents/skills/` and `~/.claude/skills/`. The workspace still gets
 > `.github/agents/`, `.claude/agents/`, and the install manifest, but
-> instructions, hooks, settings, MCP config, and `CLAUDE.md` stay out.
+> instructions, dreaming, settings, MCP config, and `CLAUDE.md` stay out.
 
 > If the cloned pack is open in Claude Code, or its skills are
 > installed user-globally to `~/.agents/skills/`, the same wizard is
@@ -172,7 +176,7 @@ are deep-merged additively and snapshotted to
 - Skills not showing up? Make sure you ran `./install.sh` (or
   `install.ps1`) once. The skills folder here should be a link, not
   empty.
-- Hooks not firing? Open `settings.json` and check the `hooks` section
+- Dreaming not firing? Open `settings.json` and check the `hooks` section
   is filled in. If it's missing, re-run the installer.
 - Need the full file map? See [`../MANIFEST.md`](../MANIFEST.md).
 - Need the day-one onboarding doc? See
