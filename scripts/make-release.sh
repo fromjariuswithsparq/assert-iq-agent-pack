@@ -38,7 +38,7 @@ bump_doc_banners() {
     "README.html"
     "claude-readme.html"
     "vscode-readme.html"
-    "hooks-readme.html"
+    "dreaming-readme.html"
     "MCP.html"
   )
   local v='v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?'
@@ -144,9 +144,9 @@ if command -v python3 >/dev/null 2>&1 && [[ -x scripts/build-search-index.py ]];
   python3 scripts/build-search-index.py
 fi
 
-if ! git diff --quiet -- VERSION CHANGELOG.md README.md MANIFEST.md README.assert-iq.md README.assert-iq.html README.html claude-readme.html vscode-readme.html hooks-readme.html MCP.html assets/search-index.js 2>/dev/null; then
+if ! git diff --quiet -- VERSION CHANGELOG.md README.md MANIFEST.md README.assert-iq.md README.assert-iq.html README.html claude-readme.html vscode-readme.html dreaming-readme.html MCP.html assets/search-index.js 2>/dev/null; then
   echo ">> Committing release bump"
-  git add VERSION CHANGELOG.md README.md MANIFEST.md README.assert-iq.md README.assert-iq.html README.html claude-readme.html vscode-readme.html hooks-readme.html MCP.html assets/search-index.js
+  git add VERSION CHANGELOG.md README.md MANIFEST.md README.assert-iq.md README.assert-iq.html README.html claude-readme.html vscode-readme.html dreaming-readme.html MCP.html assets/search-index.js
   git commit -m "Release $TAG"
 fi
 

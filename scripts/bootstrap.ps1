@@ -53,7 +53,8 @@ param(
     [string]$VSCode = '',
 
     [ValidateSet('workspace', 'user', 'skip', '')]
-    [string]$Hooks = '',
+    [Alias('Hooks')]
+    [string]$Dreaming = '',
 
     [ValidateSet('workspace', 'skip', '')]
     [string]$ClaudeSettings = '',
@@ -417,10 +418,22 @@ function Write-ExcludeBlock {
     $newLines.Add('*.assert-iq.uninstall-saved') | Out-Null
     $newLines.Add('.assert-iq/.skip-worktree-paths') | Out-Null
     $newLines.Add('.assert-iq/.merge-result-shas') | Out-Null
+    # Dreaming per-machine artifacts — never commit in any mode:
+    $newLines.Add('.assert-iq/dreaming/session-events.json') | Out-Null
+    $newLines.Add('.assert-iq/memory/.dream/state.lock') | Out-Null
+    $newLines.Add('.assert-iq/memory/.dream/dream.lock') | Out-Null
+    $newLines.Add('transcripts/') | Out-Null
     # Layer 2: per-path entries (trial only).
     if ($Mode -eq 'trial' -and $rels.Count -gt 0) {
         $newLines.Add('# Trial-mode pack paths:') | Out-Null
         foreach ($r in $rels) { $newLines.Add($r) | Out-Null }
+    }
+    # Trial-mode: keep the entire Dreaming memory store local-only — dreams
+    # update it autonomously without ever appearing in git. Committed mode
+    # leaves it visible on purpose (every dream cycle is a reviewable diff).
+    if ($Mode -eq 'trial') {
+        $newLines.Add('# Trial-mode Dreaming memory (local-only, hidden from git):') | Out-Null
+        $newLines.Add('.assert-iq/memory/') | Out-Null
     }
     $newLines.Add($ExcludeEnd) | Out-Null
 
@@ -610,7 +623,7 @@ function Invoke-Uninstall {
             Write-Host '  - restore originals where the bootstrap modified your files (from .assert-iq.pre-install backups)'
             Write-Host '  - remove any /assert-iq-tailor snapshots (.assert-iq.pre-tailor)'
             Write-Host '  - strip the trial-mode block from .git/info/exclude (if any)'
-            Write-Host '  - clear hooks/state, hooks/logs, hooks/sessions runtime data'
+            Write-Host '  - remove the rendered .assert-iq/dreaming/session-events.json (the memory store is preserved)'
             if ($User) {
                 Write-Host '  - also remove user-scope copies in ~/.assert-iq, ~/.claude, and the user prompts dir'
             }
@@ -775,20 +788,16 @@ function Invoke-Uninstall {
         Invoke-Entry $e
     }
 
+    # Rendered session-events.json — per-machine, regenerated on next install.
+    # The memory store (.assert-iq/memory/) is deliberately NOT cleared here.
     foreach ($d in @(
-            (Join-Path $Workspace 'hooks\state'),
-            (Join-Path $Workspace 'hooks\logs'),
-            (Join-Path $Workspace 'hooks\sessions'))) {
+            (Join-Path $Workspace '.assert-iq\dreaming\session-events.json'),
+            (Join-Path $Workspace '.assert-iq\memory\.dream\state.lock'))) {
         if (Test-Path -LiteralPath $d) { Remove-PathOrDir $d }
     }
     if ($User) {
-        $userHooksRuntime = Join-Path $env:USERPROFILE '.agents\hooks'
-        foreach ($d in @(
-                (Join-Path $userHooksRuntime 'state'),
-                (Join-Path $userHooksRuntime 'logs'),
-                (Join-Path $userHooksRuntime 'sessions'))) {
-            if (Test-Path -LiteralPath $d) { Remove-PathOrDir $d }
-        }
+        $userEventsJson = Join-Path $env:USERPROFILE '.agents\.assert-iq\dreaming\session-events.json'
+        if (Test-Path -LiteralPath $userEventsJson) { Remove-PathOrDir $userEventsJson }
     }
 
     # Sweep orphaned /assert-iq-tailor snapshots. These *.assert-iq.pre-tailor
@@ -815,9 +824,9 @@ function Invoke-Uninstall {
             (Join-Path $Workspace '.github\skills'),
             (Join-Path $Workspace '.github\agents'),
             (Join-Path $Workspace '.claude\agents'),
-            (Join-Path $Workspace 'hooks'))
+            (Join-Path $Workspace '.assert-iq\dreaming'))
         if ($User) {
-            $treeRoots += @($userVscodeSkills, $userClaudeSkills, $userAssertIq, (Join-Path $env:USERPROFILE '.agents\hooks'))
+            $treeRoots += @($userVscodeSkills, $userClaudeSkills, $userAssertIq, (Join-Path $env:USERPROFILE '.agents\.assert-iq\dreaming'))
         }
         foreach ($tree in $treeRoots) {
             if ((Test-Path -LiteralPath $tree -PathType Container) -and `
@@ -832,7 +841,7 @@ function Invoke-Uninstall {
             }
         }
         $emptyDirs = @(
-            (Join-Path $Workspace 'hooks'),
+            (Join-Path $Workspace '.assert-iq\dreaming'),
             (Join-Path $Workspace '.vscode'),
             (Join-Path $Workspace '.claude\agents'),
             (Join-Path $Workspace '.claude\skills'),
@@ -976,7 +985,7 @@ switch ($Preset) {
         if (-not $Copilot)         { $Copilot         = 'workspace' }
         if (-not $Agents)          { $Agents          = 'workspace' }
         if (-not $VSCode)          { $VSCode          = 'workspace' }
-        if (-not $Hooks)           { $Hooks           = 'workspace' }
+        if (-not $Dreaming)        { $Dreaming        = 'workspace' }
         if (-not $ClaudeSettings)  { $ClaudeSettings  = 'workspace' }
         if (-not $SkillsScope)     { $SkillsScope     = 'workspace' }
     }
@@ -993,7 +1002,7 @@ switch ($Preset) {
         if (-not $Copilot)         { $Copilot         = 'skip' }
         if (-not $Agents)          { $Agents          = 'skip' }
         if (-not $VSCode)          { $VSCode          = 'skip' }
-        if (-not $Hooks)           { $Hooks           = 'skip' }
+        if (-not $Dreaming)        { $Dreaming        = 'skip' }
         if (-not $ClaudeSettings)  { $ClaudeSettings  = 'skip' }
         if (-not $SkillsScope)     { $SkillsScope     = 'user' }
     }
@@ -1005,7 +1014,7 @@ switch ($Preset) {
         if (-not $Copilot)         { $Copilot         = 'workspace' }
         if (-not $Agents)          { $Agents          = 'workspace' }
         if (-not $VSCode)          { $VSCode          = 'workspace' }
-        if (-not $Hooks)           { $Hooks           = 'workspace' }
+        if (-not $Dreaming)        { $Dreaming        = 'workspace' }
         if (-not $ClaudeSettings)  { $ClaudeSettings  = 'workspace' }
         if (-not $SkillsScope)     { $SkillsScope     = 'workspace' }
     }
@@ -1261,15 +1270,15 @@ function Merge-JsonFile {
     }
 }
 
-function Get-RenderedHooksJson {
+function Get-RenderedEventsJson {
     param([string]$PackRoot)
-    $template = Join-Path $Source 'hooks\hooks.template.json'
+    $template = Join-Path $Source '.assert-iq\dreaming\session-events.template.json'
     if (-not (Test-Path -LiteralPath $template)) { return '' }
-    $lib = Join-Path $Source 'hooks\scripts\lib\render-hooks.ps1'
+    $lib = Join-Path $Source '.assert-iq\dreaming\scripts\lib\render-events.ps1'
     if (-not (Test-Path -LiteralPath $lib)) { return '' }
     . $lib
     $tmp = [System.IO.Path]::GetTempFileName()
-    Render-HooksTemplate -Template $template -Out $tmp -PackRoot $PackRoot
+    Render-EventsTemplate -Template $template -Out $tmp -PackRoot $PackRoot
     return $tmp
 }
 
@@ -1372,99 +1381,72 @@ function Step-VSCode {
     }
 }
 
-function Step-Hooks {
-    # Workspace-root hooks/ is what .vscode/settings.json's chat.hookFilesLocations
-    # points at ("./hooks/hooks.json"). Renders hooks.json with __PACK_ROOT__ =
-    # $Workspace so scripts resolve to the workspace copies.
-    switch ($Hooks) {
+function Step-Dreaming {
+    # Installs the Dreaming machinery (.assert-iq/dreaming/), scaffolds the
+    # memory store (.assert-iq/memory/), and renders session-events.json, which
+    # .vscode/settings.json's chat.hookFilesLocations points at. Rendered with
+    # __PACK_ROOT__ = pack root so the scripts resolve even when
+    # CLAUDE_PLUGIN_ROOT is unset.
+    switch ($Dreaming) {
         'workspace' {
-            $hooksSrcDir = Join-Path $Source 'hooks'
-            if (-not (Test-Path -LiteralPath $hooksSrcDir -PathType Container)) {
-                Record 'hooks/' 'missing-source' $hooksSrcDir
+            $dreamSrcDir = Join-Path $Source '.assert-iq\dreaming'
+            if (-not (Test-Path -LiteralPath $dreamSrcDir -PathType Container)) {
+                Record '.assert-iq/dreaming/' 'missing-source' $dreamSrcDir
                 return
             }
-            $scriptsSrc = Join-Path $hooksSrcDir 'scripts'
-            if (Test-Path -LiteralPath $scriptsSrc) {
-                Copy-TreeScoped 'hooks/scripts' $scriptsSrc (Join-Path $Workspace 'hooks\scripts') 'workspace'
+            Copy-TreeScoped '.assert-iq/dreaming' $dreamSrcDir (Join-Path $Workspace '.assert-iq\dreaming') 'workspace'
+            # Scaffold the memory store (user content survives uninstall — only
+            # manifest-tracked seed files are removed).
+            $memDir = Join-Path $Workspace '.assert-iq\memory'
+            New-Item -ItemType Directory -Path (Join-Path $memDir 'topics') -Force | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $memDir 'logs') -Force | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $memDir '.dream') -Force | Out-Null
+            $statePath = Join-Path $memDir '.dream\state.json'
+            if (-not (Test-Path -LiteralPath $statePath)) {
+                Set-Content -LiteralPath $statePath -Value "{`n  `"last_dream_utc`": null,`n  `"sessions_since_dream`": 0`n}" -Encoding UTF8
             }
-            $libSrc = Join-Path $hooksSrcDir 'lib'
-            if (Test-Path -LiteralPath $libSrc) {
-                Copy-TreeScoped 'hooks/lib' $libSrc (Join-Path $Workspace 'hooks\lib') 'workspace'
-            }
-            $cfgSrc = Join-Path $hooksSrcDir 'config'
-            if (Test-Path -LiteralPath $cfgSrc) {
-                Copy-TreeScoped 'hooks/config' $cfgSrc (Join-Path $Workspace 'hooks\config') 'workspace'
-            }
-            # Runtime dirs: state/ + logs/ ship seed JSON and append-only logs
-            # the scripts read/write. sessions/ is created empty; per-session
-            # subdirs are written at SessionStart.
-            $stateSrc = Join-Path $hooksSrcDir 'state'
-            if (Test-Path -LiteralPath $stateSrc) {
-                Copy-TreeScoped 'hooks/state' $stateSrc (Join-Path $Workspace 'hooks\state') 'workspace'
-            }
-            $logsSrc = Join-Path $hooksSrcDir 'logs'
-            if (Test-Path -LiteralPath $logsSrc) {
-                Copy-TreeScoped 'hooks/logs' $logsSrc (Join-Path $Workspace 'hooks\logs') 'workspace'
-            }
-            $sessionsDst = Join-Path $Workspace 'hooks\sessions'
-            New-Item -ItemType Directory -Path $sessionsDst -Force | Out-Null
-            Add-ManifestEntry 'created' $sessionsDst 'workspace'
-            Record 'hooks/sessions/' 'created' $sessionsDst
-            $rendered = Get-RenderedHooksJson -PackRoot $Workspace
+            Record '.assert-iq/memory/' 'scaffolded' $memDir
+            $rendered = Get-RenderedEventsJson -PackRoot $Workspace
             if (-not $rendered) {
-                Record 'hooks/hooks.json' 'missing-template' (Join-Path $hooksSrcDir 'hooks.template.json')
+                Record '.assert-iq/dreaming/session-events.json' 'missing-template' (Join-Path $dreamSrcDir 'session-events.template.json')
             } else {
-                Copy-FileScoped 'hooks/hooks.json' $rendered (Join-Path $Workspace 'hooks\hooks.json') 'workspace'
+                Copy-FileScoped '.assert-iq/dreaming/session-events.json' $rendered (Join-Path $Workspace '.assert-iq\dreaming\session-events.json') 'workspace'
                 Remove-Item -LiteralPath $rendered -Force -ErrorAction SilentlyContinue
             }
         }
         'user' {
-            # User-global install: pack at $env:USERPROFILE\.agents\hooks\.
-            # Hooks fire across every VS Code workspace once registered in
-            # USER settings.json (instructions printed at end of run).
-            $hooksSrcDir = Join-Path $Source 'hooks'
-            if (-not (Test-Path -LiteralPath $hooksSrcDir -PathType Container)) {
-                Record 'hooks/ (user)' 'missing-source' $hooksSrcDir
+            # User-global install: machinery + memory under
+            # $env:USERPROFILE\.agents\.assert-iq so the rendered template's
+            # "$R/.assert-iq/dreaming/..." resolves with __PACK_ROOT__ =
+            # $env:USERPROFILE\.agents.
+            $dreamSrcDir = Join-Path $Source '.assert-iq\dreaming'
+            if (-not (Test-Path -LiteralPath $dreamSrcDir -PathType Container)) {
+                Record '.assert-iq/dreaming/ (user)' 'missing-source' $dreamSrcDir
                 return
             }
-            $userHooksRoot = Join-Path $env:USERPROFILE '.agents\hooks'
-            $scriptsSrc = Join-Path $hooksSrcDir 'scripts'
-            if (Test-Path -LiteralPath $scriptsSrc) {
-                Copy-TreeScoped 'hooks/scripts' $scriptsSrc (Join-Path $userHooksRoot 'scripts') 'user'
+            $userBase = Join-Path $env:USERPROFILE '.agents\.assert-iq'
+            Copy-TreeScoped '.assert-iq/dreaming' $dreamSrcDir (Join-Path $userBase 'dreaming') 'user'
+            $memDir = Join-Path $userBase 'memory'
+            New-Item -ItemType Directory -Path (Join-Path $memDir 'topics') -Force | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $memDir 'logs') -Force | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $memDir '.dream') -Force | Out-Null
+            $statePath = Join-Path $memDir '.dream\state.json'
+            if (-not (Test-Path -LiteralPath $statePath)) {
+                Set-Content -LiteralPath $statePath -Value "{`n  `"last_dream_utc`": null,`n  `"sessions_since_dream`": 0`n}" -Encoding UTF8
             }
-            $libSrc = Join-Path $hooksSrcDir 'lib'
-            if (Test-Path -LiteralPath $libSrc) {
-                Copy-TreeScoped 'hooks/lib' $libSrc (Join-Path $userHooksRoot 'lib') 'user'
-            }
-            $cfgSrc = Join-Path $hooksSrcDir 'config'
-            if (Test-Path -LiteralPath $cfgSrc) {
-                Copy-TreeScoped 'hooks/config' $cfgSrc (Join-Path $userHooksRoot 'config') 'user'
-            }
-            $stateSrc = Join-Path $hooksSrcDir 'state'
-            if (Test-Path -LiteralPath $stateSrc) {
-                Copy-TreeScoped 'hooks/state' $stateSrc (Join-Path $userHooksRoot 'state') 'user'
-            }
-            $logsSrc = Join-Path $hooksSrcDir 'logs'
-            if (Test-Path -LiteralPath $logsSrc) {
-                Copy-TreeScoped 'hooks/logs' $logsSrc (Join-Path $userHooksRoot 'logs') 'user'
-            }
-            $sessionsDst = Join-Path $userHooksRoot 'sessions'
-            New-Item -ItemType Directory -Path $sessionsDst -Force | Out-Null
-            Add-ManifestEntry 'created' $sessionsDst 'user'
-            Record 'hooks/sessions/ (user)' 'created' $sessionsDst
-            # Render hooks.json with __PACK_ROOT__ = $env:USERPROFILE\.agents
+            Record '.assert-iq/memory/ (user)' 'scaffolded' $memDir
             $userPackRoot = Join-Path $env:USERPROFILE '.agents'
-            $rendered = Get-RenderedHooksJson -PackRoot $userPackRoot
+            $rendered = Get-RenderedEventsJson -PackRoot $userPackRoot
             if (-not $rendered) {
-                Record 'hooks/hooks.json (user)' 'missing-template' (Join-Path $hooksSrcDir 'hooks.template.json')
+                Record '.assert-iq/dreaming/session-events.json (user)' 'missing-template' (Join-Path $dreamSrcDir 'session-events.template.json')
             } else {
-                Copy-FileScoped 'hooks/hooks.json' $rendered (Join-Path $userHooksRoot 'hooks.json') 'user'
+                Copy-FileScoped '.assert-iq/dreaming/session-events.json' $rendered (Join-Path $userBase 'dreaming\session-events.json') 'user'
                 Remove-Item -LiteralPath $rendered -Force -ErrorAction SilentlyContinue
             }
-            $Script:UserHooksInstalled = $true
+            $Script:UserDreamingInstalled = $true
         }
-        'skip' { Record 'hooks/' 'skipped (user choice)' '-' }
-        default { throw "Invalid -Hooks: '$Hooks' (workspace|user|skip)" }
+        'skip' { Record '.assert-iq/dreaming/' 'skipped (user choice)' '-' }
+        default { throw "Invalid -Dreaming: '$Dreaming' (workspace|user|skip)" }
     }
 }
 
@@ -1474,9 +1456,9 @@ function Step-ClaudeSettings {
     # avoid double-fire.
     switch ($ClaudeSettings) {
         'workspace' {
-            $rendered = Get-RenderedHooksJson -PackRoot $Workspace
+            $rendered = Get-RenderedEventsJson -PackRoot $Workspace
             if (-not $rendered) {
-                Record '.claude/settings.json' 'missing-template' (Join-Path $Source 'hooks\hooks.template.json')
+                Record '.claude/settings.json' 'missing-template' (Join-Path $Source '.assert-iq\dreaming\session-events.template.json')
                 return
             }
             $dst = Join-Path $Workspace '.claude\settings.json'
@@ -1637,7 +1619,7 @@ Step-Claude
 Step-Copilot
 Step-Agents
 Step-VSCode
-Step-Hooks
+Step-Dreaming
 Step-ClaudeSettings
 Step-GithubSkills
 Step-GithubAgents
@@ -1683,17 +1665,18 @@ if ($keptCount -gt 0) {
     Write-Host "NOTE: $keptCount existing file(s) kept untouched (you chose 'keep')."
 }
 
-if ($Script:UserHooksInstalled) {
+if ($Script:UserDreamingInstalled) {
     Write-Host ''
-    Write-Host '─── USER-GLOBAL HOOKS INSTALLED ───'
-    Write-Host 'Hooks are at ~/.agents/hooks/ and will fire across every VS Code workspace'
-    Write-Host 'once you register them in your VS Code USER settings.json.'
+    Write-Host '─── USER-GLOBAL DREAMING INSTALLED ───'
+    Write-Host 'The Dreaming machinery is at ~/.agents/.assert-iq/dreaming/ and the memory'
+    Write-Host 'store at ~/.agents/.assert-iq/memory/. Session events fire across every VS'
+    Write-Host 'Code workspace once you register them in your VS Code USER settings.json.'
     Write-Host ''
     Write-Host '  1. Ctrl+Shift+P -> "Preferences: Open User Settings (JSON)"'
     Write-Host '  2. Add or merge this block:'
     Write-Host ''
     Write-Host '    "chat.hookFilesLocations": {'
-    Write-Host '      "~/.agents/hooks/hooks.json": true'
+    Write-Host '      "~/.agents/.assert-iq/dreaming/session-events.json": true'
     Write-Host '    }'
     Write-Host ''
     Write-Host '  3. Reload the VS Code window.'

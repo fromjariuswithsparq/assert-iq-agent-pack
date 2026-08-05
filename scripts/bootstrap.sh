@@ -46,7 +46,7 @@ CLAUDE_MD=""
 COPILOT=""
 AGENTS_MD=""
 VSCODE=""
-HOOKS=""
+DREAMING=""
 CLAUDE_SETTINGS=""
 SKILLS_SCOPE=""
 WORKSPACE="$PWD"
@@ -86,7 +86,8 @@ for arg in "$@"; do
     --copilot=*)         COPILOT="${arg#*=}" ;;
     --agents=*)          AGENTS_MD="${arg#*=}" ;;
     --vscode=*)          VSCODE="${arg#*=}" ;;
-    --hooks=*)           HOOKS="${arg#*=}" ;;
+    --dreaming=*)        DREAMING="${arg#*=}" ;;
+    --hooks=*)           DREAMING="${arg#*=}" ;;   # deprecated alias for --dreaming
     --claude-settings=*) CLAUDE_SETTINGS="${arg#*=}" ;;
     --skills-scope=*)    SKILLS_SCOPE="${arg#*=}" ;;
     --workspace=*)       WORKSPACE="${arg#*=}" ;;
@@ -453,6 +454,11 @@ write_exclude_block() {
     printf '*.assert-iq.uninstall-saved\n'
     printf '.assert-iq/.skip-worktree-paths\n'
     printf '.assert-iq/.merge-result-shas\n'
+    # Dreaming per-machine artifacts — never commit in any mode:
+    printf '.assert-iq/dreaming/session-events.json\n'
+    printf '.assert-iq/memory/.dream/state.lock\n'
+    printf '.assert-iq/memory/.dream/dream.lock\n'
+    printf 'transcripts/\n'
     # Layer 2: per-path entries (trial only).
     if [[ "$MODE" == "trial" && ${#rels[@]} -gt 0 ]]; then
       printf '# Trial-mode pack paths:\n'
@@ -460,6 +466,13 @@ write_exclude_block() {
       for r in "${rels[@]}"; do
         printf '%s\n' "$r"
       done
+    fi
+    # Trial-mode: keep the entire Dreaming memory store local-only — dreams
+    # update it autonomously without ever appearing in git. Committed mode
+    # leaves it visible on purpose (every dream cycle is a reviewable diff).
+    if [[ "$MODE" == "trial" ]]; then
+      printf '# Trial-mode Dreaming memory (local-only, hidden from git):\n'
+      printf '.assert-iq/memory/\n'
     fi
     printf '%s\n' "$EXCLUDE_END"
   } > "$tmp"
@@ -635,7 +648,7 @@ uninstall_run() {
     echo "  - restore originals where the bootstrap modified your files (from .assert-iq.pre-install backups)"
     echo "  - remove any /assert-iq-tailor snapshots (.assert-iq.pre-tailor)"
     echo "  - strip the trial-mode block from .git/info/exclude (if any)"
-    echo "  - clear hooks/state/, hooks/logs/, hooks/sessions/ runtime data"
+    echo "  - remove the rendered .assert-iq/dreaming/session-events.json (the memory store is preserved)"
     if [[ $UNINSTALL_USER -eq 1 ]]; then
       echo "  - also remove user-scope copies in ~/.assert-iq, ~/.claude, ~/Library or ~/.config prompts dir"
     fi
@@ -849,14 +862,12 @@ uninstall_run() {
     done < "$MANIFEST_PATH"
   fi
 
-  # Hooks runtime state — regenerated on next install, safe to clear.
-  for d in "$WORKSPACE/hooks/state" "$WORKSPACE/hooks/logs" "$WORKSPACE/hooks/sessions"; do
-    [[ -e "$d" ]] && remove_path "$d"
-  done
+  # Rendered session-events.json — per-machine, regenerated on next install.
+  # The memory store (.assert-iq/memory/) is deliberately NOT cleared here.
+  [[ -e "$WORKSPACE/.assert-iq/dreaming/session-events.json" ]] && remove_path "$WORKSPACE/.assert-iq/dreaming/session-events.json"
+  [[ -e "$WORKSPACE/.assert-iq/memory/.dream/state.lock" ]] && remove_path "$WORKSPACE/.assert-iq/memory/.dream/state.lock"
   if [[ $UNINSTALL_USER -eq 1 ]]; then
-    for d in "$HOME/.agents/hooks/state" "$HOME/.agents/hooks/logs" "$HOME/.agents/hooks/sessions"; do
-      [[ -e "$d" ]] && remove_path "$d"
-    done
+    [[ -e "$HOME/.agents/.assert-iq/dreaming/session-events.json" ]] && remove_path "$HOME/.agents/.assert-iq/dreaming/session-events.json"
   fi
 
   # Sweep orphaned /assert-iq-tailor snapshots. These `*.assert-iq.pre-tailor`
@@ -881,13 +892,13 @@ uninstall_run() {
       "$WORKSPACE/.github/skills"
       "$WORKSPACE/.github/agents"
       "$WORKSPACE/.claude/agents"
-      "$WORKSPACE/hooks"
+      "$WORKSPACE/.assert-iq/dreaming"
     )
     if [[ $UNINSTALL_USER -eq 1 ]]; then
       tree_roots+=(
         "$USER_VSCODE_SKILLS"
         "$USER_CLAUDE_SKILLS"
-        "$HOME/.agents/hooks"
+        "$HOME/.agents/.assert-iq/dreaming"
         "$USER_ASSERT_IQ"
       )
     fi
@@ -896,7 +907,7 @@ uninstall_run() {
     done
     local d
     local -a empty_dirs=(
-      "$WORKSPACE/hooks"
+      "$WORKSPACE/.assert-iq/dreaming"
       "$WORKSPACE/.vscode"
       "$WORKSPACE/.claude/agents"
       "$WORKSPACE/.claude/skills"
@@ -1033,7 +1044,7 @@ case "$PRESET" in
     : "${COPILOT:=workspace}"
     : "${AGENTS_MD:=workspace}"
     : "${VSCODE:=workspace}"
-    : "${HOOKS:=workspace}"
+    : "${DREAMING:=workspace}"
     : "${CLAUDE_SETTINGS:=workspace}"
     : "${SKILLS_SCOPE:=workspace}"
     ;;
@@ -1050,7 +1061,7 @@ case "$PRESET" in
     : "${COPILOT:=skip}"
     : "${AGENTS_MD:=skip}"
     : "${VSCODE:=skip}"
-    : "${HOOKS:=skip}"
+    : "${DREAMING:=skip}"
     : "${CLAUDE_SETTINGS:=skip}"
     : "${SKILLS_SCOPE:=user}"
     ;;
@@ -1061,7 +1072,7 @@ case "$PRESET" in
     : "${COPILOT:=workspace}"
     : "${AGENTS_MD:=workspace}"
     : "${VSCODE:=workspace}"
-    : "${HOOKS:=workspace}"
+    : "${DREAMING:=workspace}"
     : "${CLAUDE_SETTINGS:=workspace}"
     : "${SKILLS_SCOPE:=workspace}"
     ;;
@@ -1281,19 +1292,20 @@ merge_json_file() {
   fi
 }
 
-render_hooks_json() {
-  # Renders hooks/hooks.template.json with __PACK_ROOT__ -> $1 (workspace root).
-  # Echoes path to the rendered temp file. Caller must rm it.
+render_events_json() {
+  # Renders .assert-iq/dreaming/session-events.template.json with
+  # __PACK_ROOT__ -> $1 (pack root). Echoes path to the rendered temp file.
+  # Caller must rm it.
   local pack_root="$1"
-  local template="$SOURCE/hooks/hooks.template.json"
+  local template="$SOURCE/.assert-iq/dreaming/session-events.template.json"
   [[ -f "$template" ]] || { echo ""; return; }
-  local lib="$SOURCE/hooks/scripts/lib/render-hooks.sh"
+  local lib="$SOURCE/.assert-iq/dreaming/scripts/lib/render-events.sh"
   [[ -f "$lib" ]] || { echo ""; return; }
-  # shellcheck source=../hooks/scripts/lib/render-hooks.sh
+  # shellcheck source=../.assert-iq/dreaming/scripts/lib/render-events.sh
   source "$lib"
   local tmp
   tmp="$(mktemp)"
-  if ! render_hooks_template "$template" "$tmp" "$pack_root"; then
+  if ! render_events_template "$template" "$tmp" "$pack_root"; then
     rm -f "$tmp"
     echo ""
     return
@@ -1378,7 +1390,7 @@ process_agents() {
 
 process_vscode() {
   # .vscode/settings.json wires VS Code Copilot to read instructions, prompts,
-  # and hooks from the workspace. .vscode/mcp.json wires MCP servers.
+  # and session events from the workspace. .vscode/mcp.json wires MCP servers.
   case "$VSCODE" in
     workspace)
       merge_json_file ".vscode/settings.json" \
@@ -1408,92 +1420,62 @@ process_vscode() {
   esac
 }
 
-process_hooks() {
-  # hooks/ in the workspace root is what .vscode/settings.json's
-  # chat.hookFilesLocations points at ("./hooks/hooks.json"). Renders
-  # hooks.json with __PACK_ROOT__ = $WORKSPACE so the scripts resolve
-  # to the workspace copies even when CLAUDE_PLUGIN_ROOT is unset.
-  case "$HOOKS" in
+process_dreaming() {
+  # Installs the Dreaming machinery (.assert-iq/dreaming/), scaffolds the
+  # memory store (.assert-iq/memory/), and renders session-events.json, which
+  # .vscode/settings.json's chat.hookFilesLocations points at. Rendered with
+  # __PACK_ROOT__ = pack root so the scripts resolve to the installed copies
+  # even when CLAUDE_PLUGIN_ROOT is unset.
+  case "$DREAMING" in
     workspace)
-      if [[ ! -d "$SOURCE/hooks" ]]; then
-        record "hooks/" "missing-source" "$SOURCE/hooks"
+      if [[ ! -d "$SOURCE/.assert-iq/dreaming" ]]; then
+        record ".assert-iq/dreaming/" "missing-source" "$SOURCE/.assert-iq/dreaming"
         return
       fi
-      # Copy scripts/ and lib/ trees verbatim.
-      if [[ -d "$SOURCE/hooks/scripts" ]]; then
-        copy_tree "hooks/scripts" "$SOURCE/hooks/scripts" "$WORKSPACE/hooks/scripts" "workspace"
-      fi
-      if [[ -d "$SOURCE/hooks/lib" ]]; then
-        copy_tree "hooks/lib" "$SOURCE/hooks/lib" "$WORKSPACE/hooks/lib" "workspace"
-      fi
-      if [[ -d "$SOURCE/hooks/config" ]]; then
-        copy_tree "hooks/config" "$SOURCE/hooks/config" "$WORKSPACE/hooks/config" "workspace"
-      fi
-      # Runtime dirs: state/ + logs/ hold seed JSON and append-only logs that
-      # the hook scripts read and write. sessions/ is created empty; per-session
-      # subdirs are written at SessionStart.
-      if [[ -d "$SOURCE/hooks/state" ]]; then
-        copy_tree "hooks/state" "$SOURCE/hooks/state" "$WORKSPACE/hooks/state" "workspace"
-      fi
-      if [[ -d "$SOURCE/hooks/logs" ]]; then
-        copy_tree "hooks/logs" "$SOURCE/hooks/logs" "$WORKSPACE/hooks/logs" "workspace"
-      fi
-      mkdir -p "$WORKSPACE/hooks/sessions"
-      manifest_add "created" "$WORKSPACE/hooks/sessions" "workspace"
-      record "hooks/sessions/" "created" "$WORKSPACE/hooks/sessions"
-      # Render hooks.json with __PACK_ROOT__ = workspace.
+      copy_tree ".assert-iq/dreaming" "$SOURCE/.assert-iq/dreaming" "$WORKSPACE/.assert-iq/dreaming" "workspace"
+      # Scaffold the memory store (user content survives uninstall — only
+      # manifest-tracked seed files are removed).
+      mkdir -p "$WORKSPACE/.assert-iq/memory/topics" "$WORKSPACE/.assert-iq/memory/logs" "$WORKSPACE/.assert-iq/memory/.dream"
+      [[ -f "$WORKSPACE/.assert-iq/memory/.dream/state.json" ]] || \
+        printf '{\n  "last_dream_utc": null,\n  "sessions_since_dream": 0\n}\n' > "$WORKSPACE/.assert-iq/memory/.dream/state.json"
+      record ".assert-iq/memory/" "scaffolded" "$WORKSPACE/.assert-iq/memory"
+      # Render session-events.json with __PACK_ROOT__ = workspace.
       local rendered
-      rendered="$(render_hooks_json "$WORKSPACE")"
+      rendered="$(render_events_json "$WORKSPACE")"
       if [[ -z "$rendered" ]]; then
-        record "hooks/hooks.json" "missing-template" "$SOURCE/hooks/hooks.template.json"
+        record ".assert-iq/dreaming/session-events.json" "missing-template" "$SOURCE/.assert-iq/dreaming/session-events.template.json"
       else
-        copy_file "hooks/hooks.json" "$rendered" "$WORKSPACE/hooks/hooks.json" "workspace"
+        copy_file ".assert-iq/dreaming/session-events.json" "$rendered" "$WORKSPACE/.assert-iq/dreaming/session-events.json" "workspace"
         rm -f "$rendered"
       fi
       ;;
     user)
-      # User-global install: pack lives at $HOME/.agents/hooks/. Power users
-      # who want hooks to fire across all VS Code workspaces register the
-      # rendered hooks.json from their VS Code USER settings.json (printed
-      # below). The wrapper exports SKILL_IMPROVE_ROOT so the scripts route
-      # to ~/.agents/hooks/ regardless of which workspace VS Code opens.
-      if [[ ! -d "$SOURCE/hooks" ]]; then
-        record "hooks/ (user)" "missing-source" "$SOURCE/hooks"
+      # User-global install: machinery + memory live under
+      # $HOME/.agents/.assert-iq/ so the rendered template's
+      # "$R/.assert-iq/dreaming/..." resolves with __PACK_ROOT__ = $HOME/.agents.
+      if [[ ! -d "$SOURCE/.assert-iq/dreaming" ]]; then
+        record ".assert-iq/dreaming/ (user)" "missing-source" "$SOURCE/.assert-iq/dreaming"
         return
       fi
-      local user_hooks="$HOME/.agents/hooks"
-      if [[ -d "$SOURCE/hooks/scripts" ]]; then
-        copy_tree "hooks/scripts" "$SOURCE/hooks/scripts" "$user_hooks/scripts" "user"
-      fi
-      if [[ -d "$SOURCE/hooks/lib" ]]; then
-        copy_tree "hooks/lib" "$SOURCE/hooks/lib" "$user_hooks/lib" "user"
-      fi
-      if [[ -d "$SOURCE/hooks/config" ]]; then
-        copy_tree "hooks/config" "$SOURCE/hooks/config" "$user_hooks/config" "user"
-      fi
-      if [[ -d "$SOURCE/hooks/state" ]]; then
-        copy_tree "hooks/state" "$SOURCE/hooks/state" "$user_hooks/state" "user"
-      fi
-      if [[ -d "$SOURCE/hooks/logs" ]]; then
-        copy_tree "hooks/logs" "$SOURCE/hooks/logs" "$user_hooks/logs" "user"
-      fi
-      mkdir -p "$user_hooks/sessions"
-      manifest_add "created" "$user_hooks/sessions" "user"
-      record "hooks/sessions/ (user)" "created" "$user_hooks/sessions"
-      # Render hooks.json with __PACK_ROOT__ = $HOME/.agents (so $R/hooks =
-      # $HOME/.agents/hooks at runtime).
+      local user_base="$HOME/.agents/.assert-iq"
+      copy_tree ".assert-iq/dreaming" "$SOURCE/.assert-iq/dreaming" "$user_base/dreaming" "user"
+      mkdir -p "$user_base/memory/topics" "$user_base/memory/logs" "$user_base/memory/.dream"
+      [[ -f "$user_base/memory/.dream/state.json" ]] || \
+        printf '{\n  "last_dream_utc": null,\n  "sessions_since_dream": 0\n}\n' > "$user_base/memory/.dream/state.json"
+      record ".assert-iq/memory/ (user)" "scaffolded" "$user_base/memory"
+      # Render with __PACK_ROOT__ = $HOME/.agents.
       local rendered
-      rendered="$(render_hooks_json "$HOME/.agents")"
+      rendered="$(render_events_json "$HOME/.agents")"
       if [[ -z "$rendered" ]]; then
-        record "hooks/hooks.json (user)" "missing-template" "$SOURCE/hooks/hooks.template.json"
+        record ".assert-iq/dreaming/session-events.json (user)" "missing-template" "$SOURCE/.assert-iq/dreaming/session-events.template.json"
       else
-        copy_file "hooks/hooks.json" "$rendered" "$user_hooks/hooks.json" "user"
+        copy_file ".assert-iq/dreaming/session-events.json" "$rendered" "$user_base/dreaming/session-events.json" "user"
         rm -f "$rendered"
       fi
-      USER_HOOKS_INSTALLED=1
+      USER_DREAMING_INSTALLED=1
       ;;
-    skip) record "hooks/" "skipped (user choice)" "-" ;;
-    *) echo "ERROR: invalid --hooks value '$HOOKS' (workspace|user|skip)" >&2; exit 2 ;;
+    skip) record ".assert-iq/dreaming/" "skipped (user choice)" "-" ;;
+    *) echo "ERROR: invalid --dreaming value '$DREAMING' (workspace|user|skip)" >&2; exit 2 ;;
   esac
 }
 
@@ -1505,9 +1487,9 @@ process_claude_settings() {
   case "$CLAUDE_SETTINGS" in
     workspace)
       local rendered
-      rendered="$(render_hooks_json "$WORKSPACE")"
+      rendered="$(render_events_json "$WORKSPACE")"
       if [[ -z "$rendered" ]]; then
-        record ".claude/settings.json" "missing-template" "$SOURCE/hooks/hooks.template.json"
+        record ".claude/settings.json" "missing-template" "$SOURCE/.assert-iq/dreaming/session-events.template.json"
         return
       fi
       local dst="$WORKSPACE/.claude/settings.json"
@@ -1649,7 +1631,7 @@ process_claude
 process_copilot
 process_agents
 process_vscode
-process_hooks
+process_dreaming
 process_claude_settings
 process_github_skills
 process_github_agents
@@ -1709,23 +1691,24 @@ if [[ $kept_count -gt 0 ]]; then
   echo "NOTE: $kept_count existing file(s) kept untouched (you chose 'keep')."
 fi
 
-if [[ "${USER_HOOKS_INSTALLED:-0}" == "1" ]]; then
+if [[ "${USER_DREAMING_INSTALLED:-0}" == "1" ]]; then
   cat <<'EOF'
 
-─── USER-GLOBAL HOOKS INSTALLED ───
-Hooks are at ~/.agents/hooks/ and will fire across every VS Code workspace
-once you register them in your VS Code USER settings.json.
+─── USER-GLOBAL DREAMING INSTALLED ───
+The Dreaming machinery is at ~/.agents/.assert-iq/dreaming/ and the memory
+store at ~/.agents/.assert-iq/memory/. Session events fire across every VS
+Code workspace once you register them in your VS Code USER settings.json.
 
   1. Cmd/Ctrl + Shift + P → "Preferences: Open User Settings (JSON)"
   2. Add or merge this block:
 
     "chat.hookFilesLocations": {
-      "~/.agents/hooks/hooks.json": true
+      "~/.agents/.assert-iq/dreaming/session-events.json": true
     }
 
   3. Reload the VS Code window.
 
-This is one-time setup. To uninstall the user-global hooks later, run:
+This is one-time setup. To uninstall the user-global machinery later, run:
   scripts/bootstrap.sh --uninstall --user
 ───
 EOF

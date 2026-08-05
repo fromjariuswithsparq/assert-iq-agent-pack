@@ -35,7 +35,7 @@ PAGES = [
     ("MCP.html",               "MCP servers"),
     ("vscode-readme.html",     "VS Code guide"),
     ("claude-readme.html",     "Claude Code guide"),
-    ("hooks-readme.html",      "Hindsight Hooks"),
+    ("dreaming-readme.html",   "Dreaming"),
 ]
 
 # --- markers (idempotency) ---
