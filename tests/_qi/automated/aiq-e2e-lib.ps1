@@ -93,50 +93,6 @@ function Invoke-RunBoot($pair, [string[]]$ArgsList) {
     }
 }
 
-function Invoke-RunHook($pair, $scriptRel, $sid, $extraEnv) {
-    $ws = $pair.ws; $homeDir = $pair.home
-    $payload = "{`"session_id`":`"$sid`",`"hook_event_name`":`"test`"}"
-    $path = "$ws\$scriptRel"
-    
-    $origHome = $env:HOME; $env:HOME = $homeDir
-    $origEnv = @{}
-    if ($extraEnv) {
-        foreach ($k in $extraEnv.Keys) { $origEnv[$k] = [Environment]::GetEnvironmentVariable($k); [Environment]::SetEnvironmentVariable($k, $extraEnv[$k]) }
-    }
-    
-    try {
-        $out = $payload | & pwsh -NoProfile -File $path 2>&1
-        return $out | Out-String
-    } catch {
-        return $_.Exception.Message
-    } finally {
-        $env:HOME = $origHome
-        foreach ($k in $origEnv.Keys) { [Environment]::SetEnvironmentVariable($k, $origEnv[$k]) }
-    }
-}
-
-function Invoke-RunHookUser($pair, $scriptRel, $sid, $extraEnv) {
-    $ws = $pair.ws; $homeDir = $pair.home
-    $payload = "{`"session_id`":`"$sid`",`"hook_event_name`":`"test`"}"
-    $path = "$homeDir\.agents\hooks\$scriptRel"
-    
-    $origHome = $env:HOME; $env:HOME = $homeDir
-    $origEnv = @{}
-    if ($extraEnv) {
-        foreach ($k in $extraEnv.Keys) { $origEnv[$k] = [Environment]::GetEnvironmentVariable($k); [Environment]::SetEnvironmentVariable($k, $extraEnv[$k]) }
-    }
-    
-    try {
-        $out = $payload | & pwsh -NoProfile -File $path 2>&1
-        return $out | Out-String
-    } catch {
-        return $_.Exception.Message
-    } finally {
-        $env:HOME = $origHome
-        foreach ($k in $origEnv.Keys) { [Environment]::SetEnvironmentVariable($k, $origEnv[$k]) }
-    }
-}
-
 function Fail($label, $msg) {
     $global:FAIL_LOG += "  FAIL ${label}: $msg"
     $global:CASES_FAIL++

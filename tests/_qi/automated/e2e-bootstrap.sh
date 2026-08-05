@@ -65,7 +65,7 @@ mk_pack_copy() {
   local copy home
   copy="$(mktemp -d "${TMPDIR:-/tmp}/aiq-pack.XXXXXX")"
   home="$(mktemp -d "${TMPDIR:-/tmp}/aiq-home.XXXXXX")"
-  # Copy enough of the pack to support install.sh: root + .github + .claude + hooks + scripts
+  # Copy enough of the pack to support install.sh: root + .github + .claude + .assert-iq + scripts
   # But skip .git so it doesn't try to git-anything weird.
   # pipefail: surface any tar failure (unreadable file, permissions) instead
   # of silently producing an empty $copy that makes downstream asserts misleading.
@@ -244,7 +244,7 @@ case_09_portable_install() {
   assert_file_missing 09 "$ws/.github/copilot-instructions.md"
   assert_dir_missing 09 "$ws/.github/instructions"
   assert_dir_missing 09 "$ws/.vscode"
-  assert_dir_missing 09 "$ws/hooks"
+  assert_dir_missing 09 "$ws/.assert-iq/dreaming"
   assert_file_missing 09 "$ws/.claude/settings.json"
   cleanup_fixture "$pair"
 }
