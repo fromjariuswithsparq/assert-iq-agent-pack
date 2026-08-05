@@ -3,17 +3,19 @@
 # Idempotent: safe to re-run.
 #
 # What it does:
-#   1. Syncs hooks/hooks.json -> .claude/settings.json (hooks key),
+#   1. Renders .assert-iq/dreaming/session-events.json from its template and
+#      syncs it into .claude/settings.json (hooks key — the harness contract),
 #      preserving any other keys you already have in .claude/settings.json.
-#   2. Creates .claude/skills as a symlink to ../.github/skills so Claude
+#   2. Scaffolds the Dreaming memory store at .assert-iq/memory/.
+#   3. Creates .claude/skills as a symlink to ../.github/skills so Claude
 #      Code discovers the same skills Copilot does. Falls back to copy on
 #      filesystems that don't support symlinks.
 #
 # Copilot needs no extra wiring — it reads .github/* natively.
 #
 # Uninstall: pass --uninstall (or -u) to reverse the above. The uninstall
-# step only removes pack-owned artifacts; your other keys in
-# .claude/settings.json are preserved (only the hooks key is stripped).
+# step only removes pack-owned wiring; your other keys in
+# .claude/settings.json and your .assert-iq/memory/ store are preserved.
 
 set -euo pipefail
 
@@ -22,12 +24,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # resolves to something dangerous (e.g., script relocated to "/").
 [[ -n "$ROOT" && "$ROOT" != "/" ]] || { printf 'install.sh: refusing to operate at filesystem root (ROOT=%q)\n' "$ROOT" >&2; exit 1; }
 
-HOOKS_TEMPLATE="$ROOT/hooks/hooks.template.json"
-HOOKS_SRC="$ROOT/hooks/hooks.json"
+HOOKS_TEMPLATE_LEGACY="$ROOT/hooks/hooks.json"
+EVENTS_TEMPLATE="$ROOT/.assert-iq/dreaming/session-events.template.json"
+EVENTS_SRC="$ROOT/.assert-iq/dreaming/session-events.json"
+MEMORY_DIR="$ROOT/.assert-iq/memory"
 SETTINGS_DST="$ROOT/.claude/settings.json"
 SKILLS_SRC_REL="../.github/skills"
 SKILLS_DST="$ROOT/.claude/skills"
-RENDER_LIB="$ROOT/hooks/scripts/lib/render-hooks.sh"
+RENDER_LIB="$ROOT/.assert-iq/dreaming/scripts/lib/render-events.sh"
 
 say() { printf '%s\n' "$*"; }
 fail() { printf 'install.sh: %s\n' "$*" >&2; exit 1; }
@@ -70,10 +74,15 @@ case "${1:-}" in
         say "[skip] jq not installed; cannot safely strip hooks key from $SETTINGS_DST"
       fi
     fi
-    # 3. Remove rendered hooks.json (committed source is hooks.template.json).
-    if [[ -f "$HOOKS_SRC" ]]; then
-      rm -f "$HOOKS_SRC"
-      say "[ok] removed $HOOKS_SRC"
+    # 3. Remove rendered session-events.json (committed source is the template).
+    if [[ -f "$EVENTS_SRC" ]]; then
+      rm -f "$EVENTS_SRC"
+      say "[ok] removed $EVENTS_SRC"
+    fi
+    # 3a. Remove any leftover rendered file from the retired hooks feature.
+    if [[ -f "$HOOKS_TEMPLATE_LEGACY" ]]; then
+      rm -f "$HOOKS_TEMPLATE_LEGACY"
+      say "[ok] removed legacy $HOOKS_TEMPLATE_LEGACY"
     fi
     # 4. Remove .claude dir if now empty.
     if [[ -d "$ROOT/.claude" ]] && [[ -z "$(ls -A "$ROOT/.claude")" ]]; then
@@ -83,6 +92,7 @@ case "${1:-}" in
     say ""
     say "Uninstall complete."
     say "Pack source files (.github/, CLAUDE.md, AGENTS.md, etc.) are unchanged."
+    say "Your .assert-iq/memory/ store is preserved."
     exit 0
     ;;
   --help|-h)
@@ -91,24 +101,30 @@ case "${1:-}" in
     ;;
 esac
 
-[[ -f "$HOOKS_TEMPLATE" ]] || fail "missing $HOOKS_TEMPLATE"
+[[ -f "$EVENTS_TEMPLATE" ]] || fail "missing $EVENTS_TEMPLATE"
 [[ -f "$RENDER_LIB" ]] || fail "missing $RENDER_LIB"
 
-# shellcheck source=hooks/scripts/lib/render-hooks.sh
+# shellcheck source=.assert-iq/dreaming/scripts/lib/render-events.sh
 source "$RENDER_LIB"
 
 mkdir -p "$ROOT/.claude/agents"
 
-# ---- 0. render hooks.json from template ----------------------------------
+# ---- 0. scaffold the Dreaming memory store -------------------------------
+mkdir -p "$MEMORY_DIR/topics" "$MEMORY_DIR/logs" "$MEMORY_DIR/.dream"
+[[ -f "$MEMORY_DIR/.dream/state.json" ]] || \
+  printf '{\n  "last_dream_utc": null,\n  "sessions_since_dream": 0\n}\n' > "$MEMORY_DIR/.dream/state.json"
+say "[ok] ensured Dreaming memory store at .assert-iq/memory/"
+
+# ---- 1. render session-events wiring from template -----------------------
 # Substitute __PACK_ROOT__ with this absolute pack path. VS Code Copilot
-# does not propagate any env var that carries the workspace path to hook
+# does not propagate any env var that carries the workspace path to event
 # commands, so the fallback path must be baked in at install time. Claude
 # Code's CLAUDE_PLUGIN_ROOT still takes precedence at runtime.
-render_hooks_template "$HOOKS_TEMPLATE" "$HOOKS_SRC" "$ROOT" \
-  || fail "failed to render $HOOKS_SRC from template"
-say "[ok] rendered hooks/hooks.json (pack root: $ROOT)"
+render_events_template "$EVENTS_TEMPLATE" "$EVENTS_SRC" "$ROOT" \
+  || fail "failed to render $EVENTS_SRC from template"
+say "[ok] rendered .assert-iq/dreaming/session-events.json (pack root: $ROOT)"
 
-# ---- 1. sync hooks block -------------------------------------------------
+# ---- 2. sync session-events into settings --------------------------------
 if command -v jq >/dev/null 2>&1; then
     if [[ -f "$SETTINGS_DST" ]]; then
         # Merge: replace only the .hooks key, preserve everything else.
@@ -119,7 +135,7 @@ if command -v jq >/dev/null 2>&1; then
         cleanup_tmp() { [[ -n "${tmp:-}" && -e "$tmp" ]] && rm -f "$tmp"; }
         trap cleanup_tmp EXIT
         if ! jq -s '.[0] as $existing | .[1] as $new | $existing + {hooks: $new.hooks}' \
-                "$SETTINGS_DST" "$HOOKS_SRC" > "$tmp"; then
+                "$SETTINGS_DST" "$EVENTS_SRC" > "$tmp"; then
             fail "jq merge failed; $SETTINGS_DST left untouched"
         fi
         [[ -s "$tmp" ]] || fail "jq merge produced empty output; $SETTINGS_DST left untouched"
@@ -127,19 +143,19 @@ if command -v jq >/dev/null 2>&1; then
         tmp=""
         trap - EXIT
     else
-        cp "$HOOKS_SRC" "$SETTINGS_DST"
+        cp "$EVENTS_SRC" "$SETTINGS_DST"
     fi
-    say "[ok] synced hooks -> .claude/settings.json"
+    say "[ok] synced session events -> .claude/settings.json (hooks key)"
 else
     # No jq: only safe move is a fresh copy if no settings exist.
     if [[ -f "$SETTINGS_DST" ]]; then
         fail "jq not installed and .claude/settings.json already exists; install jq or merge manually"
     fi
-    cp "$HOOKS_SRC" "$SETTINGS_DST"
-    say "[ok] copied hooks -> .claude/settings.json (jq not present; merge skipped)"
+    cp "$EVENTS_SRC" "$SETTINGS_DST"
+    say "[ok] copied session events -> .claude/settings.json (jq not present; merge skipped)"
 fi
 
-# ---- 2. wire skills ------------------------------------------------------
+# ---- 3. wire skills ------------------------------------------------------
 if [[ -L "$SKILLS_DST" || -e "$SKILLS_DST" ]]; then
     rm -rf "$SKILLS_DST"
 fi
@@ -157,4 +173,5 @@ fi
 say ""
 say "Pack installed."
 say "  Copilot reads .github/copilot-instructions.md, .github/instructions/*, .github/agents/*, .github/skills/*"
-say "  Claude  reads CLAUDE.md, .claude/agents/*, .claude/skills/*, .claude/settings.json (hooks)"
+say "  Claude  reads CLAUDE.md, .claude/agents/*, .claude/skills/*, .claude/settings.json (session events)"
+say "  Dreaming memory store: .assert-iq/memory/ (run /dream to consolidate)"

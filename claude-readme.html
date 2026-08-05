@@ -65,7 +65,7 @@
   <div class="doc-hero">
     <div class="badge">📁 .claude/ · Claude Code</div>
     <h1 id="the-claude-folder">The <code>.claude/</code> folder</h1>
-    <p class="subtitle">The <strong>Claude Code half</strong> of the Assert.IQ Agent Pack. If you use <a href="https://docs.claude.com/claude-code">Claude Code</a> on this repository, this is where Claude looks for its subagents, skills, and hook settings.</p>
+    <p class="subtitle">The <strong>Claude Code half</strong> of the Assert.IQ Agent Pack. If you use <a href="https://docs.claude.com/claude-code">Claude Code</a> on this repository, this is where Claude looks for its subagents, skills, and session-event settings.</p>
   </div>
 
   <h2 id="what-s-in-here-in-plain-words">What's in here, in plain words</h2>
@@ -75,7 +75,7 @@
       <tr><td><code>agents/assert-iq.md</code></td><td>The <strong>default Assert.IQ subagent</strong> — Quality Intelligence front door with full tools. Routes to the right skill and executes. Invoke with <code>@assert-iq</code>.</td></tr>
       <tr><td><code>agents/assert-iq-plan.md</code></td><td>The <strong>planning sibling</strong> of <code>assert-iq</code>. Read-only — researches, writes a plan, and waits for your approval before handing off. Invoke with <code>@assert-iq-plan</code> when the task is large or risky.</td></tr>
       <tr><td><code>skills/</code></td><td>Step-by-step playbooks Claude can run when you ask. This is a <strong>symlink</strong> to <code>.github/skills/</code>, so Copilot and Claude share the exact same set. Examples: <code>/generate-bug-report</code>, <code>/code-review</code>. On <strong>Windows without Developer Mode</strong>, the installer falls back to copying the folder — in that case, re-run <code>install.ps1</code> after editing any skill. See <a href="README.assert-iq.html">README.assert-iq.html</a> for the full matrix.</td></tr>
-      <tr><td><code>settings.json</code></td><td>Claude Code's settings file. The pack installer fills in the hooks section here (small background scripts that fire when Claude does things, like saving a file).</td></tr>
+      <tr><td><code>settings.json</code></td><td>Claude Code's settings file. The pack installer fills in the session-events (<code>hooks</code>) section here — the Dreaming waking-loop scripts that fire at session start/end to record activity and nudge <code>/dream</code>.</td></tr>
     </tbody>
   </table>
   <p>The instructions ("house rules") that Copilot reads from <code>.github/copilot-instructions.md</code> are mirrored for Claude in <code>../CLAUDE.md</code> at the repo root.</p>
@@ -103,14 +103,14 @@ bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
 
   <h2 id="will-this-also-work-in-github-copilot">"Will this also work in GitHub Copilot?"</h2>
   <p>Yes. The same content is mirrored to the <code>.github/</code> folder at the repo root, and Copilot reads it automatically — no installer needed for the Copilot side. See <a href="vscode-readme.html"><code>vscode-readme.html</code></a>.</p>
-  <p>You can use either tool — they share the same skills, instructions, and hooks.</p>
+  <p>You can use either tool — they share the same skills, instructions, and Dreaming memory.</p>
 
   <h2 id="uninstalling-the-pack">Uninstalling the pack</h2>
   <p>Match the uninstall to the install path you used.</p>
   <p><strong>Path A — pack-as-workspace</strong> (<code>bash install.sh</code> / <code>pwsh ./install.ps1</code> at the root of the cloned pack):</p>
 <pre><code>bash install.sh --uninstall          <span style="color:#6b7280;"># macOS / Linux / WSL</span>
 pwsh ./install.ps1 -Uninstall        <span style="color:#6b7280;"># Windows</span></code></pre>
-  <p>That removes <code>.claude/skills</code>, the rendered <code>hooks/hooks.json</code>, and the <code>hooks</code> key from <code>.claude/settings.json</code> (preserving any other keys you had). The committed pack files (<code>CLAUDE.md</code>, <code>.github/</code>, <code>AGENTS.md</code>, the <code>hooks/</code> scripts and template) remain — delete or <code>git rm</code> them when you're done with the clone.</p>
+  <p>That removes <code>.claude/skills</code>, the rendered <code>.assert-iq/dreaming/session-events.json</code>, and the <code>hooks</code> key from <code>.claude/settings.json</code> (preserving any other keys you had). Your <code>.assert-iq/memory/</code> store is preserved. The committed pack files (<code>CLAUDE.md</code>, <code>.github/</code>, <code>AGENTS.md</code>, the <code>.assert-iq/dreaming/</code> machinery) remain — delete or <code>git rm</code> them when you're done with the clone.</p>
 
   <p><strong>Path B — codebase install</strong> (<code>/assert-iq-bootstrap</code> or <code>bash scripts/bootstrap.sh --mode=trial</code> inside your target repo):</p>
 <pre><code>bash scripts/bootstrap.sh --uninstall            <span style="color:#6b7280;"># macOS / Linux</span>
@@ -118,7 +118,7 @@ bash scripts/bootstrap.sh --uninstall --user     <span style="color:#6b7280;"># 
 bash scripts/bootstrap.sh --uninstall --dry-run  <span style="color:#6b7280;"># preview without changes</span>
 pwsh -File scripts/bootstrap.ps1 -Uninstall      <span style="color:#6b7280;"># Windows</span></code></pre>
   <p>The uninstall reads <code>.assert-iq/.install-manifest.json</code>, restores any pre-existing files from their <code>&lt;file&gt;.assert-iq.pre-install</code> snapshots, removes pack-owned files (including <code>.github/skills/</code>, <code>.github/agents/</code>, <code>.claude/agents/</code>, and the <code>.claude/skills</code> symlink), and strips the trial-mode block from <code>.git/info/exclude</code>. Files you edited post-install are preserved at <code>&lt;file&gt;.assert-iq.uninstall-saved</code> so nothing is silently lost.</p>
-  <div class="callout">To disable just the hooks without uninstalling: open <code>.claude/settings.json</code> and delete the <code>hooks</code> block (or set the relevant matchers to <code>[]</code>).</div>
+  <div class="callout">To disable just Dreaming without uninstalling: set <code>dreaming.enabled: false</code> in <code>.assert-iq/config.yaml</code> (or export <code>AIQ_DREAMING_DISABLED=1</code>), or delete the <code>hooks</code> block from <code>.claude/settings.json</code>.</div>
 
   <h2 id="what-the-bootstrap-does-not-auto-wire-and-how-to-fix-it">What the bootstrap does <em>not</em> auto-wire — and how to fix it</h2>
   <p>The bootstrap delivers <strong>every file in the pack to disk</strong> at the right location, but Claude Code only auto-loads some of them from a specific set of paths. Several surfaces have to live in the <strong>workspace</strong> (or a user-global slot) to be picked up:</p>
@@ -127,14 +127,14 @@ pwsh -File scripts/bootstrap.ps1 -Uninstall      <span style="color:#6b7280;"># 
     <li><code>AGENTS.md</code> — the generic agent-spec pointer</li>
     <li><code>.assert-iq/</code> — per-client config (maturity tier, governance posture, signal schema). The <code>assert-iq</code> subagent reads <code>.assert-iq/maturity-profile.md</code> and <code>.assert-iq/governance.md</code> on every quality/release question and silently falls back to defaults if they're missing.</li>
     <li><code>.claude/settings.json</code> — Claude reads its <code>hooks</code> block here. Bootstrap merges only the <code>hooks</code> key, preserving anything else you already have in the file.</li>
-    <li><code>hooks/</code> (<code>scripts/</code>, <code>lib/</code>, <code>config/</code>, <code>hooks.json</code>) — the hook scripts themselves. <code>hooks.json</code> is rendered at bootstrap time so the script paths resolve to the workspace copies.</li>
+    <li><code>.assert-iq/dreaming/</code> (<code>scripts/</code>, <code>service/</code>, <code>session-events.template.json</code>) — the Dreaming machinery. <code>session-events.json</code> is rendered at bootstrap time so the script paths resolve to the workspace copies; the memory store is scaffolded alongside at <code>.assert-iq/memory/</code>.</li>
   </ul>
   <div class="callout"><strong>Run the bootstrap script once per new workspace.</strong> From a terminal inside your target repo: <code>bash /path/to/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial</code> (Windows: <code>pwsh -File &lt;pack&gt;\scripts\bootstrap.ps1 -Mode trial</code>). The script walks you through where each surface should live (workspace / user-global / skip), supports <code>solo</code>, <code>pod</code>, and <code>portable</code> presets, and copies the templates from the cloned pack into the right places. Cross-platform (macOS, Linux, Windows). Pre-existing files are preserved (SHA256 compare + interactive resolver); JSON settings files are deep-merged additively and snapshotted to <code>&lt;file&gt;.assert-iq.pre-install</code> for clean uninstall. Safe to re-run. <em>Skills in every workspace, no per-repo install? Use <code>--preset=portable</code> (or <code>--skills-scope=user</code>) to land skills at <code>~/.agents/skills/</code> and <code>~/.claude/skills/</code>. The workspace still gets <code>.github/agents/</code>, <code>.claude/agents/</code>, and the install manifest, but instructions, hooks, settings, MCP config, and <code>CLAUDE.md</code> stay out.</em> <em>If the cloned pack is open in Claude Code, or its skills are installed user-globally to <code>~/.agents/skills/</code>, the same wizard is available from chat as <code>/assert-iq-bootstrap</code>.</em></div>
 
   <h2 id="something-feels-off">Something feels off?</h2>
   <ul>
     <li>Skills not showing up? Make sure you ran <code>./install.sh</code> (or <code>install.ps1</code>) once. The skills folder here should be a link, not empty.</li>
-    <li>Hooks not firing? Open <code>settings.json</code> and check the <code>hooks</code> section is filled in. If it's missing, re-run the installer.</li>
+    <li>Dreaming not firing? Open <code>settings.json</code> and check the <code>hooks</code> section is filled in. If it's missing, re-run the installer.</li>
     <li>Need the full file map? See <a href="MANIFEST.md"><code>MANIFEST.md</code></a>.</li>
     <li>Need the day-one onboarding doc? See <a href="README.assert-iq.html"><code>README.assert-iq.html</code></a>.</li>
   </ul>

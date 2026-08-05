@@ -342,7 +342,7 @@
       <a href="vscode-readme.html">VS Code / Copilot</a>
       <a href="claude-readme.html">Claude Code</a>
       <a href="MCP.html">MCP servers</a>
-      <a href="hooks-readme.html">Hindsight Hooks</a>
+      <a href="dreaming-readme.html">Dreaming</a>
       <a href="README.assert-iq.md">Markdown source</a>
     </nav>
   </aside>
@@ -385,7 +385,7 @@
         <tr><td>Scoped instructions</td><td><code>.github/instructions/*.instructions.md</code></td><td>auto via <code>applyTo</code></td><td>via <code>@</code>-imports in <code>CLAUDE.md</code></td></tr>
         <tr><td>Skills (26)</td><td><code>.github/skills/*/SKILL.md</code></td><td><code>.github/skills/</code></td><td><code>.claude/skills/</code> (symlink)</td></tr>
         <tr><td>Chat mode / subagent</td><td><code>.github/agents/Assert-IQ.agent.md</code> + plan sibling; Claude counterparts</td><td>agent files</td><td>subagent files</td></tr>
-        <tr><td>Hooks</td><td><code>hooks/hooks.json</code> + <code>hooks/scripts/</code></td><td>via <code>chat.hookFilesLocations</code></td><td><code>.claude/settings.json</code> (synced by installer)</td></tr>
+        <tr><td>Dreaming</td><td><code>.assert-iq/dreaming/</code> + <code>.assert-iq/memory/</code></td><td>via <code>chat.hookFilesLocations</code></td><td><code>.claude/settings.json</code> (synced by installer)</td></tr>
         <tr><td>MCP wiring</td><td><code>.vscode/mcp.json</code></td><td>yes</td><td>yes</td></tr>
         <tr><td>Per-client config</td><td><code>.assert-iq/*</code></td><td>yes</td><td>yes</td></tr>
         <tr><td>Generic agent pointer</td><td><code>AGENTS.md</code></td><td>n/a</td><td>read by Codex / Cursor / Aider</td></tr>
@@ -395,7 +395,7 @@
     <p><strong>After dropping the pack into a repo, run the installer once:</strong></p>
 <pre><code>bash install.sh        <span class="comment"># macOS / Linux</span>
 .\install.ps1          <span class="comment"># Windows PowerShell</span></code></pre>
-    <p>The installer is idempotent. It (1) syncs <code>hooks.json</code> into <code>.claude/settings.json</code> (merging — preserves any other settings keys you have), and (2) creates <code>.claude/skills</code> as a symlink to <code>../.github/skills</code> (falling back to a copy on Windows without Developer Mode).</p>
+    <p>The installer is idempotent. It (1) renders and syncs the session-events wiring into <code>.claude/settings.json</code> (merging — preserves any other settings keys you have), (2) scaffolds the <code>.assert-iq/memory/</code> store, and (3) creates <code>.claude/skills</code> as a symlink to <code>../.github/skills</code> (falling back to a copy on Windows without Developer Mode).</p>
 
     <h2 id="install">Installation</h2>
     <p>The pack supports exactly two install paths. They serve different needs — pick based on whether you're evaluating Assert.IQ or actually deploying it into a team's repo.</p>
@@ -409,14 +409,14 @@ bash install.sh        <span class="comment"># macOS / Linux / WSL</span>
 pwsh ./install.ps1     <span class="comment"># Windows PowerShell 7+</span></code></pre>
     <p>What it does (all inside the pack folder):</p>
     <ol>
-      <li>Renders <code>hooks/hooks.json</code> from <code>hooks/hooks.template.json</code> with the pack root absolute path baked in.</li>
+      <li>Renders <code>.assert-iq/dreaming/session-events.json</code> from its template with the pack root absolute path baked in, and scaffolds the <code>.assert-iq/memory/</code> store.</li>
       <li>Merges the rendered <code>hooks</code> block into <code>.claude/settings.json</code>, preserving any other keys.</li>
       <li>Creates <code>.claude/skills</code> as a symlink to <code>../.github/skills</code> (copy fallback on Windows without Developer Mode).</li>
     </ol>
     <p>Idempotent on every platform. Reverse cleanly with <code>bash install.sh --uninstall</code> (or <code>pwsh ./install.ps1 -Uninstall</code>).</p>
 
     <h3 id="path-b-install-it-into-your-codebase">Path B — install it into your codebase</h3>
-    <p>This is the real deployment path. Bootstrap copies the full set of workspace-loaded surfaces into a target repo so Copilot Chat and Claude Code can discover skills, agents, instructions, hooks, and config from that codebase.</p>
+    <p>This is the real deployment path. Bootstrap copies the full set of workspace-loaded surfaces into a target repo so Copilot Chat and Claude Code can discover skills, agents, instructions, the Dreaming machinery, and config from that codebase.</p>
     <p><strong>Run the bootstrap script from a terminal in your target repo.</strong> No editor required, nothing to install in chat first:</p>
 <pre><code><span class="comment"># 1. Clone the pack somewhere (one time, anywhere)</span>
 git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack ~/assert-iq-agent-pack
@@ -439,7 +439,7 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
     </div>
 
     <h4>Portable mode — skills user-globally, minimal workspace footprint</h4>
-    <p>If you'd rather not put the full pack into your workspace (not even in trial mode), use <code>--preset=portable</code>. Skills install to <code>~/.agents/skills/</code> (VS Code Copilot Chat) and <code>~/.claude/skills/</code> (Claude Code) so every workspace you open has the 26 QI skills available. Workspace footprint shrinks to just the Assert-IQ chat agent files (<code>.github/agents/</code>, <code>.claude/agents/</code>) and the install manifest — no instructions, hooks, settings, MCP config, or <code>CLAUDE.md</code> are written into the repo.</p>
+    <p>If you'd rather not put the full pack into your workspace (not even in trial mode), use <code>--preset=portable</code>. Skills install to <code>~/.agents/skills/</code> (VS Code Copilot Chat) and <code>~/.claude/skills/</code> (Claude Code) so every workspace you open has the 26 QI skills available. Workspace footprint shrinks to just the Assert-IQ chat agent files (<code>.github/agents/</code>, <code>.claude/agents/</code>) and the install manifest — no instructions, dreaming, settings, MCP config, or <code>CLAUDE.md</code> are written into the repo.</p>
 <pre><code>bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --preset=portable
 <span class="comment"># Reverse with: --uninstall --user</span></code></pre>
     <p>You can also opt in à la carte with <code>--skills-scope=user</code> (default is <code>workspace</code>; <code>both</code> puts skills in both places).</p>
@@ -461,8 +461,8 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
         <tr><td><code>.claude/agents/</code></td><td>Claude Code subagent counterparts.</td></tr>
         <tr><td><code>.claude/skills</code></td><td>Symlink to <code>../.github/skills</code> (copy fallback on Windows).</td></tr>
         <tr><td><code>CLAUDE.md</code> / <code>AGENTS.md</code></td><td>Read from repo root by Claude / Codex / Cursor / Aider.</td></tr>
-        <tr><td><code>.vscode/settings.json</code> + <code>mcp.json</code></td><td>Wires VS Code Copilot to read instructions, prompts, hooks; declares MCP servers.</td></tr>
-        <tr><td><code>hooks/</code></td><td>Hook scripts that fire on <code>SessionStart</code> / <code>PostToolUse</code> / <code>Stop</code>.</td></tr>
+        <tr><td><code>.vscode/settings.json</code> + <code>mcp.json</code></td><td>Wires VS Code Copilot to read instructions, prompts, Dreaming session events; declares MCP servers.</td></tr>
+        <tr><td><code>.assert-iq/dreaming/</code> + <code>.assert-iq/memory/</code></td><td>Dreaming machinery that fires on <code>SessionStart</code> / <code>Stop</code>, plus the markdown memory store.</td></tr>
         <tr><td><code>.claude/settings.json</code></td><td>Claude Code reads <code>hooks</code> block here; merged additively.</td></tr>
       </tbody>
     </table>
@@ -541,7 +541,7 @@ Modes          .github/agents/Assert-IQ.agent.md          Default front-door
 Tools          .vscode/mcp.json                           External integrations
                                                           (ADO, Jira, GitHub…)
 
-Hooks          hooks/hooks.json + hooks/scripts/          Retrospective skill
+Dreaming       .assert-iq/dreaming/ + .assert-iq/memory/  Markdown memory
                (wired via .vscode/settings.json and       refinement on session
                .claude/settings.json)                     end</pre>
 

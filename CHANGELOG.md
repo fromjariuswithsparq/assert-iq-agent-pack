@@ -5,6 +5,46 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] — 2026-08-04
+
+### Added
+- **Dreaming — markdown memory consolidation.** A new `.assert-iq/memory/`
+  store (three-tier: `MEMORY.md` index ≤200 lines, `topics/*.md`, daily
+  `logs/`) that the agent consolidates via the new `/dream` skill
+  (`.github/skills/dream/SKILL.md`). The four-phase pass (Orient → Gather →
+  Consolidate → Prune & Index) resolves contradictions, temporalizes dates,
+  prunes stale entries, and dedups — sandboxed to write only inside the
+  memory store. A lightweight waking-loop recorder (`dream-record-session`)
+  and a dual-gate nudge (`dream-gate`, default ≥24h AND ≥5 sessions) live
+  under `.assert-iq/dreaming/scripts/`.
+- **Optional background dreamer** (`.assert-iq/dreaming/service/dreaming_service.py`)
+  for teams that want "dream while you sleep" via cron. Off by default and
+  inert unless `anthropic` is installed and `ANTHROPIC_API_KEY` is set; the
+  core `/dream` skill has no dependency on it.
+- Maturity-gated dreaming (early: manual `/dream`; mid: gate nudge; higher:
+  may auto-fire / optional background service), a `dreaming:` block in
+  `config.yaml`, governance sandbox rules, and a startup memory-index pointer
+  in `qi-foundation.instructions.md`.
+- `tests/_qi/automated/e2e-dreaming.{sh,ps1}` covering the recorder, gate,
+  kill-switch, and write-sandbox.
+
+### Changed
+- **Retired Hindsight Hooks entirely.** Removed the top-level `hooks/` tree,
+  `hooks.template.json`, the `skill-improve-*` / `track-telemetry` scripts,
+  and the per-tool-call `PostToolUse` hook — the main token/memory cost this
+  release addresses. Session-event wiring now renders from
+  `.assert-iq/dreaming/session-events.template.json` into the
+  `.claude/settings.json` `hooks` key (`SessionStart` + `Stop` only).
+- Installers (`install.sh` / `install.ps1`), bootstrap (`bootstrap.sh` /
+  `bootstrap.ps1`, new `--dreaming` flag with `--hooks` alias), `.gitignore`,
+  `.vscode/settings.json`, and all docs (`.md` + sister `.html` + search
+  index) rebranded from Hindsight Hooks to Dreaming.
+
+### Removed
+- The retrospective self-patching feature and its runtime state
+  (`dismissed-lessons.json`, `edit-frequency.json`, per-session scratch).
+  Cross-session learning now lives in the versioned `.assert-iq/memory/` store.
+
 ## [1.3.0] — 2026-06-09
 
 ### Added

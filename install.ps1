@@ -2,22 +2,23 @@
 # Idempotent: safe to re-run.
 #
 # What it does:
-#   1. Renders hooks\hooks.json from hooks\hooks.template.json with the
-#      pack root baked in (VS Code Copilot has no env equivalent of
+#   1. Renders .assert-iq\dreaming\session-events.json from its template with
+#      the pack root baked in (VS Code Copilot has no env equivalent of
 #      CLAUDE_PLUGIN_ROOT, so the absolute path must be substituted at
 #      install time).
-#   2. Syncs hooks\hooks.json -> .claude\settings.json (hooks key),
-#      preserving any other keys you already have in .claude\settings.json.
+#   2. Syncs the rendered file -> .claude\settings.json (hooks key — the
+#      harness contract), preserving any other keys you already have there.
 #      Written via staged temp file + Move-Item so an interrupt mid-write
 #      cannot truncate your existing settings.
-#   3. Creates .claude\skills as a symlink to ..\.github\skills so Claude
+#   3. Scaffolds the Dreaming memory store at .assert-iq\memory\.
+#   4. Creates .claude\skills as a symlink to ..\.github\skills so Claude
 #      Code discovers the same skills Copilot does. Falls back to copy when
 #      symlink creation requires Developer Mode and that mode is off.
 #
 # Copilot needs no extra wiring — it reads .github\* natively.
 #
 # Uninstall: pass -Uninstall to reverse the above. Other keys in
-# .claude\settings.json are preserved (only the hooks key is stripped).
+# .claude\settings.json and your .assert-iq\memory\ store are preserved.
 
 [CmdletBinding()]
 param(
@@ -28,13 +29,15 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root         = Split-Path -Parent $PSCommandPath
-$hooksTpl     = Join-Path $root 'hooks\hooks.template.json'
-$hooksSrc     = Join-Path $root 'hooks\hooks.json'
+$eventsTpl    = Join-Path $root '.assert-iq\dreaming\session-events.template.json'
+$eventsSrc    = Join-Path $root '.assert-iq\dreaming\session-events.json'
+$memoryDir    = Join-Path $root '.assert-iq\memory'
+$hooksSrcLegacy = Join-Path $root 'hooks\hooks.json'
 $settingsDst  = Join-Path $root '.claude\settings.json'
 $skillsDst    = Join-Path $root '.claude\skills'
 $skillsSrcRel = '..\.github\skills'
 $skillsSrcAbs = Join-Path $root '.github\skills'
-$renderLib    = Join-Path $root 'hooks\scripts\lib\render-hooks.ps1'
+$renderLib    = Join-Path $root '.assert-iq\dreaming\scripts\lib\render-events.ps1'
 
 function Say($msg) { Write-Host $msg }
 function Fail($msg) { throw "install.ps1: $msg" }
@@ -81,9 +84,13 @@ if ($Uninstall) {
             Say "[skip] could not parse ${settingsDst}: $_  (left untouched)"
         }
     }
-    if (Test-Path -LiteralPath $hooksSrc -PathType Leaf) {
-        Remove-Item -LiteralPath $hooksSrc -Force -ErrorAction SilentlyContinue
-        Say "[ok] removed $hooksSrc"
+    if (Test-Path -LiteralPath $eventsSrc -PathType Leaf) {
+        Remove-Item -LiteralPath $eventsSrc -Force -ErrorAction SilentlyContinue
+        Say "[ok] removed $eventsSrc"
+    }
+    if (Test-Path -LiteralPath $hooksSrcLegacy -PathType Leaf) {
+        Remove-Item -LiteralPath $hooksSrcLegacy -Force -ErrorAction SilentlyContinue
+        Say "[ok] removed legacy $hooksSrcLegacy"
     }
     $claudeDir = Join-Path $root '.claude'
     if ((Test-Path -LiteralPath $claudeDir) -and `
@@ -94,25 +101,36 @@ if ($Uninstall) {
     Say ''
     Say 'Uninstall complete.'
     Say 'Pack source files (.github\, CLAUDE.md, AGENTS.md, etc.) are unchanged.'
+    Say 'Your .assert-iq\memory\ store is preserved.'
     return
 }
 
-if (-not (Test-Path -LiteralPath $hooksTpl)) { Fail "missing $hooksTpl" }
+if (-not (Test-Path -LiteralPath $eventsTpl)) { Fail "missing $eventsTpl" }
 if (-not (Test-Path -LiteralPath $renderLib)) { Fail "missing $renderLib" }
 
 . $renderLib
 
 New-Item -ItemType Directory -Force -Path (Join-Path $root '.claude\agents') | Out-Null
 
-# ---- 0. render hooks.json from template ----------------------------------
-Render-HooksTemplate -Template $hooksTpl -Out $hooksSrc -PackRoot $root
-Say "[ok] rendered hooks\hooks.json (pack root: $root)"
+# ---- 0. scaffold the Dreaming memory store -------------------------------
+New-Item -ItemType Directory -Force -Path (Join-Path $memoryDir 'topics') | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $memoryDir 'logs') | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $memoryDir '.dream') | Out-Null
+$statePath = Join-Path $memoryDir '.dream\state.json'
+if (-not (Test-Path -LiteralPath $statePath)) {
+    Set-Content -LiteralPath $statePath -Value "{`n  `"last_dream_utc`": null,`n  `"sessions_since_dream`": 0`n}" -Encoding UTF8
+}
+Say "[ok] ensured Dreaming memory store at .assert-iq\memory\"
+
+# ---- 1. render session-events wiring from template -----------------------
+Render-EventsTemplate -Template $eventsTpl -Out $eventsSrc -PackRoot $root
+Say "[ok] rendered .assert-iq\dreaming\session-events.json (pack root: $root)"
 
 # ---- 1. sync hooks block -------------------------------------------------
 # Stage the merged JSON to a sibling temp file, validate non-empty, then
 # atomically Move-Item into place. Prevents truncation of the user's
 # existing .claude\settings.json on interrupt or partial-write.
-$newHooksRaw = Get-Content -LiteralPath $hooksSrc -Raw
+$newHooksRaw = Get-Content -LiteralPath $eventsSrc -Raw
 try {
     $newHooks = $newHooksRaw | ConvertFrom-Json
 } catch {
@@ -183,4 +201,5 @@ try {
 Say ""
 Say "Pack installed."
 Say "  Copilot reads .github\copilot-instructions.md, .github\instructions\*, .github\agents\*, .github\skills\*"
-Say "  Claude  reads CLAUDE.md, .claude\agents\*, .claude\skills\*, .claude\settings.json (hooks)"
+Say "  Claude  reads CLAUDE.md, .claude\agents\*, .claude\skills\*, .claude\settings.json (session events)"
+Say "  Dreaming memory store: .assert-iq\memory\ (run /dream to consolidate)"

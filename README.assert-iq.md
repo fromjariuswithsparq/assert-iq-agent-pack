@@ -49,7 +49,7 @@ short installer that wires `.claude/settings.json` and the skills symlink.
 | Scoped instructions | `.github/instructions/*.instructions.md` | same (auto via `applyTo`) | same (via `@`-imports in `CLAUDE.md`; "When this applies" prose) |
 | Skills (22) | `.github/skills/*/SKILL.md` | `.github/skills/` directly | `.claude/skills/` (symlink → `.github/skills/`) |
 | Chat mode / subagent | `.github/agents/Assert-IQ.agent.md` + `.github/agents/Assert-IQ-PLAN.agent.md` (Copilot) + `.claude/agents/assert-iq.md` + `.claude/agents/assert-iq-plan.md` (Claude) | agent files | subagent files |
-| Hooks | `hooks.json` (pack root) + `hooks/scripts/`, `hooks/config/` | yes (via `chat.hookFilesLocations`) | `.claude/settings.json` (hooks block, synced by installer) |
+| Dreaming | `.assert-iq/dreaming/` (scripts + optional service) + `.assert-iq/memory/` store | yes (via `chat.hookFilesLocations`) | `.claude/settings.json` (hooks block, synced by installer) |
 | MCP wiring | `.vscode/mcp.json` | yes | yes (VS Code MCP is tool-agnostic) |
 | Per-client config | `.assert-iq/*` | yes | yes |
 | Generic agent pointer | `AGENTS.md` | n/a | n/a (read by Codex CLI / Cursor / Aider) |
@@ -61,9 +61,10 @@ bash install.sh        # macOS / Linux
 .\install.ps1          # Windows PowerShell
 ```
 
-The installer is idempotent. It (1) syncs `hooks.json` into
-`.claude/settings.json` (merging — it preserves any other settings keys you
-have), and (2) creates `.claude/skills` as a symlink to `../.github/skills`
+The installer is idempotent. It (1) renders and syncs the session-events
+wiring into `.claude/settings.json` (merging — it preserves any other settings
+keys you have), (2) scaffolds the `.assert-iq/memory/` store, and (3) creates
+`.claude/skills` as a symlink to `../.github/skills`
 (falling back to a copy on Windows without Developer Mode — in that case
 re-run the installer after editing skills).
 
@@ -71,7 +72,7 @@ Copilot requires no extra wiring — it reads `.github/*` natively.
 
 > **Note on the `.html` siblings.** The `*.html` files at the repo root
 > (`README.html`, `README.assert-iq.html`, `claude-readme.html`,
-> `vscode-readme.html`, `hooks-readme.html`, `MCP.html`) are rendered
+> `vscode-readme.html`, `dreaming-readme.html`, `MCP.html`) are rendered
 > snapshots of the corresponding `.md` files, intended for offline /
 > static-host distribution. They are **not** the source of truth — edit
 > the `.md` files only and regenerate the HTMLs from those. If you change
@@ -102,10 +103,10 @@ pwsh ./install.ps1     # Windows PowerShell 7+
 
 What it does (all inside the pack folder):
 
-1. Renders `hooks/hooks.json` from `hooks/hooks.template.json` with the
-   pack root absolute path baked in (VS Code Copilot has no env var
-   equivalent of `CLAUDE_PLUGIN_ROOT`, so the path is resolved at
-   install time).
+1. Renders `.assert-iq/dreaming/session-events.json` from its template
+   with the pack root absolute path baked in (VS Code Copilot has no env
+   var equivalent of `CLAUDE_PLUGIN_ROOT`, so the path is resolved at
+   install time), and scaffolds the `.assert-iq/memory/` store.
 2. Merges the rendered `hooks` block into `.claude/settings.json`,
    preserving any other keys you already have.
 3. Creates `.claude/skills` as a symlink to `../.github/skills` so
@@ -121,7 +122,7 @@ cleanly with `bash install.sh --uninstall` (or `pwsh ./install.ps1
 
 This is the real deployment path. Bootstrap copies the full set of
 workspace-loaded surfaces into a target repo so Copilot Chat and Claude
-Code can discover the skills, agents, instructions, hooks, and config
+Code can discover the skills, agents, instructions, Dreaming machinery, and config
 from that codebase.
 
 **Run the bootstrap script from a terminal in your target repo.** No
@@ -179,7 +180,7 @@ trial mode), use `--preset=portable`. Skills install to
 (Claude Code) so every workspace you open has the 26 QI skills
 available. Workspace footprint shrinks to just the Assert-IQ chat
 agent files (`.github/agents/`, `.claude/agents/`) and the install
-manifest — no instructions, hooks, settings, MCP config, or `CLAUDE.md`
+manifest — no instructions, dreaming, settings, MCP config, or `CLAUDE.md`
 are written into the repo.
 
 ```bash
@@ -216,8 +217,8 @@ aren't physically present in the workspace, so all of them ship in.
 | `.claude/agents/` | Claude Code subagent counterparts (`assert-iq.md`, `assert-iq-plan.md`). |
 | `.claude/skills` | Symlink to `../.github/skills` (copy fallback on Windows without Developer Mode) so Claude Code discovers the same skills. |
 | `CLAUDE.md` / `AGENTS.md` | Claude and other agent runners read these from the repo root. |
-| `.vscode/settings.json` + `.vscode/mcp.json` | Wires VS Code Copilot to read instructions, prompts, and **hooks** from the workspace; declares optional GitHub / ADO / Jira MCP servers. JSON deep-merged into any pre-existing settings (additive; your values win on conflicts). |
-| `hooks/` (`scripts/`, `lib/`, `config/`, `hooks.json`) | The hook scripts that fire on `SessionStart` / `PostToolUse` / `Stop`. `hooks.json` is rendered at bootstrap time so the script paths resolve to the workspace copies. |
+| `.vscode/settings.json` + `.vscode/mcp.json` | Wires VS Code Copilot to read instructions, prompts, and **Dreaming session events** from the workspace; declares optional GitHub / ADO / Jira MCP servers. JSON deep-merged into any pre-existing settings (additive; your values win on conflicts). |
+| `.assert-iq/dreaming/` (`scripts/`, `service/`, `session-events.template.json`) + `.assert-iq/memory/` | The Dreaming machinery that fires on `SessionStart` / `Stop`, plus the markdown memory store. `session-events.json` is rendered at bootstrap time so the script paths resolve to the workspace copies. |
 | `.claude/settings.json` | Claude Code reads the `hooks` block from here. Bootstrap merges only the `hooks` key, preserving any other settings you have. |
 
 ### Trial vs Committed (Path B)
@@ -245,7 +246,7 @@ markers (`<!-- assert-iq:begin v=... -->` / `<!-- assert-iq:end -->`) at the
 top of the file, leaving everything below untouched. Re-installing replaces
 only the marker block in place, so re-runs are fully idempotent and your
 team-authored content outside the markers is never rewritten. Other files
-(JSON settings, hooks, skills, etc.) keep the existing K / O / S behavior
+(JSON settings, session events, skills, etc.) keep the existing K / O / S behavior
 — the `m` option is hidden for them, and a JSON deep-merge still applies
 to `.vscode/settings.json` and `.claude/settings.json`. To force one mode
 non-interactively, pass `CONFLICT_BULK_CHOICE=K|O|M|S` as an environment
@@ -340,9 +341,9 @@ Modes          .github/agents/Assert-IQ.agent.md          Default front-door age
 Tools          .vscode/mcp.json                           External integrations
                                                           (ADO, Jira, GitHub)
 
-Hooks          hooks/hooks.json + hooks/scripts/          Retrospective skill
-               (wired via .vscode/settings.json and        refinement on session
-               .claude/settings.json)                      end
+Dreaming       .assert-iq/dreaming/ + .assert-iq/memory/  Markdown memory
+               (wired via .vscode/settings.json and        consolidation via
+               .claude/settings.json)                      the /dream skill
 ```
 
 ---
@@ -361,8 +362,8 @@ Copy these directories into the repo root:
 - `.github/agents/`               ← `Assert-IQ.agent.md` + `Assert-IQ-PLAN.agent.md`
 - `.claude/`                      ← `agents/`, `settings.json`; `.claude/skills/` is created as a symlink by the installer
 - `.vscode/mcp.json`
-- `.vscode/settings.json`         ← wires `.github/skills/` into Copilot prompt-file loading and points `chat.hookFilesLocations` at `./hooks/hooks.json`
-- `hooks/`                        ← `scripts/`, `lib/`, `config/`, and the rendered `hooks.json`
+- `.vscode/settings.json`         ← wires `.github/skills/` into Copilot prompt-file loading and points `chat.hookFilesLocations` at `./.assert-iq/dreaming/session-events.json`
+- `.assert-iq/dreaming/`          ← `scripts/`, `service/`, and `session-events.template.json` (the Dreaming machinery; `.assert-iq/memory/` is scaffolded alongside)
 - `.assert-iq/`
 - `tests/_qi/` (if not already present)
 

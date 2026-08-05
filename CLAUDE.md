@@ -44,10 +44,12 @@ inside each file.
 - **Skills** — `.github/skills/` (canonical) is mirrored at `.claude/skills`
   so Claude auto-discovers all 26 QI skills (code review, test generation,
   bug reports, traceability matrix, release confidence, hotspot map, etc.).
-- **Hooks** — wired through `.claude/settings.json`, sourced from
-  `hooks/hooks.json` (Claude plugin format). Run `bash install.sh` (or `install.ps1` on
-  Windows) after dropping the pack into a repo to sync hooks and create the
-  skills symlink.
+- **Dreaming** — a markdown memory store at `.assert-iq/memory/`, consolidated
+  by the `/dream` skill. Session events (recorder + gate) are wired through
+  `.claude/settings.json`, rendered from
+  `.assert-iq/dreaming/session-events.template.json`. Run `bash install.sh`
+  (or `install.ps1` on Windows) after dropping the pack into a repo to sync the
+  session events, scaffold the memory store, and create the skills symlink.
 - **Per-client config** — `.assert-iq/config.yaml`,
   `.assert-iq/governance.md`, `.assert-iq/maturity-profile.md`,
   `.assert-iq/signal-schema.json`.

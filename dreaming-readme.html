@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Assert.IQ — Dreaming Guide</title>
+<style>
+  :root {
+    --bg: #18191a; --bg-elev: #242526; --bg-card: #2a2b2d; --border: #3a3b3c;
+    --text: #f5f5f5; --text-dim: #aab0b8; --accent: #e25232; --accent-2: #1e8077;
+    --accent-3: #f58467; --warn:#ffb347; --code-bg: #111213;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent-2);text-decoration:none;transition:color .15s}
+  a:hover{color:var(--accent)}
+  code{font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:.88em;background:var(--code-bg);color:#c8d3ff;padding:2px 6px;border-radius:4px;border:1px solid var(--border)}
+  pre{background:var(--code-bg);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:14px 18px;overflow-x:auto;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:.85em;line-height:1.55}
+  pre code{background:none;border:none;padding:0;color:#c8d3ff}
+  pre.flow{border-left-color:var(--accent-3);font-size:.78em;line-height:1.4;color:#9ba3b4}
+  p{color:var(--text-dim)}
+  p strong,li strong,td strong{color:var(--text)}
+  li{color:var(--text-dim);margin-bottom:5px}
+  blockquote{border-left:3px solid var(--accent);background:var(--bg-card);margin:18px 0;padding:12px 18px;border-radius:0 8px 8px 0;color:var(--text-dim)}
+  blockquote strong{color:var(--text)}
+  .topbar{background:var(--bg-elev);border-bottom:1px solid var(--border);padding:12px 24px;font-size:.85em;color:var(--text-dim);position:sticky;top:0;z-index:20;backdrop-filter:blur(8px)}
+  .topbar a{margin-right:18px}
+  .layout{display:grid;grid-template-columns:280px 1fr;max-width:1320px;margin:0 auto;gap:0}
+  .sidebar{position:sticky;top:50px;align-self:start;height:calc(100vh - 50px);overflow-y:auto;padding:32px 16px 32px 24px;border-right:1px solid var(--border);font-size:.86em}
+  .sidebar .nav-group{color:var(--accent);font-size:.72em;text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin:18px 0 6px;padding-left:8px}
+  .sidebar a{display:block;padding:5px 10px;color:var(--text-dim);border-radius:5px;margin-bottom:2px}
+  .sidebar a.sub{padding-left:22px;font-size:.92em}
+  .sidebar a:hover{background:var(--bg-card);color:var(--text)}
+  main{padding:48px 40px 80px;min-width:0}
+  .doc-hero{margin-bottom:40px;padding-bottom:24px;border-bottom:1px solid var(--border)}
+  .badge{display:inline-flex;align-items:center;gap:8px;padding:4px 12px;background:rgba(255,107,157,.12);border:1px solid rgba(255,107,157,.35);border-radius:999px;font-size:.78em;color:var(--accent-3);font-weight:500;margin-bottom:14px}
+  h1{font-size:clamp(1.7rem,3vw,2.2rem);margin:0 0 12px;line-height:1.15;letter-spacing:-.02em;background:linear-gradient(135deg,#fff 30%,var(--accent-3) 70%,var(--accent) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .subtitle{color:var(--text-dim);font-size:1.02rem;max-width:780px}
+  h2{font-size:1.45rem;margin:48px 0 12px;letter-spacing:-.01em;padding-bottom:8px;border-bottom:1px solid var(--border);scroll-margin-top:70px}
+  h3{font-size:1.1rem;margin:28px 0 10px;color:var(--text);scroll-margin-top:70px}
+  h4{font-size:.98rem;margin:18px 0 8px;color:var(--text);scroll-margin-top:70px}
+  table{width:100%;border-collapse:collapse;margin:14px 0;background:var(--bg-card);border-radius:10px;overflow:hidden;border:1px solid var(--border);font-size:.9em}
+  thead{background:linear-gradient(135deg,rgba(255,107,157,.15),rgba(124,92,255,.08))}
+  th{text-align:left;padding:10px 14px;color:var(--text);font-weight:600;border-bottom:1px solid var(--border)}
+  td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--text-dim);vertical-align:top}
+  td:first-child{color:var(--text);font-weight:500}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:rgba(255,107,157,.04)}
+  .callout{background:var(--bg-card);border:1px solid var(--border);border-left:3px solid var(--accent-2);border-radius:8px;padding:14px 18px;margin:18px 0}
+  .callout.warn{border-left-color:var(--warn)}
+  hr{border:none;border-top:1px solid var(--border);margin:36px 0}
+  footer{margin-top:64px;padding-top:32px;border-top:1px solid var(--border);color:var(--text-dim);font-size:.88em;text-align:center}
+  footer a{margin:0 12px}
+  @media (max-width:880px){.layout{grid-template-columns:1fr}.sidebar{display:none}main{padding:32px 20px 60px}}
+</style>
+<!-- aiq-search:head:start -->
+<link rel="stylesheet" href="assets/search.css">
+<!-- aiq-search:head:end -->
+</head>
+<body>
+<!-- aiq-search:widget:start -->
+<div id="aiq-search" role="search">
+  <input id="aiq-search-input" type="search" autocomplete="off" spellcheck="false"
+         placeholder="Search docs (press / to focus)…" aria-label="Search documentation">
+  <div id="aiq-search-results" hidden role="listbox"></div>
+</div>
+<!-- aiq-search:widget:end -->
+
+<div class="topbar">
+  <a href="README.html">← Landing page</a>
+  <a href="README.assert-iq.html">Full Documentation</a>
+  <a href="vscode-readme.html">VS Code half</a>
+  <a href="claude-readme.html">Claude Code half</a>
+  <a href="MCP.html">MCP setup</a>
+</div>
+
+<div class="layout">
+
+<aside>
+  <div class="nav-group">Dreaming</div>
+  <a href="#top">Overview</a>
+  <a href="#loops">1. The two loops</a>
+  <a href="#files">2. Files in this folder</a>
+  <a href="#config">3. Configuration</a>
+  <a href="#maturity">4. Maturity gating</a>
+  <a href="#safety">5. Safety</a>
+  <a href="#service">6. Optional background dreamer</a>
+  <a href="#sanity">7. Sanity check</a>
+</aside>
+<main>
+  <div class="doc-hero" id="top">
+    <div class="badge">🌙 Dreaming · Memory Consolidation</div>
+    <h1 id="dreaming-guide">Dreaming — Guide</h1>
+    <p class="subtitle"><strong>Dreaming</strong> replaces the retired Hindsight Hooks feature. Instead of patching skills in place on every self-correction, Assert.IQ keeps a curated, versioned <strong>markdown memory store</strong> and consolidates it on a schedule — a second-derivative process where <em>memory improves memory</em>.</p>
+    <p>If you just want it to work, do nothing. A lightweight recorder runs at session end; when enough has accumulated you'll be nudged to run <code>/dream</code>.</p>
+    <blockquote><strong>Where things live.</strong> The memory store is at <code>.assert-iq/memory/</code>; the machinery (scripts, optional service, session-events template) is at <code>.assert-iq/dreaming/</code>. The instruction/rule files under <code>.github/instructions/</code> are the immutable rules tier and are never modified by dreaming.</blockquote>
+  </div>
+
+  <h2 id="loops">1. The two loops</h2>
+<pre class="flow"><code>WAKING LOOP (per session, online)
+  session ends → dream-record-session appends a dated note to
+                 .assert-iq/memory/logs/ and bumps the session counter
+
+DREAMING LOOP (on demand via /dream, or optional cron)
+  Phase 1 Orient → Phase 2 Gather → Phase 3 Consolidate → Phase 4 Prune &amp; Index
+  → rewritten .assert-iq/memory/ (reviewable git diff) + a dream report</code></pre>
+  <p>The heavy per-tool-call hook is gone — that is the token/memory-stewardship win. Signal is gathered by targeted grep over the daily logs and transcripts during a dream, not by logging every tool call.</p>
+
+  <h2 id="files">2. The files in this folder</h2>
+  <table>
+    <thead><tr><th>Path</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>scripts/dream-record-session.{sh,ps1}</code></td><td>Waking loop. Increments the session counter, appends one dated log line.</td></tr>
+      <tr><td><code>scripts/dream-gate.{sh,ps1}</code></td><td>Session-start dual-gate check. Nudges <code>/dream</code> when both gates are met.</td></tr>
+      <tr><td><code>scripts/lib/dream-utils.{sh,ps1}</code></td><td>Shared helpers (state path, lock, config gate values).</td></tr>
+      <tr><td><code>scripts/lib/render-events.{sh,ps1}</code></td><td>Renders <code>session-events.template.json</code> at install time.</td></tr>
+      <tr><td><code>session-events.template.json</code></td><td>Committed source-of-truth for the session-event wiring. Rendered by the installer into <code>.claude/settings.json</code>.</td></tr>
+      <tr><td><code>service/dreaming_service.py</code></td><td><strong>Optional</strong> background dreamer (cron / post-session). Off by default; requires the <code>anthropic</code> SDK + <code>ANTHROPIC_API_KEY</code>.</td></tr>
+    </tbody>
+  </table>
+  <p>The memory store itself lives at <code>.assert-iq/memory/</code> (<code>MEMORY.md</code> index ≤200 lines, <code>topics/*.md</code>, daily <code>logs/</code>, <code>.dream/state.json</code>).</p>
+
+  <h2 id="config">3. Configuration</h2>
+  <p>All knobs live under <code>dreaming:</code> in <code>.assert-iq/config.yaml</code>:</p>
+  <ul>
+    <li><code>enabled</code> — master switch (env kill-switch: <code>AIQ_DREAMING_DISABLED=1</code>).</li>
+    <li><code>index_max_lines</code> — <code>MEMORY.md</code> cap (default 200).</li>
+    <li><code>gate.min_hours_between_dreams</code> / <code>gate.min_sessions_between_dreams</code> — the dual gate (default 24h AND 5 sessions). Env overrides: <code>AIQ_DREAM_MIN_HOURS</code>, <code>AIQ_DREAM_MIN_SESSIONS</code>.</li>
+    <li><code>background_service</code> — opt-in cron dreamer (see §6).</li>
+  </ul>
+
+  <h2 id="maturity">4. Maturity gating</h2>
+  <p>Mirrors Agentic Healing:</p>
+  <table>
+    <thead><tr><th>Tier</th><th>Behavior</th></tr></thead>
+    <tbody>
+      <tr><td><code>early</code></td><td>manual <code>/dream</code> only; review every diff.</td></tr>
+      <tr><td><code>mid</code></td><td>the gate nudge surfaces at session start; still user-run.</td></tr>
+      <tr><td><code>higher</code></td><td>may auto-fire on the next session start when the gate is met, and may enable the optional background service.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="safety">5. Safety (non-negotiable)</h2>
+  <ol>
+    <li><strong>Write sandbox</strong> — the dream pass may write ONLY inside <code>.assert-iq/memory/</code>. Source, config, and instruction files are read-only.</li>
+    <li><strong>Rules are immutable</strong> — <code>.github/instructions/*</code> are never modified by dreaming.</li>
+    <li><strong>Lock</strong> — one dream at a time per project.</li>
+    <li><strong>Human review</strong> — every dream is a git-diffable change; skim the diff and hand-edit freely.</li>
+  </ol>
+
+  <h2 id="service">6. Optional background dreamer</h2>
+  <p><code>service/dreaming_service.py</code> is the turnkey "dream while you sleep" path. It is <strong>never</strong> required — the <code>/dream</code> skill is the default engine and has no dependency on it. To enable:</p>
+  <ol>
+    <li>Set <code>dreaming.background_service.enabled: true</code> in <code>config.yaml</code> (only honored at <code>higher</code> tier).</li>
+    <li><code>pip install anthropic</code> and export <code>ANTHROPIC_API_KEY</code>.</li>
+    <li>Wire a trigger:</li>
+  </ol>
+<pre><code># Nightly at 02:00
+0 2 * * * /usr/bin/python3 \
+  /path/to/repo/.assert-iq/dreaming/service/dreaming_service.py /path/to/repo
+
+# Manual, after a big refactor
+python3 .assert-iq/dreaming/service/dreaming_service.py . --force</code></pre>
+  <p>Without the env key the service exits without doing anything, so the pack stays dependency-free by default.</p>
+
+  <h2 id="sanity">7. Sanity check</h2>
+<pre><code>python3 -c "import json; print(list(json.load(open('.claude/settings.json'))['hooks'].keys()))"
+# Expected: ['SessionStart', 'Stop']   (no PostToolUse)</code></pre>
+
+  <footer>
+    <div class="footer-links">
+      <a href="README.html">Pack overview</a>
+      <a href="README.assert-iq.html">Full Docs</a>
+      <a href="vscode-readme.html">VS Code half</a>
+      <a href="claude-readme.html">Claude Code half</a>
+      <a href="MCP.html">MCP servers</a>
+      <a href=".assert-iq/dreaming/README.md">Markdown source</a>
+    </div>
+  </footer>
+</main>
+</div>
+<!-- aiq-search:scripts:start -->
+<script src="assets/search-index.js"></script>
+<script src="assets/search.js"></script>
+<!-- aiq-search:scripts:end -->
+</body>
+</html>

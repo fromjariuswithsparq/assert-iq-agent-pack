@@ -464,9 +464,9 @@
       <p>GitHub, ADO, Jira, Sentry, Grafana, Playwright, Slack, and more — wired in one file, credentials kept in your OS keychain.</p>
     </div>
     <div class="feature">
-      <div class="feature-icon" aria-hidden="true">🪝</div>
-      <h4>Hindsight Hooks</h4>
-      <p>Learn from corrections across sessions and progressively tighten agent behavior for your specific codebase.</p>
+      <div class="feature-icon" aria-hidden="true">🌙</div>
+      <h4>Dreaming</h4>
+      <p>A markdown memory store the agent consolidates across sessions (via <code>/dream</code>), so it sharpens on your codebase over time — without the token cost of per-tool-call hooks.</p>
     </div>
     <div class="feature">
       <div class="feature-icon" aria-hidden="true">🎯</div>
@@ -632,10 +632,9 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
 <span class="dir">.vscode/</span>
   <span class="file">mcp.json</span>                    <span class="comment">← 20 MCP server definitions</span>
   <span class="file">MCP.md</span>                      <span class="comment">← per-server credential and setup guide</span>
-<span class="dir">hooks/</span>
-  <span class="file">hooks.json</span>                  <span class="comment">← Hindsight Hooks wiring</span>
-  <span class="dir">scripts/</span>                    <span class="comment">← session-start, apply, reflect, session-end</span>
 <span class="dir">.assert-iq/</span>                   <span class="comment">← per-repo config (created by bootstrap)</span>
+  <span class="dir">memory/</span>                     <span class="comment">← Dreaming memory store (MEMORY.md, topics/, logs/)</span>
+  <span class="dir">dreaming/</span>                   <span class="comment">← recorder, gate, optional cron dreamer</span>
 <span class="dir">scripts/</span>
   <span class="file">bootstrap.sh / .ps1</span>         <span class="comment">← workspace installer, cross-platform</span></pre>
 </section>
@@ -664,7 +663,7 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
     <li>VS Code / Copilot — <a href="vscode-readme.html"><code>vscode-readme.html</code></a></li>
     <li>Claude Code — <a href="claude-readme.html"><code>claude-readme.html</code></a></li>
     <li>MCP servers — <a href="MCP.html"><code>MCP.html</code></a></li>
-    <li>Hindsight Hooks guide — <a href="hooks-readme.html"><code>hooks-readme.html</code></a></li>
+    <li>Dreaming guide — <a href="dreaming-readme.html"><code>dreaming-readme.html</code></a></li>
   </ul>
 </section>
 

@@ -38,7 +38,7 @@ Assert.IQ is the accelerator. It drops a QI reasoning layer directly into **GitH
 - **Two agents** (`Assert-IQ` for full execution, `Assert-IQ-PLAN` for plan-first workflows) with a built-in handoff button between them.
 - **Maturity-aware behavior** — a one-file config scales the pack from "early / manual generation only" to "higher / autonomous healing," meeting teams where they are.
 - **MCP wiring** to GitHub, ADO, Jira, Sentry, Grafana, Playwright, Slack, and 13 more tool surfaces — configured in one file, credentials kept in your OS keychain.
-- **Hindsight Hooks** that learn from corrections across sessions and progressively tighten agent behavior for your specific codebase.
+- **Dreaming** — a markdown memory store that consolidates learnings across sessions (via the `/dream` skill) so the agent gets sharper on your codebase over time, without the token cost of per-tool-call hooks.
 
 QI is the operating model. Assert.IQ is how teams act on it — from day one, in the tools they already use.
 
@@ -60,7 +60,7 @@ bash install.sh           # macOS / Linux / WSL
 pwsh ./install.ps1        # Windows PowerShell 7+
 ```
 
-The installer renders hooks for the pack's own root, wires `.claude/settings.json`, and creates the `.claude/skills` symlink — all inside the pack folder. Re-runnable. Reverse it with `bash install.sh --uninstall` (or `pwsh ./install.ps1 -Uninstall`).
+The installer renders the session-events wiring for the pack's own root, scaffolds the `.assert-iq/memory/` store, wires `.claude/settings.json`, and creates the `.claude/skills` symlink — all inside the pack folder. Re-runnable. Reverse it with `bash install.sh --uninstall` (or `pwsh ./install.ps1 -Uninstall`).
 
 **Path B — Install it into your codebase.** This is the real deployment path. **Run the bootstrap script from a terminal in your target repo** — no editor required:
 
@@ -97,7 +97,7 @@ The script is fully standalone — it accepts `--preset=solo|pod`, prompts inter
 
 `--mode=trial` is the safe default for the first install: every pack file lands in your workspace, but the path is added to `.git/info/exclude`. Your team sees nothing — your codebase's `.gitignore` is **never** touched. Once you're ready for the team to see it, run `bash scripts/bootstrap.sh --graduate` (or use `--mode=committed` from the start).
 
-Bootstrap writes twelve surfaces into the workspace: `.assert-iq/`, `.github/instructions/`, `.github/copilot-instructions.md`, `.github/skills/`, `.github/agents/`, `.claude/agents/`, `.claude/skills` (symlink to `../.github/skills` on macOS/Linux; copy fallback on Windows without Developer Mode), `.claude/settings.json`, `CLAUDE.md`, `AGENTS.md`, `.vscode/settings.json` + `.vscode/mcp.json`, and `hooks/`. Pre-existing user files are snapshotted to `<file>.assert-iq.pre-install` before any modification, so a later `bash scripts/bootstrap.sh --uninstall` can restore them byte-for-byte. Safe to re-run.
+Bootstrap writes twelve surfaces into the workspace: `.assert-iq/`, `.github/instructions/`, `.github/copilot-instructions.md`, `.github/skills/`, `.github/agents/`, `.claude/agents/`, `.claude/skills` (symlink to `../.github/skills` on macOS/Linux; copy fallback on Windows without Developer Mode), `.claude/settings.json`, `CLAUDE.md`, `AGENTS.md`, `.vscode/settings.json` + `.vscode/mcp.json`, and the `.assert-iq/dreaming/` machinery + `.assert-iq/memory/` store. Pre-existing user files are snapshotted to `<file>.assert-iq.pre-install` before any modification, so a later `bash scripts/bootstrap.sh --uninstall` can restore them byte-for-byte. Safe to re-run.
 
 > **Already have a `copilot-instructions.md`, `CLAUDE.md`, or `AGENTS.md` in your repo?** The interactive resolver offers `[m]erge (recommended)` for those three files. Merge wraps the pack content in idempotent HTML-comment markers (`<!-- assert-iq:begin v=... -->` … `<!-- assert-iq:end -->`) at the top of the file and leaves your existing content below the markers untouched. Re-installing replaces only the marker block, so the merge stays clean across upgrades and your team-authored content is never rewritten. Other files keep the existing `[k]eep / [o]verwrite / [s]idecar` choices.
 
@@ -107,7 +107,7 @@ Bootstrap writes twelve surfaces into the workspace: `.assert-iq/`, `.github/ins
 > (Claude Code), so every repo you open has the 26 QI skills available.
 > Workspace footprint is minimal: just the Assert-IQ chat agent files
 > (`.github/agents/`, `.claude/agents/`) and the manifest — no
-> instructions, hooks, settings, or MCP config touch your repo.
+> instructions, dreaming, settings, or MCP config touch your repo.
 > ```bash
 > bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --preset=portable
 > ```
@@ -197,10 +197,9 @@ The agent pulls context from your connected tools and reasons through all four s
 .vscode/
   mcp.json                    ← 20 MCP server definitions
   MCP.md                      ← per-server credential and setup guide
-hooks/
-  hooks.json                  ← Hindsight Hooks wiring
-  scripts/                    ← session-start, apply, reflect, session-end
 .assert-iq/                   ← per-repo config (created by bootstrap)
+  memory/                     ← Dreaming memory store (MEMORY.md, topics/, logs/)
+  dreaming/                   ← waking-loop recorder, dream gate, optional cron dreamer
 scripts/
   bootstrap.sh / .ps1         ← workspace installer, cross-platform
 ```
@@ -223,7 +222,7 @@ Upgrades are explicit and intentional:
 
 The three steps above are the fast path. When you're ready for the full picture:
 
-**[README.assert-iq.md →](README.assert-iq.md)** — detailed install options (drop-in / air-gapped / trial vs. committed), full skill reference, maturity tier matrix, MCP server inventory, hooks architecture, and full release history.
+**[README.assert-iq.md →](README.assert-iq.md)** — detailed install options (drop-in / air-gapped / trial vs. committed), full skill reference, maturity tier matrix, MCP server inventory, Dreaming architecture, and full release history.
 
 Tool-specific references:
 - VS Code / Copilot — [`.github/vscode-readme.md`](.github/vscode-readme.md)
