@@ -1,4 +1,0 @@
-{
-  "_comment": "Fingerprints (sha256 of normalized lesson text) of lessons the user has rejected. Used to suppress identical re-proposals.",
-  "dismissed": []
-}
