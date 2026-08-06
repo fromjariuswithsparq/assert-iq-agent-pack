@@ -1,4 +1,4 @@
-#\!/bin/bash
+#!/bin/bash
 # Session start: if the dual gate is met (>= min_hours AND >= min_sessions
 # since the last dream), surface a nudge to run /dream. Never blocks.
 set +e

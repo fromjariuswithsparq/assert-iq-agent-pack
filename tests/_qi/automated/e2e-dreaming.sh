@@ -1,4 +1,4 @@
-#\!/usr/bin/env bash
+#!/usr/bin/env bash
 # Assert.IQ Dreaming E2E driver (bash).
 # Verifies the waking loop + gate + sandbox:
 #   - dream-record-session increments state.json and appends a dated log line

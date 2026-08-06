@@ -1,4 +1,4 @@
-#\!/usr/bin/env bash
+#!/usr/bin/env bash
 # Shared helpers for the Assert.IQ Dreaming waking loop (bash side).
 # Sourced by dream-record-session.sh and dream-gate.sh; not run directly.
 
@@ -63,7 +63,7 @@ PY
 # Read stdin envelope (Claude Code passes a JSON envelope; may be empty).
 aiq_read_stdin() {
   local __var="$1"; local __data=""
-  if [ \! -t 0 ]; then __data="$(cat 2>/dev/null)"; fi
+  if [ ! -t 0 ]; then __data="$(cat 2>/dev/null)"; fi
   printf -v "$__var" '%s' "$__data"
 }
 

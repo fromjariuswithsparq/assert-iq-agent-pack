@@ -1,4 +1,4 @@
-#\!/bin/bash
+#!/bin/bash
 # Waking loop (session end): increment the session counter and append a
 # one-line, dated note to today's daily log. Never blocks the agent.
 set +e

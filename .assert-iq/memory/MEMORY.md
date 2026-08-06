@@ -2,7 +2,7 @@
 
 _Last consolidated: never — run `/dream` to populate_
 
-<\!--
+<!--
 This is the long-term memory INDEX maintained by the Assert.IQ Dreaming
 feature. It is loaded at session start (index only, not the topic bodies).
 

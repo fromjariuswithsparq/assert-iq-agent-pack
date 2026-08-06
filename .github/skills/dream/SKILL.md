@@ -4,7 +4,7 @@ mode: agent
 description: "Dreaming — offline memory consolidation. Read recent session logs + transcripts and existing memory, resolve contradictions, prune stale entries, dedup, and rewrite the .assert-iq/memory/ store, keeping MEMORY.md under its index cap. WHEN: dream, dream now, consolidate memory, run a dream pass, clean up agent memory, memory got noisy after a refactor, prune stale memory."
 ---
 
-<\!-- markdownlint-disable MD033 -->
+<!-- markdownlint-disable MD033 -->
 
 # Dreaming — Memory Consolidation Pass
 

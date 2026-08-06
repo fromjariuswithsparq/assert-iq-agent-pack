@@ -1,4 +1,4 @@
-#\!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 dreaming_service.py — OPTIONAL background memory consolidation ("dreaming")
 for the Assert.IQ markdown memory store.

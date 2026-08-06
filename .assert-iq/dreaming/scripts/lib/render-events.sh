@@ -1,4 +1,4 @@
-#\!/usr/bin/env bash
+#!/usr/bin/env bash
 # Shared helper: render session-events.template.json with __PACK_ROOT__
 # substituted for an absolute path. Sourced by install.sh and bootstrap.sh so
 # the substitution logic stays in one place.

@@ -5,6 +5,20 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.3] — 2026-08-06
+
+### Fixed
+- **Malformed shebangs in the Dreaming scripts.** Every shell/python script
+  under `.assert-iq/dreaming/` (and the e2e driver) shipped with an escaped
+  shebang — `#\!/bin/bash` instead of `#!/bin/bash` — an artifact of how the
+  files were generated. The waking loop still ran because the hook template
+  invokes the scripts via `bash -c … "$S"` (bash re-execs on `ENOEXEC` and
+  line 1 is a comment), but a direct `./script.sh` invocation relied on that
+  fallback. Shebangs are now byte-correct so the scripts run standalone. Also
+  fixed the same escape in a `[ ! -t 0 ]` stdin test and in the `<!--` HTML
+  comments of `MEMORY.md` and the `/dream` skill (which previously rendered as
+  visible text instead of a comment).
+
 ## [1.5.2] — 2026-08-06
 
 ### Fixed
