@@ -148,6 +148,60 @@ sha256_of() {
   fi
 }
 
+# -----------------------------------------------------------------------------
+# Install-time base cache (three-way merge baseline that travels with the
+# install). Each pack-owned file's pristine content is snapshotted under
+# .assert-iq/.base/ keyed by a hash of its absolute path. On a later
+# --upgrade this is the preferred merge base, so upgrades preserve user edits
+# even when the source repo has no matching version tag (or no git history at
+# all). The three markdown-allowlist files are intentionally excluded so they
+# keep their dedicated marker-block merge.
+# -----------------------------------------------------------------------------
+BASE_CACHE_DIR="$WORKSPACE/.assert-iq/.base"
+
+sha256_str() {
+  # sha256 hex of the string in $1 (keys the base cache by dst path).
+  if command -v sha256sum >/dev/null 2>&1; then printf '%s' "$1" | sha256sum | awk '{print $1}'
+  elif command -v openssl >/dev/null 2>&1; then printf '%s' "$1" | openssl dgst -sha256 2>/dev/null | awk '{print $NF}'
+  elif command -v shasum >/dev/null 2>&1; then printf '%s' "$1" | shasum -a 256 | awk '{print $1}'
+  else echo ""; fi
+}
+
+base_is_cacheable() {
+  # Markdown-allowlist files keep the marker-block merge, so skip them.
+  case "$(basename "$1")" in
+    copilot-instructions.md|CLAUDE.md|AGENTS.md) return 1 ;;
+  esac
+  return 0
+}
+
+base_cache_file() {
+  # Echoes the base-cache path for dst-abs $1 (empty if no hasher).
+  local key; key="$(sha256_str "$1")"
+  [[ -n "$key" ]] || { echo ""; return; }
+  echo "$BASE_CACHE_DIR/$key"
+}
+
+base_snapshot() {
+  # Record pristine content file $1 as the merge baseline for dst-abs $2.
+  local content="$1" dst="$2"
+  [[ -f "$content" ]] || return 0
+  base_is_cacheable "$dst" || return 0
+  local bf; bf="$(base_cache_file "$dst")"
+  [[ -n "$bf" ]] || return 0
+  mkdir -p "$BASE_CACHE_DIR"
+  cp "$content" "$bf" 2>/dev/null || true
+}
+
+base_lookup() {
+  # Echoes the cached base file for dst-abs $1, or empty. Always returns 0 so
+  # `x="$(base_lookup ...)"` never trips `set -e` when the cache is absent.
+  base_is_cacheable "$1" || { echo ""; return 0; }
+  local bf; bf="$(base_cache_file "$1")"
+  [[ -n "$bf" && -f "$bf" ]] && echo "$bf"
+  return 0
+}
+
 record_merge_result_sha() {
   # Records the post-install SHA of a file produced by a merge action so
   # uninstall can tell whether the user edited the file after install.
@@ -440,20 +494,32 @@ upgrade_three_way() {
     backup_if_user_owned "$dst" "$scope"
     cp "$src" "$dst"
     manifest_add "overwritten" "$dst" "$scope"
+    base_snapshot "$src" "$dst"
     record "$label" "updated (pack change, unedited)" "$dst"
     return
   fi
 
-  local base_tmp merged_tmp
+  local base_tmp merged_tmp base_file=""
   base_tmp="$(mktemp)"; merged_tmp="$(mktemp)"
-  if [[ "$INSTALLED_VERSION" != "unknown" ]] \
-     && git -C "$SOURCE" cat-file -e "v${INSTALLED_VERSION}:${relpath}" 2>/dev/null \
-     && git -C "$SOURCE" show "v${INSTALLED_VERSION}:${relpath}" > "$base_tmp" 2>/dev/null; then
-    if git merge-file -p "$dst" "$base_tmp" "$src" > "$merged_tmp" 2>/dev/null; then
+  # Base resolution: prefer the install-time snapshot (works offline and with
+  # no version tags), then fall back to reconstructing from the pack's git
+  # history at the installed version.
+  local cached_base; cached_base="$(base_lookup "$dst")"
+  if [[ -n "$cached_base" ]]; then
+    base_file="$cached_base"
+  elif [[ "$INSTALLED_VERSION" != "unknown" ]] \
+       && git -C "$SOURCE" cat-file -e "v${INSTALLED_VERSION}:${relpath}" 2>/dev/null \
+       && git -C "$SOURCE" show "v${INSTALLED_VERSION}:${relpath}" > "$base_tmp" 2>/dev/null; then
+    base_file="$base_tmp"
+  fi
+
+  if [[ -n "$base_file" ]]; then
+    if git merge-file -p "$dst" "$base_file" "$src" > "$merged_tmp" 2>/dev/null; then
       # Clean three-way merge — non-destructive by definition.
       if [[ $ASSUME_YES -eq 1 || ! -t 0 ]]; then
         backup_if_user_owned "$dst" "$scope"; cp "$merged_tmp" "$dst"
         manifest_add "overwritten" "$dst" "$scope"; record_merge_result_sha "$dst"
+        base_snapshot "$src" "$dst"
         record "$label" "merged (clean, auto)" "$dst"
       else
         echo "" >&2
@@ -463,11 +529,13 @@ upgrade_three_way() {
         local ans=""
         read -r -p "  Apply merged result? [Y]es / [k]eep mine / [s]idecar: " ans </dev/tty
         case "$ans" in
-          k|K) record "$label" "skipped (kept yours)" "$dst" ;;
+          k|K) base_snapshot "$base_file" "$dst"; record "$label" "skipped (kept yours)" "$dst" ;;
           s|S) local side="$dst.assert-iq-new"; cp "$merged_tmp" "$side"
-               manifest_add "sidecar" "$side" "$scope"; record "$label" "sidecar (merged) -> .assert-iq-new" "$side" ;;
+               manifest_add "sidecar" "$side" "$scope"; base_snapshot "$base_file" "$dst"
+               record "$label" "sidecar (merged) -> .assert-iq-new" "$side" ;;
           *)   backup_if_user_owned "$dst" "$scope"; cp "$merged_tmp" "$dst"
                manifest_add "overwritten" "$dst" "$scope"; record_merge_result_sha "$dst"
+               base_snapshot "$src" "$dst"
                record "$label" "merged (clean)" "$dst" ;;
         esac
       fi
@@ -475,7 +543,7 @@ upgrade_three_way() {
       # Conflict — you and the pack changed overlapping lines.
       if [[ $ASSUME_YES -eq 1 || ! -t 0 ]]; then
         local side="$dst.assert-iq-new"; cp "$src" "$side"
-        manifest_add "sidecar" "$side" "$scope"
+        manifest_add "sidecar" "$side" "$scope"; base_snapshot "$base_file" "$dst"
         record "$label" "conflict -> sidecar (.assert-iq-new)" "$side"
       else
         echo "" >&2
@@ -486,13 +554,16 @@ upgrade_three_way() {
         case "$ans" in
           m|M) backup_if_user_owned "$dst" "$scope"; cp "$merged_tmp" "$dst"
                manifest_add "overwritten" "$dst" "$scope"; record_merge_result_sha "$dst"
+               base_snapshot "$src" "$dst"
                record "$label" "merged (conflict markers written)" "$dst" ;;
           o|O) backup_if_user_owned "$dst" "$scope"; cp "$src" "$dst"
-               manifest_add "overwritten" "$dst" "$scope"; record "$label" "overwritten (pack)" "$dst" ;;
+               manifest_add "overwritten" "$dst" "$scope"; base_snapshot "$src" "$dst"
+               record "$label" "overwritten (pack)" "$dst" ;;
           s|S) local side="$dst.assert-iq-new"; cp "$src" "$side"
-               manifest_add "sidecar" "$side" "$scope"; record "$label" "sidecar -> .assert-iq-new" "$side" ;;
-          d|D) diff -u "$dst" "$src" >&2 || true; record "$label" "skipped (kept yours)" "$dst" ;;
-          *)   record "$label" "skipped (kept yours)" "$dst" ;;
+               manifest_add "sidecar" "$side" "$scope"; base_snapshot "$base_file" "$dst"
+               record "$label" "sidecar -> .assert-iq-new" "$side" ;;
+          d|D) diff -u "$dst" "$src" >&2 || true; base_snapshot "$base_file" "$dst"; record "$label" "skipped (kept yours)" "$dst" ;;
+          *)   base_snapshot "$base_file" "$dst"; record "$label" "skipped (kept yours)" "$dst" ;;
         esac
       fi
     fi
@@ -502,7 +573,8 @@ upgrade_three_way() {
     case "$choice" in
       keep)      record "$label" "skipped (kept yours)" "$dst" ;;
       overwrite) backup_if_user_owned "$dst" "$scope"; cp "$src" "$dst"
-                 manifest_add "overwritten" "$dst" "$scope"; record "$label" "overwritten" "$dst" ;;
+                 manifest_add "overwritten" "$dst" "$scope"; base_snapshot "$src" "$dst"
+                 record "$label" "overwritten" "$dst" ;;
       merge)     merge_markdown_file "$label" "$src" "$dst" "$scope" ;;
       sidecar)   local side="$dst.assert-iq-new"; cp "$src" "$side"
                  manifest_add "sidecar" "$side" "$scope"; record "$label" "sidecar -> .assert-iq-new" "$side" ;;
@@ -678,6 +750,7 @@ write_exclude_block() {
     printf '*.assert-iq.uninstall-saved\n'
     printf '.assert-iq/.skip-worktree-paths\n'
     printf '.assert-iq/.merge-result-shas\n'
+    printf '.assert-iq/.base/\n'
     # Dreaming per-machine artifacts — never commit in any mode:
     printf '.assert-iq/dreaming/session-events.json\n'
     printf '.assert-iq/memory/.dream/state.lock\n'
@@ -1210,6 +1283,7 @@ uninstall_run() {
     rm -f -- "$MANIFEST_PATH"
     rm -f -- "$WORKSPACE/.assert-iq/.merge-result-shas"
     rm -f -- "$WORKSPACE/.assert-iq/.skip-worktree-paths"
+    rm -rf -- "$WORKSPACE/.assert-iq/.base"
     rmdir "$(dirname "$MANIFEST_PATH")" 2>/dev/null || true
   else
     echo "${prefix}rm: $MANIFEST_PATH"
@@ -1452,6 +1526,7 @@ copy_file() {
     mkdir -p "$(dirname "$dst")"
     cp "$src" "$dst"
     manifest_add "created" "$dst" "$scope"
+    base_snapshot "$src" "$dst"
     record "$label" "copied" "$dst"
     return
   fi
@@ -1461,6 +1536,7 @@ copy_file() {
   sh_dst="$(sha256_of "$dst")"
   if [[ -n "$sh_src" && "$sh_src" == "$sh_dst" ]]; then
     manifest_add "unchanged_owned" "$dst" "$scope"
+    base_snapshot "$src" "$dst"
     record "$label" "unchanged (pack-owned)" "$dst"
     return
   fi
@@ -1480,6 +1556,7 @@ copy_file() {
       backup_if_user_owned "$dst" "$scope"
       cp "$src" "$dst"
       manifest_add "overwritten" "$dst" "$scope"
+      base_snapshot "$src" "$dst"
       record "$label" "overwritten" "$dst"
       ;;
     merge)
@@ -1653,7 +1730,7 @@ process_assert_iq() {
   # exclude them here so the rendered session-events.json and the user's
   # memory content are never double-handled. Per-workspace tracking files
   # (gitignored) are excluded defensively.
-  local _ex="dreaming/ memory/ .install-manifest.json .merge-result-shas .skip-worktree-paths"
+  local _ex="dreaming/ memory/ .install-manifest.json .merge-result-shas .skip-worktree-paths .base/"
   case "$ASSERT_IQ" in
     workspace) copy_tree ".assert-iq" "$SOURCE/.assert-iq" "$WORKSPACE/.assert-iq" "workspace" "$_ex" ;;
     user)      copy_tree ".assert-iq" "$SOURCE/.assert-iq" "$USER_ASSERT_IQ"       "user"      "$_ex" ;;

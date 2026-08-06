@@ -141,6 +141,43 @@ function Get-Sha256($path) {
     return (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLower()
 }
 
+# -----------------------------------------------------------------------------
+# Install-time base cache: pristine pack content snapshotted under
+# .assert-iq/.base/ (keyed by a hash of the absolute dst path). On a later
+# -Upgrade this is the preferred three-way merge baseline, so upgrades preserve
+# user edits even when the source repo has no matching version tag (or no git
+# history). The three markdown-allowlist files keep their marker-block merge
+# and are intentionally excluded.
+# -----------------------------------------------------------------------------
+$script:BaseCacheDir = Join-Path $Workspace '.assert-iq\.base'
+
+function Test-BaseCacheable([string]$dst) {
+    return ((Split-Path -Leaf $dst) -notin @('copilot-instructions.md','CLAUDE.md','AGENTS.md'))
+}
+
+function Get-BaseCacheFile([string]$dst) {
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($dst)
+    $hash  = [System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes)
+    $key   = ($hash | ForEach-Object { $_.ToString('x2') }) -join ''
+    return (Join-Path $script:BaseCacheDir $key)
+}
+
+function Save-Base([string]$Content, [string]$Dst) {
+    if (-not (Test-Path -LiteralPath $Content -PathType Leaf)) { return }
+    if (-not (Test-BaseCacheable $Dst)) { return }
+    if (-not (Test-Path -LiteralPath $script:BaseCacheDir)) {
+        New-Item -ItemType Directory -Force -Path $script:BaseCacheDir | Out-Null
+    }
+    Copy-Item -LiteralPath $Content -Destination (Get-BaseCacheFile $Dst) -Force -ErrorAction SilentlyContinue
+}
+
+function Get-Base([string]$Dst) {
+    if (-not (Test-BaseCacheable $Dst)) { return '' }
+    $bf = Get-BaseCacheFile $Dst
+    if (Test-Path -LiteralPath $bf -PathType Leaf) { return $bf }
+    return ''
+}
+
 # Manifest action sets — kept here so adding a new action only touches one
 # place. RemovableActions are deleted on uninstall; ExcludableActions are
 # emitted into .git/info/exclude in trial mode.
@@ -433,6 +470,7 @@ function Write-ExcludeBlock {
     $newLines.Add('*.assert-iq.uninstall-saved') | Out-Null
     $newLines.Add('.assert-iq/.skip-worktree-paths') | Out-Null
     $newLines.Add('.assert-iq/.merge-result-shas') | Out-Null
+    $newLines.Add('.assert-iq/.base/') | Out-Null
     # Dreaming per-machine artifacts — never commit in any mode:
     $newLines.Add('.assert-iq/dreaming/session-events.json') | Out-Null
     $newLines.Add('.assert-iq/memory/.dream/state.lock') | Out-Null
@@ -945,8 +983,10 @@ function Invoke-Uninstall {
         Remove-Item -LiteralPath $manifestPath -Force -ErrorAction SilentlyContinue
         $shaSidecar = Join-Path $Workspace '.assert-iq/.merge-result-shas'
         $swSidecar  = Join-Path $Workspace '.assert-iq/.skip-worktree-paths'
+        $baseDir    = Join-Path $Workspace '.assert-iq/.base'
         Remove-Item -LiteralPath $shaSidecar -Force -ErrorAction SilentlyContinue
         Remove-Item -LiteralPath $swSidecar  -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $baseDir -Recurse -Force -ErrorAction SilentlyContinue
         $mDir = Split-Path -Parent $manifestPath
         if ((Test-Path -LiteralPath $mDir) -and `
             -not (Get-ChildItem -LiteralPath $mDir -Force -ErrorAction SilentlyContinue)) {
@@ -1119,28 +1159,32 @@ function Invoke-UpgradeThreeWay {
         Backup-IfUserOwned -Path $Dst -Scope $Scope
         Copy-Item -LiteralPath $Src -Destination $Dst -Force
         Add-ManifestEntry 'overwritten' $Dst $Scope
+        Save-Base -Content $Src -Dst $Dst
         Record $Label 'updated (pack change, unedited)' $Dst
         return
     }
 
     $baseTmp   = [System.IO.Path]::GetTempFileName()
     $mergedTmp = [System.IO.Path]::GetTempFileName()
-    $haveBase  = $false
-    if ($script:InstalledVersion -ne 'unknown') {
+    # Base resolution: prefer the install-time snapshot (works offline and with
+    # no version tags), then fall back to reconstructing from the pack's git
+    # history at the installed version.
+    $baseFile = Get-Base $Dst
+    if (-not $baseFile -and $script:InstalledVersion -ne 'unknown') {
         & git -C $Source cat-file -e "v$($script:InstalledVersion):$relUnix" 2>$null
         if ($LASTEXITCODE -eq 0) {
             $blob = & git -C $Source show "v$($script:InstalledVersion):$relUnix" 2>$null
             if ($LASTEXITCODE -eq 0) {
                 [System.IO.File]::WriteAllText($baseTmp, (($blob -join "`n") + "`n"))
-                $haveBase = $true
+                $baseFile = $baseTmp
             }
         }
     }
 
     $interactive = [Environment]::UserInteractive -and -not [Console]::IsInputRedirected
-    if ($haveBase) {
+    if ($baseFile) {
         Copy-Item -LiteralPath $Dst -Destination $mergedTmp -Force
-        & git merge-file -- $mergedTmp $baseTmp $Src 2>$null | Out-Null
+        & git merge-file -- $mergedTmp $baseFile $Src 2>$null | Out-Null
         $mergeRc = $LASTEXITCODE
         if ($mergeRc -eq 0) {
             # Clean three-way merge — non-destructive by definition.
@@ -1149,6 +1193,7 @@ function Invoke-UpgradeThreeWay {
                 Copy-Item -LiteralPath $mergedTmp -Destination $Dst -Force
                 Add-ManifestEntry 'overwritten' $Dst $Scope
                 Save-MergeResultSha -Path $Dst
+                Save-Base -Content $Src -Dst $Dst
                 Record $Label 'merged (clean, auto)' $Dst
             } else {
                 Write-Host ''
@@ -1156,9 +1201,9 @@ function Invoke-UpgradeThreeWay {
                 Write-Host '  Your edits and the pack update both apply cleanly.'
                 $ans = Read-Host '  Apply merged result? [Y]es / [k]eep mine / [s]idecar'
                 switch -Regex ($ans) {
-                    '^[kK]' { Record $Label 'skipped (kept yours)' $Dst }
-                    '^[sS]' { $side = "$Dst.assert-iq-new"; Copy-Item -LiteralPath $mergedTmp -Destination $side -Force; Add-ManifestEntry 'sidecar' $side $Scope; Record $Label 'sidecar (merged) -> .assert-iq-new' $side }
-                    default { Backup-IfUserOwned -Path $Dst -Scope $Scope; Copy-Item -LiteralPath $mergedTmp -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-MergeResultSha -Path $Dst; Record $Label 'merged (clean)' $Dst }
+                    '^[kK]' { Save-Base -Content $baseFile -Dst $Dst; Record $Label 'skipped (kept yours)' $Dst }
+                    '^[sS]' { $side = "$Dst.assert-iq-new"; Copy-Item -LiteralPath $mergedTmp -Destination $side -Force; Add-ManifestEntry 'sidecar' $side $Scope; Save-Base -Content $baseFile -Dst $Dst; Record $Label 'sidecar (merged) -> .assert-iq-new' $side }
+                    default { Backup-IfUserOwned -Path $Dst -Scope $Scope; Copy-Item -LiteralPath $mergedTmp -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-MergeResultSha -Path $Dst; Save-Base -Content $Src -Dst $Dst; Record $Label 'merged (clean)' $Dst }
                 }
             }
         } else {
@@ -1167,6 +1212,7 @@ function Invoke-UpgradeThreeWay {
                 $side = "$Dst.assert-iq-new"
                 Copy-Item -LiteralPath $Src -Destination $side -Force
                 Add-ManifestEntry 'sidecar' $side $Scope
+                Save-Base -Content $baseFile -Dst $Dst
                 Record $Label 'conflict -> sidecar (.assert-iq-new)' $side
             } else {
                 Write-Host ''
@@ -1174,10 +1220,10 @@ function Invoke-UpgradeThreeWay {
                 Write-Host '  You and the pack changed overlapping lines.'
                 $ans = Read-Host '  [m]arkers into your file / [o]verwrite w/ pack / [k]eep mine / [s]idecar'
                 switch -Regex ($ans) {
-                    '^[mM]' { Backup-IfUserOwned -Path $Dst -Scope $Scope; Copy-Item -LiteralPath $mergedTmp -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-MergeResultSha -Path $Dst; Record $Label 'merged (conflict markers written)' $Dst }
-                    '^[oO]' { Backup-IfUserOwned -Path $Dst -Scope $Scope; Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Record $Label 'overwritten (pack)' $Dst }
-                    '^[sS]' { $side = "$Dst.assert-iq-new"; Copy-Item -LiteralPath $Src -Destination $side -Force; Add-ManifestEntry 'sidecar' $side $Scope; Record $Label 'sidecar -> .assert-iq-new' $side }
-                    default { Record $Label 'skipped (kept yours)' $Dst }
+                    '^[mM]' { Backup-IfUserOwned -Path $Dst -Scope $Scope; Copy-Item -LiteralPath $mergedTmp -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-MergeResultSha -Path $Dst; Save-Base -Content $Src -Dst $Dst; Record $Label 'merged (conflict markers written)' $Dst }
+                    '^[oO]' { Backup-IfUserOwned -Path $Dst -Scope $Scope; Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-Base -Content $Src -Dst $Dst; Record $Label 'overwritten (pack)' $Dst }
+                    '^[sS]' { $side = "$Dst.assert-iq-new"; Copy-Item -LiteralPath $Src -Destination $side -Force; Add-ManifestEntry 'sidecar' $side $Scope; Save-Base -Content $baseFile -Dst $Dst; Record $Label 'sidecar -> .assert-iq-new' $side }
+                    default { Save-Base -Content $baseFile -Dst $Dst; Record $Label 'skipped (kept yours)' $Dst }
                 }
             }
         }
@@ -1186,7 +1232,7 @@ function Invoke-UpgradeThreeWay {
         $choice = Resolve-Conflict -Src $Src -Dst $Dst -Label "$Label (no base — merge unavailable)"
         switch ($choice) {
             'keep'      { Record $Label 'skipped (kept yours)' $Dst }
-            'overwrite' { Backup-IfUserOwned -Path $Dst -Scope $Scope; Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Record $Label 'overwritten' $Dst }
+            'overwrite' { Backup-IfUserOwned -Path $Dst -Scope $Scope; Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-Base -Content $Src -Dst $Dst; Record $Label 'overwritten' $Dst }
             'merge'     { Merge-MarkdownFile -Label $Label -Src $Src -Dst $Dst -Scope $Scope }
             'sidecar'   { $side = "$Dst.assert-iq-new"; Copy-Item -LiteralPath $Src -Destination $side -Force; Add-ManifestEntry 'sidecar' $side $Scope; Record $Label 'sidecar -> .assert-iq-new' $side }
         }
@@ -1489,6 +1535,7 @@ function Copy-FileScoped {
         }
         Copy-Item -LiteralPath $Src -Destination $Dst -Force:$false
         Add-ManifestEntry 'created' $Dst $Scope
+        Save-Base -Content $Src -Dst $Dst
         Record $Label 'copied' $Dst
         return
     }
@@ -1497,6 +1544,7 @@ function Copy-FileScoped {
     $shDst = Get-Sha256 $Dst
     if ($shSrc -and ($shSrc -eq $shDst)) {
         Add-ManifestEntry 'unchanged_owned' $Dst $Scope
+        Save-Base -Content $Src -Dst $Dst
         Record $Label 'unchanged (pack-owned)' $Dst
         return
     }
@@ -1516,6 +1564,7 @@ function Copy-FileScoped {
             Backup-IfUserOwned -Path $Dst -Scope $Scope
             Copy-Item -LiteralPath $Src -Destination $Dst -Force
             Add-ManifestEntry 'overwritten' $Dst $Scope
+            Save-Base -Content $Src -Dst $Dst
             Record $Label 'overwritten' $Dst
         }
         'merge' {
@@ -1635,7 +1684,7 @@ function Step-AssertIq {
     # dreaming/ and memory/ are owned by Step-Dreaming (clean-slate seed +
     # rendered session-events.json); per-workspace tracking files are
     # gitignored. Exclude them here so nothing is double-handled.
-    $aiqExclude = @('dreaming/','memory/','.install-manifest.json','.merge-result-shas','.skip-worktree-paths')
+    $aiqExclude = @('dreaming/','memory/','.install-manifest.json','.merge-result-shas','.skip-worktree-paths','.base/')
     switch ($AssertIq) {
         'workspace' { Copy-TreeScoped '.assert-iq' (Join-Path $Source '.assert-iq') (Join-Path $Workspace '.assert-iq') 'workspace' -Exclude $aiqExclude }
         'user'      { Copy-TreeScoped '.assert-iq' (Join-Path $Source '.assert-iq') $userAssertIq 'user' -Exclude $aiqExclude }

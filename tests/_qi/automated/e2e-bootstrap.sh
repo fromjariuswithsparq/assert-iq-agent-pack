@@ -763,6 +763,55 @@ case_37_upgrade_merge_conflict_orphan() {
   cleanup_fixture "$pair"
 }
 
+case_38_upgrade_base_cache_tagless() {
+  # B: the install-time base cache lets an upgrade line-merge even when the
+  # source repo has NO version tag to reconstruct a baseline from.
+  local src; src="$(mktemp -d "${TMPDIR:-/tmp}/aiq-src.XXXXXX")"
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a --exclude '.git' --exclude 'node_modules' "$PACK/" "$src/"
+  else
+    ( cd "$PACK" && tar -cf - --exclude='.git' --exclude='node_modules' . | ( cd "$src" && tar -xf - ) )
+  fi
+  ( cd "$src" && git init -q && git config user.email t@t && git config user.name t \
+    && git add -A && git commit -q -m init )   # no release tag at all
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  run_boot "$pair" --preset=pod --mode=committed --yes --source="$src" >/dev/null
+  assert_dir_exists 38 "$ws/.assert-iq/.base"
+  local target; target="$(cd "$ws" && find .github/skills -name SKILL.md | sed -n '1p')"
+  printf '\n<!-- USER-LOCAL-EDIT -->\n' >> "$ws/$target"
+  echo "99.0.0" > "$src/VERSION"
+  { echo "<!-- PACK-UPDATE -->"; cat "$src/$target"; } > "$src/$target.x" && mv "$src/$target.x" "$src/$target"
+  run_boot "$pair" --upgrade --yes --source="$src" >/dev/null
+  assert_contains     38 "$ws/$target" "USER-LOCAL-EDIT"
+  assert_contains     38 "$ws/$target" "PACK-UPDATE"
+  assert_file_missing 38 "$ws/$target.assert-iq-new"
+  rm -rf "$src"
+  cleanup_fixture "$pair"
+}
+
+case_39_upgrade_tag_fallback_retroactive() {
+  # A: an older install with NO base cache still line-merges by reconstructing
+  # the baseline from the pack's git tag for the recorded version, then
+  # re-seeds the cache for next time.
+  local src; src="$(mk_tagged_source)"
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  run_boot "$pair" --preset=pod --mode=committed --yes --source="$src" >/dev/null
+  rm -rf "$ws/.assert-iq/.base"   # simulate a pre-1.5 install (no cache)
+  local target; target="$(cd "$ws" && find .github/skills -name SKILL.md | sed -n '1p')"
+  printf '\n<!-- USER-LOCAL-EDIT -->\n' >> "$ws/$target"
+  echo "99.0.0" > "$src/VERSION"
+  { echo "<!-- PACK-UPDATE -->"; cat "$src/$target"; } > "$src/$target.x" && mv "$src/$target.x" "$src/$target"
+  run_boot "$pair" --upgrade --yes --source="$src" >/dev/null
+  assert_contains     39 "$ws/$target" "USER-LOCAL-EDIT"
+  assert_contains     39 "$ws/$target" "PACK-UPDATE"
+  assert_file_missing 39 "$ws/$target.assert-iq-new"
+  assert_dir_exists   39 "$ws/.assert-iq/.base"
+  rm -rf "$src"
+  cleanup_fixture "$pair"
+}
+
 # ============================================================================
 # RUN
 # ============================================================================
@@ -811,6 +860,8 @@ run_case "34 install state sidecars hidden from git" case_34_install_state_sidec
 run_case "35 clean-slate memory seed (no logs)"      case_35_clean_slate_memory_seed
 run_case "36 uninstall preserves memory"             case_36_uninstall_preserves_memory
 run_case "37 upgrade merge + conflict + orphan"      case_37_upgrade_merge_conflict_orphan
+run_case "38 upgrade base cache (tagless)"           case_38_upgrade_base_cache_tagless
+run_case "39 upgrade tag fallback (retroactive)"     case_39_upgrade_tag_fallback_retroactive
 
 echo ""
 echo "Summary: $(grn $CASES_PASS pass)  $(red $CASES_FAIL fail)  $(ylw $CASES_SKIP skip)"

@@ -5,6 +5,32 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] — 2026-08-06
+
+### Added
+- **Install-time base cache for durable upgrades.** Every install now
+  snapshots each pack-owned file's pristine content under `.assert-iq/.base/`
+  (git-ignored, removed on uninstall). On a later `--upgrade` this cache is the
+  preferred three-way merge baseline, so upgrades preserve user edits **even
+  when the source repo has no matching version tag or no git history at all**
+  (offline installs, release zips, shallow clones). Git-tag reconstruction is
+  now the fallback, and a successful tag reconstruction re-seeds the cache so
+  the next upgrade never needs the tag again. The three markdown-allowlist
+  files keep their dedicated marker-block merge. Ported to both `bootstrap.sh`
+  and `bootstrap.ps1`.
+- Backfilled release tags `v1.2.0`, `v1.3.0`, `v1.4.0` on their release commits
+  so pre-1.5 installs can reconstruct a baseline and get line-level merges on
+  their first upgrade (previously these versions had no tag, forcing a
+  whole-file keep/overwrite choice).
+- E2E cases 38 (tagless upgrade via base cache) and 39 (cache-less older
+  install falling back to tag reconstruction).
+
+### Fixed
+- The base-cache lookup could return a non-zero status when the cache was
+  absent, which under `set -e` aborted the entire upgrade after the banner —
+  breaking exactly the cache-less (retroactive) path. `base_lookup` now always
+  returns success.
+
 ## [1.5.0] — 2026-08-06
 
 ### Added
