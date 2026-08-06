@@ -462,6 +462,11 @@ upgrade_prepare() {
   # a pre-Dreaming (hooks) install where .claude/settings.json existed.
   DREAMING="$CLAUDE_SETTINGS"
   [[ "$DREAMING" == "skip" && "$(upgrade_scope_for "hooks/")" == "workspace" ]] && DREAMING="workspace"
+  # New surfaces absent from an older manifest still get added on upgrade,
+  # following where the pack itself lives — so upgrading a pre-Dreaming install
+  # installs the Dreaming machinery and seeds the memory store.
+  [[ "$DREAMING" == "skip" && "$ASSERT_IQ" != "skip" ]] && DREAMING="$ASSERT_IQ"
+  [[ "$CLAUDE_SETTINGS" == "skip" && "$ASSERT_IQ" == "workspace" ]] && CLAUDE_SETTINGS="workspace"
 
   local sw su=skip
   sw="$(upgrade_scope_for ".github/skills/")"
@@ -731,6 +736,21 @@ write_exclude_block() {
     local manifest_rel="${MANIFEST_PATH#"$WORKSPACE/"}"
     if ! grep -Fxq "$manifest_rel" "$tracked_list" 2>/dev/null; then
       rels+=("$manifest_rel")
+    fi
+    # On upgrade, keep hiding everything the previous install hid: conflict-kept
+    # originals and not-yet-removed orphans aren't in THIS run's entries but
+    # must not suddenly surface in git status.
+    if [[ ${UPGRADE:-0} -eq 1 && -n "${OLD_MANIFEST_SNAPSHOT:-}" ]] && command -v jq >/dev/null 2>&1; then
+      local oa op orel
+      while IFS=$'\t' read -r oa op; do
+        [[ -n "$op" ]] || continue
+        _in_action_set "$oa" "$EXCLUDABLE_ACTIONS" || continue
+        orel="${op#"$WORKSPACE/"}"
+        [[ -e "$WORKSPACE/$orel" ]] || continue
+        grep -Fxq "$orel" "$tracked_list" 2>/dev/null && continue
+        printf '%s\n' "${rels[@]:-}" | grep -Fxq "$orel" && continue
+        rels+=("$orel")
+      done < <(jq -r '.paths[]? | select(.scope=="workspace") | [.action, .path] | @tsv' <<< "$OLD_MANIFEST_SNAPSHOT" 2>/dev/null)
     fi
   fi
   rm -f "$tracked_list"

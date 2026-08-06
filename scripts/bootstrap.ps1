@@ -451,6 +451,20 @@ function Write-ExcludeBlock {
         if (-not (Test-Tracked $manifestPath)) {
             $rels.Add($manifestRel) | Out-Null
         }
+        # On upgrade, keep hiding everything the previous install hid:
+        # conflict-kept originals and not-yet-removed orphans aren't in THIS
+        # run's entries but must not suddenly surface in git status.
+        if ($doUpgrade -and $script:OldManifest) {
+            foreach ($p in $script:OldManifest.paths) {
+                if ($p.scope -ne 'workspace') { continue }
+                if ($script:ExcludableActions -notcontains $p.action) { continue }
+                if (-not (Test-Path -LiteralPath $p.path)) { continue }
+                if (Test-Tracked $p.path) { continue }
+                $orel = (ConvertTo-WorkspaceRelative $p.path) -replace '\\','/'
+                if ($rels -contains $orel) { continue }
+                $rels.Add($orel) | Out-Null
+            }
+        }
     }
 
     # Read current exclude, strip any prior managed block, then append fresh block.
@@ -1125,6 +1139,11 @@ function Invoke-UpgradePrepare {
     # from a pre-Dreaming (hooks) install where .claude/settings.json existed.
     $script:Dreaming = $script:ClaudeSettings
     if ($script:Dreaming -eq 'skip' -and (Get-UpgradeScope 'hooks/') -eq 'workspace') { $script:Dreaming = 'workspace' }
+    # New surfaces absent from an older manifest still get added on upgrade,
+    # following where the pack itself lives — so upgrading a pre-Dreaming install
+    # installs the Dreaming machinery and seeds the memory store.
+    if ($script:Dreaming -eq 'skip' -and $script:AssertIq -ne 'skip') { $script:Dreaming = $script:AssertIq }
+    if ($script:ClaudeSettings -eq 'skip' -and $script:AssertIq -eq 'workspace') { $script:ClaudeSettings = 'workspace' }
 
     $sw = Get-UpgradeScope '.github/skills/'
     $su = 'skip'
