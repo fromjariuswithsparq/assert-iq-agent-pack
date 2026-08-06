@@ -5,6 +5,44 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] — 2026-08-06
+
+### Added
+- **`bootstrap --upgrade` engine (three-way merge).** A new upgrade path that
+  refreshes an existing install in place while preserving your edits.
+  Reconstructs the install-time baseline from the pack's git history
+  (`git show v<installed-version>:<path>`) and runs a `git merge-file`
+  three-way merge: non-overlapping pack + user edits both land automatically,
+  overlapping edits fall back to a `.assert-iq-new` sidecar (your file is
+  never clobbered). Mode is pinned to the recorded install (never flips
+  trial↔committed), the refreshed surface set is derived from the manifest,
+  and files the new pack no longer ships are surfaced as orphans (prompt-each
+  interactively; report-only under `--yes`). The install manifest now records
+  a per-file `sha` so unedited files can be refreshed outright. Ported to both
+  `bootstrap.sh` and `bootstrap.ps1`.
+- E2E coverage for the new behavior in `tests/_qi/automated/e2e-bootstrap.sh`
+  (clean-slate seed / no-logs / no-conflict, uninstall-preserves-memory, and a
+  full upgrade merge + conflict + orphan case).
+
+### Changed
+- **Every install/upgrade starts the Dreaming memory on a clean slate.** The
+  pack no longer ships or copies its own accumulated dream data. Installers
+  now *seed* a fresh memory store (empty `topics/`, `logs/`, a clean
+  `MEMORY.md`, and `state.json` at `sessions_since_dream: 0`) instead of
+  copying `topics/*.md`, daily `logs/`, or a populated `MEMORY.md`. On
+  upgrade the memory store is never touched (it is your data).
+- Uninstall now preserves a memory store that holds real consolidated
+  content, but removes a pristine never-dreamed seed so the uninstall leaves
+  a clean working tree.
+
+### Fixed
+- Fresh installs no longer report a bogus merge conflict on
+  `.assert-iq/dreaming/session-events.json`. The rendered events file was
+  being copied twice (once by the `.assert-iq` tree walk, once by the
+  dreaming handler) and then re-rendered; both tree walks now exclude it.
+- `.gitignore` hardened so the pack repo can never re-commit its own dream
+  activity (`topics/*`, `logs/*` except `.gitkeep`, `.dream/state.json`).
+
 ## [1.4.0] — 2026-08-04
 
 ### Added
