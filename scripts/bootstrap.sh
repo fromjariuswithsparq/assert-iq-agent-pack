@@ -52,6 +52,7 @@ SKILLS_SCOPE=""
 WORKSPACE="$PWD"
 MODE=""
 GRADUATE=0
+UPGRADE=0
 UNINSTALL=0
 UNINSTALL_USER=0
 ASSUME_YES=0
@@ -96,6 +97,7 @@ for arg in "$@"; do
     --trial)             MODE="trial" ;;
     --committed)         MODE="committed" ;;
     --graduate|--untrial) GRADUATE=1 ;;
+    --upgrade)          UPGRADE=1 ;;
     --uninstall)        UNINSTALL=1 ;;
     --user)             UNINSTALL_USER=1 ;;
     --yes|-y)           ASSUME_YES=1 ;;
@@ -132,12 +134,15 @@ MANIFEST_PATH="$WORKSPACE/.assert-iq/.install-manifest.json"
 # =============================================================================
 
 sha256_of() {
-  # Prints sha256 hex of file at $1, or empty if file missing.
+  # Prints sha256 hex of file at $1, or empty if file missing. Prefers fast
+  # C hashers over macOS's Perl-based shasum (which is slow to spawn).
   [[ -f "$1" ]] || { echo ""; return; }
-  if command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$1" | awk '{print $1}'
-  elif command -v sha256sum >/dev/null 2>&1; then
+  if command -v sha256sum >/dev/null 2>&1; then
     sha256sum "$1" | awk '{print $1}'
+  elif command -v openssl >/dev/null 2>&1; then
+    openssl dgst -sha256 "$1" 2>/dev/null | awk '{print $NF}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
   else
     echo ""  # no hasher; treat as unknown, will not match
   fi
@@ -295,7 +300,7 @@ manifest_write() {
     local e
     for e in "${MANIFEST_ENTRIES[@]}"; do
       IFS='|' read -r a p s <<< "$e"
-      new_json="$(jq --arg a "$a" --arg p "$p" --arg s "$s" '. + [{action:$a, path:$p, scope:$s}]' <<< "$new_json")"
+      new_json="$(jq --arg a "$a" --arg p "$p" --arg s "$s" --arg sha "$(sha256_of "$p")" '. + [{action:$a, path:$p, scope:$s, sha:$sha}]' <<< "$new_json")"
     done
     if [[ -f "$MANIFEST_PATH" ]]; then
       # Merge: prefer new entry for same path, keep older paths not touched this run.
@@ -335,11 +340,230 @@ manifest_write() {
         i=$((i+1))
         local sep=","
         [[ $i -eq $n ]] && sep=""
-        printf '    {"action": "%s", "path": "%s", "scope": "%s"}%s\n' \
-          "$(json_escape "$a")" "$(json_escape "$p")" "$(json_escape "$s")" "$sep"
+        printf '    {"action": "%s", "path": "%s", "scope": "%s", "sha": "%s"}%s\n' \
+          "$(json_escape "$a")" "$(json_escape "$p")" "$(json_escape "$s")" "$(json_escape "$(sha256_of "$p")")" "$sep"
       done
       printf '  ]\n}\n'
     } > "$mtmp" && mv "$mtmp" "$MANIFEST_PATH"
+  fi
+}
+
+# =============================================================================
+# Upgrade engine (three-way merge)
+# =============================================================================
+
+OLD_MANIFEST_SNAPSHOT=""
+INSTALLED_VERSION=""
+
+upgrade_recorded_sha() {
+  # Prints the install-time sha recorded for absolute path $1, or empty.
+  [[ -n "$OLD_MANIFEST_SNAPSHOT" ]] || { echo ""; return; }
+  jq -r --arg p "$1" '.paths[]? | select(.path==$p) | .sha // empty' \
+     <<< "$OLD_MANIFEST_SNAPSHOT" 2>/dev/null | head -n1
+}
+
+upgrade_scope_for() {
+  # Derive a surface's install scope from the old manifest.
+  # Args: workspace-relative-prefix  [user-abs-prefix]  -> workspace|user|skip
+  local relprefix="$1" userabs="${2:-}"
+  local wsabs="$WORKSPACE/$relprefix"
+  if jq -e --arg a "$wsabs" '.paths[]? | select(.scope=="workspace") | select(.path|startswith($a))' \
+       <<< "$OLD_MANIFEST_SNAPSHOT" >/dev/null 2>&1; then
+    echo workspace; return
+  fi
+  if [[ -n "$userabs" ]] && jq -e --arg a "$userabs" '.paths[]? | select(.scope=="user") | select(.path|startswith($a))' \
+       <<< "$OLD_MANIFEST_SNAPSHOT" >/dev/null 2>&1; then
+    echo user; return
+  fi
+  echo skip
+}
+
+upgrade_prepare() {
+  # Validate an existing install, pin its mode, and derive which surfaces to
+  # refresh from the recorded manifest so upgrade respects the original
+  # selection instead of re-prompting presets.
+  command -v jq >/dev/null 2>&1 || { echo "ERROR: --upgrade requires jq." >&2; exit 2; }
+  if [[ ! -f "$MANIFEST_PATH" ]]; then
+    echo "ERROR: no install manifest at $MANIFEST_PATH." >&2
+    echo "       This workspace was not installed via bootstrap. For a" >&2
+    echo "       pack-as-workspace install, upgrade with: git pull && bash install.sh" >&2
+    echo "       For a fresh codebase install, run bootstrap without --upgrade." >&2
+    exit 2
+  fi
+  OLD_MANIFEST_SNAPSHOT="$(cat "$MANIFEST_PATH")"
+  INSTALLED_VERSION="$(jq -r '.version // "unknown"' <<< "$OLD_MANIFEST_SNAPSHOT")"
+  INSTALLED_MODE="$(jq -r '.mode // "committed"' <<< "$OLD_MANIFEST_SNAPSHOT")"
+  # Pin mode to what was installed — never flip trial<->committed on upgrade.
+  MODE="$INSTALLED_MODE"
+  case "$MODE" in trial|committed) ;; *) MODE="committed" ;; esac
+
+  ASSERT_IQ="$(upgrade_scope_for ".assert-iq/config.yaml" "$USER_ASSERT_IQ/config.yaml")"
+  INSTRUCTIONS="$(upgrade_scope_for ".github/instructions/" "$USER_PROMPTS/")"
+  CLAUDE_MD="$(upgrade_scope_for "CLAUDE.md" "$USER_CLAUDE_MD")"
+  COPILOT="$(upgrade_scope_for ".github/copilot-instructions.md")"
+  AGENTS_MD="$(upgrade_scope_for "AGENTS.md")"
+  VSCODE="$(upgrade_scope_for ".vscode/settings.json")"
+  CLAUDE_SETTINGS="$(upgrade_scope_for ".claude/settings.json")"
+  # Dreaming rides with the session-events wiring; also bridges an upgrade from
+  # a pre-Dreaming (hooks) install where .claude/settings.json existed.
+  DREAMING="$CLAUDE_SETTINGS"
+  [[ "$DREAMING" == "skip" && "$(upgrade_scope_for "hooks/")" == "workspace" ]] && DREAMING="workspace"
+
+  local sw su=skip
+  sw="$(upgrade_scope_for ".github/skills/")"
+  if jq -e --arg a "$USER_VSCODE_SKILLS/" '.paths[]? | select(.scope=="user") | select(.path|startswith($a))' \
+       <<< "$OLD_MANIFEST_SNAPSHOT" >/dev/null 2>&1; then su=user; fi
+  if [[ "$sw" == "workspace" && "$su" == "user" ]]; then SKILLS_SCOPE=both
+  elif [[ "$sw" == "workspace" ]]; then SKILLS_SCOPE=workspace
+  elif [[ "$su" == "user" ]]; then SKILLS_SCOPE=user
+  else SKILLS_SCOPE=workspace; fi
+
+  local new_ver; new_ver="$(head -n1 "$SOURCE/VERSION" 2>/dev/null | tr -d '[:space:]')"
+  echo "=== Assert.IQ upgrade: v${INSTALLED_VERSION} -> v${new_ver:-?} (mode: $MODE) ==="
+  echo "Refreshing installed surfaces; your edits are preserved via three-way merge."
+  echo ""
+}
+
+upgrade_three_way() {
+  # Args: label src dst scope
+  # Reconstruct the installed baseline from the pack's git history at the
+  # installed version, then merge the new pack version onto the user's current
+  # file so their edits AND the pack's updates both land.
+  local label="$1" src="$2" dst="$3" scope="$4"
+  local relpath="${dst#"$WORKSPACE/"}"
+  local rec_sha dst_sha
+  rec_sha="$(upgrade_recorded_sha "$dst")"
+  dst_sha="$(sha256_of "$dst")"
+
+  # Unedited since install -> take the new version outright.
+  if [[ -n "$rec_sha" && "$rec_sha" == "$dst_sha" ]]; then
+    backup_if_user_owned "$dst" "$scope"
+    cp "$src" "$dst"
+    manifest_add "overwritten" "$dst" "$scope"
+    record "$label" "updated (pack change, unedited)" "$dst"
+    return
+  fi
+
+  local base_tmp merged_tmp
+  base_tmp="$(mktemp)"; merged_tmp="$(mktemp)"
+  if [[ "$INSTALLED_VERSION" != "unknown" ]] \
+     && git -C "$SOURCE" cat-file -e "v${INSTALLED_VERSION}:${relpath}" 2>/dev/null \
+     && git -C "$SOURCE" show "v${INSTALLED_VERSION}:${relpath}" > "$base_tmp" 2>/dev/null; then
+    if git merge-file -p "$dst" "$base_tmp" "$src" > "$merged_tmp" 2>/dev/null; then
+      # Clean three-way merge — non-destructive by definition.
+      if [[ $ASSUME_YES -eq 1 || ! -t 0 ]]; then
+        backup_if_user_owned "$dst" "$scope"; cp "$merged_tmp" "$dst"
+        manifest_add "overwritten" "$dst" "$scope"; record_merge_result_sha "$dst"
+        record "$label" "merged (clean, auto)" "$dst"
+      else
+        echo "" >&2
+        echo "Upgrade merge (clean): $label" >&2
+        echo "  Your edits and the pack update both apply cleanly." >&2
+        if command -v diff >/dev/null 2>&1; then diff -u "$dst" "$merged_tmp" >&2 || true; fi
+        local ans=""
+        read -r -p "  Apply merged result? [Y]es / [k]eep mine / [s]idecar: " ans </dev/tty
+        case "$ans" in
+          k|K) record "$label" "skipped (kept yours)" "$dst" ;;
+          s|S) local side="$dst.assert-iq-new"; cp "$merged_tmp" "$side"
+               manifest_add "sidecar" "$side" "$scope"; record "$label" "sidecar (merged) -> .assert-iq-new" "$side" ;;
+          *)   backup_if_user_owned "$dst" "$scope"; cp "$merged_tmp" "$dst"
+               manifest_add "overwritten" "$dst" "$scope"; record_merge_result_sha "$dst"
+               record "$label" "merged (clean)" "$dst" ;;
+        esac
+      fi
+    else
+      # Conflict — you and the pack changed overlapping lines.
+      if [[ $ASSUME_YES -eq 1 || ! -t 0 ]]; then
+        local side="$dst.assert-iq-new"; cp "$src" "$side"
+        manifest_add "sidecar" "$side" "$scope"
+        record "$label" "conflict -> sidecar (.assert-iq-new)" "$side"
+      else
+        echo "" >&2
+        echo "Upgrade merge CONFLICT: $label" >&2
+        echo "  You and the pack changed overlapping lines." >&2
+        local ans=""
+        read -r -p "  [m]arkers into your file / [o]verwrite w/ pack / [k]eep mine / [s]idecar / [d]iff: " ans </dev/tty
+        case "$ans" in
+          m|M) backup_if_user_owned "$dst" "$scope"; cp "$merged_tmp" "$dst"
+               manifest_add "overwritten" "$dst" "$scope"; record_merge_result_sha "$dst"
+               record "$label" "merged (conflict markers written)" "$dst" ;;
+          o|O) backup_if_user_owned "$dst" "$scope"; cp "$src" "$dst"
+               manifest_add "overwritten" "$dst" "$scope"; record "$label" "overwritten (pack)" "$dst" ;;
+          s|S) local side="$dst.assert-iq-new"; cp "$src" "$side"
+               manifest_add "sidecar" "$side" "$scope"; record "$label" "sidecar -> .assert-iq-new" "$side" ;;
+          d|D) diff -u "$dst" "$src" >&2 || true; record "$label" "skipped (kept yours)" "$dst" ;;
+          *)   record "$label" "skipped (kept yours)" "$dst" ;;
+        esac
+      fi
+    fi
+  else
+    # No reconstructable baseline -> conservative 2-way resolver (never clobbers).
+    local choice; choice="$(resolve_conflict "$src" "$dst" "$label (no base — merge unavailable)")"
+    case "$choice" in
+      keep)      record "$label" "skipped (kept yours)" "$dst" ;;
+      overwrite) backup_if_user_owned "$dst" "$scope"; cp "$src" "$dst"
+                 manifest_add "overwritten" "$dst" "$scope"; record "$label" "overwritten" "$dst" ;;
+      merge)     merge_markdown_file "$label" "$src" "$dst" "$scope" ;;
+      sidecar)   local side="$dst.assert-iq-new"; cp "$src" "$side"
+                 manifest_add "sidecar" "$side" "$scope"; record "$label" "sidecar -> .assert-iq-new" "$side" ;;
+    esac
+  fi
+  rm -f "$base_tmp" "$merged_tmp"
+}
+
+upgrade_orphans() {
+  # Remove files the OLD install placed that the new pack no longer ships.
+  # Prompt each; never touch the memory store; report-only when non-interactive.
+  [[ -n "$OLD_MANIFEST_SNAPSHOT" ]] || return 0
+  local this_run; this_run="$(printf '%s\n' "${MANIFEST_ENTRIES[@]}" | awk -F'|' '{print $2}')"
+  local removable='["created","unchanged_owned","overwritten","rendered","sidecar","merged_settings","merged_hooks_key","merged_markdown"]'
+  local old_paths
+  old_paths="$(jq -r --argjson rm "$removable" \
+    '.paths[]? | select(.scope=="workspace") | select(.action as $a | ($rm | index($a)) != null) | .path' \
+    <<< "$OLD_MANIFEST_SNAPSHOT" 2>/dev/null)"
+
+  local removed_any=0 bulk="" roots=""
+  while IFS= read -r p; do
+    [[ -n "$p" ]] || continue
+    local rel="${p#"$WORKSPACE/"}"
+    case "$rel" in
+      .assert-iq/memory/*) continue ;;
+      *.assert-iq.pre-install|*.assert-iq-new|*.assert-iq.uninstall-saved|*.assert-iq.pre-tailor) continue ;;
+    esac
+    # Touched this run -> current, not an orphan.
+    printf '%s\n' "$this_run" | grep -qxF "$p" && continue
+    # Still shipped by the new pack -> not an orphan.
+    [[ -e "$SOURCE/$rel" ]] && continue
+    [[ -e "$p" ]] || continue
+
+    local decision="$bulk"
+    if [[ -z "$decision" ]]; then
+      if [[ $ASSUME_YES -eq 1 || ! -t 0 ]]; then
+        echo "  orphan from a previous version (kept; re-run interactively to remove): $rel" >&2
+        continue
+      fi
+      read -r -p "Orphan from a previous version: $rel — [r]emove / [k]eep / [R]emove-all / [K]eep-all: " decision </dev/tty
+    fi
+    case "$decision" in R) bulk=R; decision=r ;; K) bulk=K; decision=k ;; esac
+    case "$decision" in
+      r|R)
+        rm -f "$p"
+        jq --arg p "$p" '.paths |= map(select(.path != $p))' "$MANIFEST_PATH" > "$MANIFEST_PATH.tmp" \
+          && mv "$MANIFEST_PATH.tmp" "$MANIFEST_PATH"
+        removed_any=1
+        roots="$roots ${rel%%/*}"
+        echo "  removed: $rel"
+        ;;
+      *) echo "  kept: $rel" ;;
+    esac
+  done <<< "$old_paths"
+
+  # Prune now-empty dirs left by removed orphans (scoped to their roots only).
+  if [[ $removed_any -eq 1 ]]; then
+    local root
+    for root in $(printf '%s\n' $roots | sort -u); do
+      [[ -n "$root" && -d "$WORKSPACE/$root" ]] && find "$WORKSPACE/$root" -type d -empty -delete 2>/dev/null || true
+    done
   fi
 }
 
@@ -774,6 +998,14 @@ uninstall_run() {
       preserved=$((preserved+1))
       return 0
     fi
+    # Never remove the Dreaming memory store — it may hold consolidated
+    # dream content the user wants to keep (matches the install-side guard).
+    case "$path" in
+      */.assert-iq/memory/*)
+        preserved=$((preserved+1))
+        return 0
+        ;;
+    esac
     case "$action" in
       pre_install_backup)
         restore_backup "$path"
@@ -868,6 +1100,29 @@ uninstall_run() {
   [[ -e "$WORKSPACE/.assert-iq/memory/.dream/state.lock" ]] && remove_path "$WORKSPACE/.assert-iq/memory/.dream/state.lock"
   if [[ $UNINSTALL_USER -eq 1 ]]; then
     [[ -e "$HOME/.agents/.assert-iq/dreaming/session-events.json" ]] && remove_path "$HOME/.agents/.assert-iq/dreaming/session-events.json"
+  fi
+
+  # The memory store is the user's data — preserved when it holds real dream
+  # content, but a pristine never-dreamed seed is just install scaffolding, so
+  # remove it for a clean uninstall.
+  prune_seed_memory() {
+    local mem="$1"
+    [[ -d "$mem" ]] || return 0
+    if [[ -n "$(find "$mem/topics" -name '*.md' 2>/dev/null)" ]] \
+       || [[ -n "$(find "$mem/logs" -type f ! -name '.gitkeep' 2>/dev/null)" ]] \
+       || { [[ -f "$mem/MEMORY.md" ]] && ! grep -q 'Last consolidated: never' "$mem/MEMORY.md" 2>/dev/null; }; then
+      echo "Preserved your Dreaming memory store (has consolidated content): $mem"
+      return 0
+    fi
+    if [[ $DRY_RUN -eq 1 ]]; then
+      echo "${prefix}rm: $mem (pristine seed)"
+    else
+      rm -rf -- "$mem"
+    fi
+  }
+  prune_seed_memory "$WORKSPACE/.assert-iq/memory"
+  if [[ $UNINSTALL_USER -eq 1 ]]; then
+    prune_seed_memory "$HOME/.agents/.assert-iq/memory"
   fi
 
   # Sweep orphaned /assert-iq-tailor snapshots. These `*.assert-iq.pre-tailor`
@@ -1001,8 +1256,13 @@ fi
 resolve_mode() {
   # Already set explicitly?
   case "$MODE" in
-    trial|committed) return ;;
+    trial|committed) return 0 ;;
     ""|ask)
+      # A plain re-run must not flip an existing install's mode.
+      if [[ -f "$MANIFEST_PATH" ]] && command -v jq >/dev/null 2>&1; then
+        local recorded; recorded="$(jq -r '.mode // empty' "$MANIFEST_PATH" 2>/dev/null)"
+        case "$recorded" in trial|committed) MODE="$recorded"; return ;; esac
+      fi
       if [[ -t 0 ]]; then
         echo ""
         echo "Choose install mode:"
@@ -1030,10 +1290,12 @@ resolve_mode() {
   esac
 }
 
+if [[ $UPGRADE -eq 1 ]]; then upgrade_prepare; fi
+
 resolve_mode
 
 # =============================================================================
-# Apply preset defaults (must run after mode is resolved)
+# Apply preset defaults (must run after mode is resolved; upgrade pins them)
 # =============================================================================
 
 case "$PRESET" in
@@ -1177,6 +1439,11 @@ resolve_conflict() {
 copy_file() {
   # Args: label src dst scope (workspace|user)
   local label="$1" src="$2" dst="$3" scope="$4"
+  # Never touch the user's Dreaming memory on upgrade — it's their data.
+  if [[ ${UPGRADE:-0} -eq 1 && "$dst" == *"/.assert-iq/memory/"* ]]; then
+    record "$label" "skipped (memory preserved)" "$dst"
+    return
+  fi
   if [[ ! -e "$src" ]]; then
     record "$label" "missing-source" "$src"
     return
@@ -1197,7 +1464,12 @@ copy_file() {
     record "$label" "unchanged (pack-owned)" "$dst"
     return
   fi
-  # Differs — invoke resolver.
+  # Differs. On upgrade, three-way merge to preserve user edits.
+  if [[ ${UPGRADE:-0} -eq 1 ]]; then
+    upgrade_three_way "$label" "$src" "$dst" "$scope"
+    return
+  fi
+  # Fresh install differs — invoke the 2-way resolver.
   local choice
   choice="$(resolve_conflict "$src" "$dst" "$label")"
   case "$choice" in
@@ -1223,9 +1495,10 @@ copy_file() {
 }
 
 copy_tree() {
-  # Args: label src_dir dst_dir scope
+  # Args: label src_dir dst_dir scope [exclude_rel_prefixes]
   # Walks src_dir and per-file-copies into dst_dir, preserving relative layout.
-  local label="$1" src_dir="$2" dst_dir="$3" scope="$4"
+  # exclude_rel_prefixes: space-separated relative-path prefixes to skip.
+  local label="$1" src_dir="$2" dst_dir="$3" scope="$4" exclude="${5:-}"
   if [[ ! -d "$src_dir" ]]; then
     record "$label" "missing-source" "$src_dir"
     return
@@ -1238,6 +1511,13 @@ copy_tree() {
       .DS_Store|Thumbs.db|desktop.ini) continue ;;
     esac
     rel="${f#"$src_dir/"}"
+    if [[ -n "$exclude" ]]; then
+      local _skip=0 _pre
+      for _pre in $exclude; do
+        case "$rel" in "$_pre"*) _skip=1; break ;; esac
+      done
+      [[ $_skip -eq 1 ]] && continue
+    fi
     copy_file "$label/$rel" "$f" "$dst_dir/$rel" "$scope"
   done < <(find "$src_dir" -type f -print0)
 }
@@ -1313,14 +1593,70 @@ render_events_json() {
   echo "$tmp"
 }
 
+seed_memory_index() {
+  # Write a clean MEMORY.md template ONLY if one is not already present, so
+  # an upgrade never overwrites the user's dreamed index.
+  local p="$1"
+  [[ -f "$p" ]] && return 0
+  mkdir -p "$(dirname "$p")"
+  cat > "$p" <<'MEOF'
+# MEMORY.md — Project Memory Index
+
+_Last consolidated: never — run `/dream` to populate_
+
+<!--
+Long-term memory INDEX for the Assert.IQ Dreaming feature (loaded at session
+start, index only). Maintained by the /dream consolidation pass:
+  - Hard cap: 200 lines; one-line pointers into topics/.
+  - Absolute dates only. Facts/decisions/preferences, not transcript excerpts.
+Hand-edit freely; the instruction files under .github/instructions/ are the
+immutable rules tier and are never modified by dreaming.
+-->
+
+## Architecture
+
+_(no entries yet)_
+
+## Workflow
+
+_(no entries yet)_
+
+## Active Gotchas
+
+_(no entries yet)_
+MEOF
+}
+
+seed_memory_store() {
+  # Clean-slate seed for the Dreaming memory. NEVER copies the pack's own
+  # accumulated dream data (topics/*.md, logs) so every install/upgrade starts
+  # fresh. Only creates what's missing, so an upgrade preserves user content.
+  # Args: memory_dir
+  local mem="$1"
+  mkdir -p "$mem/topics" "$mem/logs" "$mem/.dream"
+  [[ -f "$mem/.dream/state.json" ]] || \
+    printf '{\n  "last_dream_utc": null,\n  "sessions_since_dream": 0\n}\n' > "$mem/.dream/state.json"
+  [[ -f "$mem/topics/.gitkeep" ]] || : > "$mem/topics/.gitkeep"
+  [[ -f "$mem/logs/.gitkeep" ]]   || : > "$mem/logs/.gitkeep"
+  # README is static docs (not dream data) — seed it if the pack ships one.
+  [[ -f "$mem/README.md" || ! -f "$SOURCE/.assert-iq/memory/README.md" ]] || \
+    cp "$SOURCE/.assert-iq/memory/README.md" "$mem/README.md"
+  seed_memory_index "$mem/MEMORY.md"
+}
+
 # =============================================================================
 # Per-surface handlers
 # =============================================================================
 
 process_assert_iq() {
+  # The dreaming machinery and memory store are owned by process_dreaming;
+  # exclude them here so the rendered session-events.json and the user's
+  # memory content are never double-handled. Per-workspace tracking files
+  # (gitignored) are excluded defensively.
+  local _ex="dreaming/ memory/ .install-manifest.json .merge-result-shas .skip-worktree-paths"
   case "$ASSERT_IQ" in
-    workspace) copy_tree ".assert-iq" "$SOURCE/.assert-iq" "$WORKSPACE/.assert-iq" "workspace" ;;
-    user)      copy_tree ".assert-iq" "$SOURCE/.assert-iq" "$USER_ASSERT_IQ"       "user" ;;
+    workspace) copy_tree ".assert-iq" "$SOURCE/.assert-iq" "$WORKSPACE/.assert-iq" "workspace" "$_ex" ;;
+    user)      copy_tree ".assert-iq" "$SOURCE/.assert-iq" "$USER_ASSERT_IQ"       "user"      "$_ex" ;;
     skip)      record ".assert-iq" "skipped (user choice)" "-" ;;
     *) echo "ERROR: invalid --assert-iq value '$ASSERT_IQ'" >&2; exit 2 ;;
   esac
@@ -1432,13 +1768,10 @@ process_dreaming() {
         record ".assert-iq/dreaming/" "missing-source" "$SOURCE/.assert-iq/dreaming"
         return
       fi
-      copy_tree ".assert-iq/dreaming" "$SOURCE/.assert-iq/dreaming" "$WORKSPACE/.assert-iq/dreaming" "workspace"
-      # Scaffold the memory store (user content survives uninstall — only
-      # manifest-tracked seed files are removed).
-      mkdir -p "$WORKSPACE/.assert-iq/memory/topics" "$WORKSPACE/.assert-iq/memory/logs" "$WORKSPACE/.assert-iq/memory/.dream"
-      [[ -f "$WORKSPACE/.assert-iq/memory/.dream/state.json" ]] || \
-        printf '{\n  "last_dream_utc": null,\n  "sessions_since_dream": 0\n}\n' > "$WORKSPACE/.assert-iq/memory/.dream/state.json"
-      record ".assert-iq/memory/" "scaffolded" "$WORKSPACE/.assert-iq/memory"
+      copy_tree ".assert-iq/dreaming" "$SOURCE/.assert-iq/dreaming" "$WORKSPACE/.assert-iq/dreaming" "workspace" "session-events.json"
+      # Seed the memory store clean — never ships the pack's own dream data.
+      seed_memory_store "$WORKSPACE/.assert-iq/memory"
+      record ".assert-iq/memory/" "seeded (clean slate)" "$WORKSPACE/.assert-iq/memory"
       # Render session-events.json with __PACK_ROOT__ = workspace.
       local rendered
       rendered="$(render_events_json "$WORKSPACE")"
@@ -1458,11 +1791,9 @@ process_dreaming() {
         return
       fi
       local user_base="$HOME/.agents/.assert-iq"
-      copy_tree ".assert-iq/dreaming" "$SOURCE/.assert-iq/dreaming" "$user_base/dreaming" "user"
-      mkdir -p "$user_base/memory/topics" "$user_base/memory/logs" "$user_base/memory/.dream"
-      [[ -f "$user_base/memory/.dream/state.json" ]] || \
-        printf '{\n  "last_dream_utc": null,\n  "sessions_since_dream": 0\n}\n' > "$user_base/memory/.dream/state.json"
-      record ".assert-iq/memory/ (user)" "scaffolded" "$user_base/memory"
+      copy_tree ".assert-iq/dreaming" "$SOURCE/.assert-iq/dreaming" "$user_base/dreaming" "user" "session-events.json"
+      seed_memory_store "$user_base/memory"
+      record ".assert-iq/memory/ (user)" "seeded (clean slate)" "$user_base/memory"
       # Render with __PACK_ROOT__ = $HOME/.agents.
       local rendered
       rendered="$(render_events_json "$HOME/.agents")"
@@ -1650,6 +1981,10 @@ write_exclude_block
 
 if [[ "$MODE" == "trial" ]]; then
   apply_skip_worktree
+fi
+
+if [[ $UPGRADE -eq 1 ]]; then
+  upgrade_orphans
 fi
 
 # =============================================================================

@@ -73,6 +73,7 @@ param(
     [switch]$Committed,
     [switch]$Graduate,
     [switch]$Untrial,
+    [switch]$Upgrade,
     [switch]$Uninstall,
     [switch]$User,
     [Alias('y')]
@@ -87,6 +88,11 @@ if ($Trial)     { $Mode = 'trial' }
 if ($Committed) { $Mode = 'committed' }
 $doGraduate  = $Graduate -or $Untrial
 $doUninstall = [bool]$Uninstall
+$doUpgrade   = [bool]$Upgrade
+
+# Upgrade state (populated by Invoke-UpgradePrepare).
+$script:OldManifest      = $null
+$script:InstalledVersion = ''
 
 $ExcludeBegin = '# >>> assert-iq trial mode (managed) >>>'
 $ExcludeEnd   = '# <<< assert-iq trial mode (managed) <<<'
@@ -290,8 +296,17 @@ function Write-Manifest {
     $now = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
     # Merge with existing manifest if present (preserve older paths not touched this run).
-    $newPaths = $script:ManifestEntries
-    $allPaths = $newPaths
+    # Each fresh entry records the post-install sha so an upgrade can detect
+    # files the user never edited and refresh them outright.
+    $newPaths = $script:ManifestEntries | ForEach-Object {
+        [pscustomobject]@{
+            action = $_.action
+            path   = $_.path
+            scope  = $_.scope
+            sha    = (Get-Sha256 $_.path)
+        }
+    }
+    $allPaths = @($newPaths)
     if (Test-Path -LiteralPath $manifestPath) {
         try {
             $existing = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
@@ -733,6 +748,11 @@ function Invoke-Uninstall {
             $script:UninstallStats.Preserved++
             return
         }
+        # The Dreaming memory store is the user's data — never removed on uninstall.
+        if ($e.action -ne 'pre_install_backup' -and (($e.path -replace '\\','/') -like '*/.assert-iq/memory/*')) {
+            $script:UninstallStats.Preserved++
+            return
+        }
         switch ($e.action) {
             'pre_install_backup' { Restore-Backup $e.path }
             { $script:RemovableActions -contains $_ } {
@@ -798,6 +818,31 @@ function Invoke-Uninstall {
     if ($User) {
         $userEventsJson = Join-Path $env:USERPROFILE '.agents\.assert-iq\dreaming\session-events.json'
         if (Test-Path -LiteralPath $userEventsJson) { Remove-PathOrDir $userEventsJson }
+    }
+
+    # The memory store is the user's data — preserved when it holds real dream
+    # content, but a pristine never-dreamed seed is just install scaffolding, so
+    # remove it for a clean uninstall.
+    function Remove-SeedMemory([string]$mem) {
+        if (-not (Test-Path -LiteralPath $mem -PathType Container)) { return }
+        $hasTopics = @(Get-ChildItem -LiteralPath (Join-Path $mem 'topics') -Recurse -File -Filter '*.md' -ErrorAction SilentlyContinue).Count -gt 0
+        $hasLogs   = @(Get-ChildItem -LiteralPath (Join-Path $mem 'logs') -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne '.gitkeep' }).Count -gt 0
+        $memIndex  = Join-Path $mem 'MEMORY.md'
+        $dreamt = $false
+        if (Test-Path -LiteralPath $memIndex -PathType Leaf) {
+            $raw = Get-Content -LiteralPath $memIndex -Raw -ErrorAction SilentlyContinue
+            if ($raw -and ($raw -notmatch 'Last consolidated: never')) { $dreamt = $true }
+        }
+        if ($hasTopics -or $hasLogs -or $dreamt) {
+            Write-Host "Preserved your Dreaming memory store (has consolidated content): $mem"
+            return
+        }
+        if ($DryRun) { Write-Host "${prefix}rm: $mem (pristine seed)" }
+        else { Remove-Item -LiteralPath $mem -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+    Remove-SeedMemory (Join-Path $Workspace '.assert-iq\memory')
+    if ($User) {
+        Remove-SeedMemory (Join-Path $env:USERPROFILE '.agents\.assert-iq\memory')
     }
 
     # Sweep orphaned /assert-iq-tailor snapshots. These *.assert-iq.pre-tailor
@@ -945,6 +990,14 @@ if ($doUninstall) {
 function Resolve-Mode {
     if ($Mode -eq 'trial' -or $Mode -eq 'committed') { return }
     if ($Mode -eq '' -or $Mode -eq 'ask') {
+        # A prior install pins the mode — never silently flip trial<->committed
+        # on a plain re-run.
+        if (Test-Path -LiteralPath $manifestPath) {
+            try {
+                $priorMode = (Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json).mode
+                if ($priorMode -eq 'trial' -or $priorMode -eq 'committed') { $script:Mode = $priorMode; return }
+            } catch { }
+        }
         $isInteractive = [Environment]::UserInteractive -and -not [Console]::IsInputRedirected
         if ($isInteractive) {
             Write-Host ''
@@ -971,6 +1024,283 @@ function Resolve-Mode {
     throw "Invalid -Mode value '$Mode' (expected: trial, committed, ask)"
 }
 
+# =============================================================================
+# Upgrade engine (three-way merge) + clean-slate memory seed
+# =============================================================================
+
+function Get-UpgradeRecordedSha([string]$absPath) {
+    if (-not $script:OldManifest) { return '' }
+    foreach ($p in $script:OldManifest.paths) {
+        if ($p.path -eq $absPath) {
+            if ($p.PSObject.Properties['sha']) { return $p.sha }
+            return ''
+        }
+    }
+    return ''
+}
+
+function Get-UpgradeScope([string]$relPrefix, [string]$userAbs = '') {
+    # Derive a surface's install scope from the old manifest: workspace|user|skip.
+    $wsAbs = ((Join-Path $Workspace $relPrefix) -replace '\\','/')
+    foreach ($p in $script:OldManifest.paths) {
+        if ($p.scope -eq 'workspace' -and (($p.path -replace '\\','/').StartsWith($wsAbs, [System.StringComparison]::OrdinalIgnoreCase))) { return 'workspace' }
+    }
+    if ($userAbs) {
+        $uAbs = ($userAbs -replace '\\','/')
+        foreach ($p in $script:OldManifest.paths) {
+            if ($p.scope -eq 'user' -and (($p.path -replace '\\','/').StartsWith($uAbs, [System.StringComparison]::OrdinalIgnoreCase))) { return 'user' }
+        }
+    }
+    return 'skip'
+}
+
+function Invoke-UpgradePrepare {
+    # Validate an existing install, pin its mode, and derive which surfaces to
+    # refresh from the recorded manifest so upgrade respects the original
+    # selection instead of re-prompting presets.
+    if (-not (Test-Path -LiteralPath $manifestPath)) {
+        Write-Error "no install manifest at $manifestPath. This workspace was not installed via bootstrap. For a pack-as-workspace install, upgrade with: git pull; ./install.ps1. For a fresh codebase install, run bootstrap without -Upgrade."
+        exit 2
+    }
+    try {
+        $script:OldManifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    } catch {
+        Write-Error "install manifest is not valid JSON: $manifestPath"
+        exit 2
+    }
+    $script:InstalledVersion = if ($script:OldManifest.version) { $script:OldManifest.version } else { 'unknown' }
+    $instMode = if ($script:OldManifest.mode) { $script:OldManifest.mode } else { 'committed' }
+    if ($instMode -ne 'trial' -and $instMode -ne 'committed') { $instMode = 'committed' }
+    # Pin mode to what was installed — never flip trial<->committed on upgrade.
+    $script:Mode = $instMode
+
+    $script:AssertIq       = Get-UpgradeScope '.assert-iq/config.yaml' (Join-Path $userAssertIq 'config.yaml')
+    $script:Instructions   = Get-UpgradeScope '.github/instructions/' ($userPrompts + '/')
+    $script:Claude         = Get-UpgradeScope 'CLAUDE.md' $userClaudeMd
+    $script:Copilot        = Get-UpgradeScope '.github/copilot-instructions.md'
+    $script:Agents         = Get-UpgradeScope 'AGENTS.md'
+    $script:VSCode         = Get-UpgradeScope '.vscode/settings.json'
+    $script:ClaudeSettings = Get-UpgradeScope '.claude/settings.json'
+    # Dreaming rides with the session-events wiring; also bridges an upgrade
+    # from a pre-Dreaming (hooks) install where .claude/settings.json existed.
+    $script:Dreaming = $script:ClaudeSettings
+    if ($script:Dreaming -eq 'skip' -and (Get-UpgradeScope 'hooks/') -eq 'workspace') { $script:Dreaming = 'workspace' }
+
+    $sw = Get-UpgradeScope '.github/skills/'
+    $su = 'skip'
+    $uSkills = ($userVscodeSkills -replace '\\','/') + '/'
+    foreach ($p in $script:OldManifest.paths) {
+        if ($p.scope -eq 'user' -and (($p.path -replace '\\','/').StartsWith($uSkills, [System.StringComparison]::OrdinalIgnoreCase))) { $su = 'user'; break }
+    }
+    if ($sw -eq 'workspace' -and $su -eq 'user') { $script:SkillsScope = 'both' }
+    elseif ($sw -eq 'workspace') { $script:SkillsScope = 'workspace' }
+    elseif ($su -eq 'user') { $script:SkillsScope = 'user' }
+    else { $script:SkillsScope = 'workspace' }
+
+    $newVer = 'unknown'
+    $vf = Join-Path $Source 'VERSION'
+    if (Test-Path -LiteralPath $vf -PathType Leaf) { try { $newVer = (Get-Content -LiteralPath $vf -TotalCount 1).Trim() } catch { } }
+    Write-Host "=== Assert.IQ upgrade: v$($script:InstalledVersion) -> v$newVer (mode: $($script:Mode)) ==="
+    Write-Host 'Refreshing installed surfaces; your edits are preserved via three-way merge.'
+    Write-Host ''
+}
+
+function Invoke-UpgradeThreeWay {
+    # Reconstruct the installed baseline from the pack's git history at the
+    # installed version, then merge the new pack version onto the user's current
+    # file so their edits AND the pack's updates both land.
+    param([string]$Label, [string]$Src, [string]$Dst, [string]$Scope)
+    $relUnix = (ConvertTo-WorkspaceRelative $Dst) -replace '\\','/'
+    $recSha = Get-UpgradeRecordedSha $Dst
+    $dstSha = Get-Sha256 $Dst
+
+    # Unedited since install -> take the new version outright.
+    if ($recSha -and ($recSha -eq $dstSha)) {
+        Backup-IfUserOwned -Path $Dst -Scope $Scope
+        Copy-Item -LiteralPath $Src -Destination $Dst -Force
+        Add-ManifestEntry 'overwritten' $Dst $Scope
+        Record $Label 'updated (pack change, unedited)' $Dst
+        return
+    }
+
+    $baseTmp   = [System.IO.Path]::GetTempFileName()
+    $mergedTmp = [System.IO.Path]::GetTempFileName()
+    $haveBase  = $false
+    if ($script:InstalledVersion -ne 'unknown') {
+        & git -C $Source cat-file -e "v$($script:InstalledVersion):$relUnix" 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $blob = & git -C $Source show "v$($script:InstalledVersion):$relUnix" 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                [System.IO.File]::WriteAllText($baseTmp, (($blob -join "`n") + "`n"))
+                $haveBase = $true
+            }
+        }
+    }
+
+    $interactive = [Environment]::UserInteractive -and -not [Console]::IsInputRedirected
+    if ($haveBase) {
+        Copy-Item -LiteralPath $Dst -Destination $mergedTmp -Force
+        & git merge-file -- $mergedTmp $baseTmp $Src 2>$null | Out-Null
+        $mergeRc = $LASTEXITCODE
+        if ($mergeRc -eq 0) {
+            # Clean three-way merge — non-destructive by definition.
+            if ($Yes -or -not $interactive) {
+                Backup-IfUserOwned -Path $Dst -Scope $Scope
+                Copy-Item -LiteralPath $mergedTmp -Destination $Dst -Force
+                Add-ManifestEntry 'overwritten' $Dst $Scope
+                Save-MergeResultSha -Path $Dst
+                Record $Label 'merged (clean, auto)' $Dst
+            } else {
+                Write-Host ''
+                Write-Host "Upgrade merge (clean): $Label"
+                Write-Host '  Your edits and the pack update both apply cleanly.'
+                $ans = Read-Host '  Apply merged result? [Y]es / [k]eep mine / [s]idecar'
+                switch -Regex ($ans) {
+                    '^[kK]' { Record $Label 'skipped (kept yours)' $Dst }
+                    '^[sS]' { $side = "$Dst.assert-iq-new"; Copy-Item -LiteralPath $mergedTmp -Destination $side -Force; Add-ManifestEntry 'sidecar' $side $Scope; Record $Label 'sidecar (merged) -> .assert-iq-new' $side }
+                    default { Backup-IfUserOwned -Path $Dst -Scope $Scope; Copy-Item -LiteralPath $mergedTmp -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-MergeResultSha -Path $Dst; Record $Label 'merged (clean)' $Dst }
+                }
+            }
+        } else {
+            # Conflict — you and the pack changed overlapping lines.
+            if ($Yes -or -not $interactive) {
+                $side = "$Dst.assert-iq-new"
+                Copy-Item -LiteralPath $Src -Destination $side -Force
+                Add-ManifestEntry 'sidecar' $side $Scope
+                Record $Label 'conflict -> sidecar (.assert-iq-new)' $side
+            } else {
+                Write-Host ''
+                Write-Host "Upgrade merge CONFLICT: $Label"
+                Write-Host '  You and the pack changed overlapping lines.'
+                $ans = Read-Host '  [m]arkers into your file / [o]verwrite w/ pack / [k]eep mine / [s]idecar'
+                switch -Regex ($ans) {
+                    '^[mM]' { Backup-IfUserOwned -Path $Dst -Scope $Scope; Copy-Item -LiteralPath $mergedTmp -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-MergeResultSha -Path $Dst; Record $Label 'merged (conflict markers written)' $Dst }
+                    '^[oO]' { Backup-IfUserOwned -Path $Dst -Scope $Scope; Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Record $Label 'overwritten (pack)' $Dst }
+                    '^[sS]' { $side = "$Dst.assert-iq-new"; Copy-Item -LiteralPath $Src -Destination $side -Force; Add-ManifestEntry 'sidecar' $side $Scope; Record $Label 'sidecar -> .assert-iq-new' $side }
+                    default { Record $Label 'skipped (kept yours)' $Dst }
+                }
+            }
+        }
+    } else {
+        # No reconstructable baseline -> conservative 2-way resolver (never clobbers).
+        $choice = Resolve-Conflict -Src $Src -Dst $Dst -Label "$Label (no base — merge unavailable)"
+        switch ($choice) {
+            'keep'      { Record $Label 'skipped (kept yours)' $Dst }
+            'overwrite' { Backup-IfUserOwned -Path $Dst -Scope $Scope; Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Record $Label 'overwritten' $Dst }
+            'merge'     { Merge-MarkdownFile -Label $Label -Src $Src -Dst $Dst -Scope $Scope }
+            'sidecar'   { $side = "$Dst.assert-iq-new"; Copy-Item -LiteralPath $Src -Destination $side -Force; Add-ManifestEntry 'sidecar' $side $Scope; Record $Label 'sidecar -> .assert-iq-new' $side }
+        }
+    }
+    Remove-Item -LiteralPath $baseTmp -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $mergedTmp -Force -ErrorAction SilentlyContinue
+}
+
+function Invoke-UpgradeOrphans {
+    # Remove files the OLD install placed that the new pack no longer ships.
+    # Prompt each; never touch the memory store; report-only when non-interactive.
+    if (-not $script:OldManifest) { return }
+    $thisRun = @{}
+    foreach ($e in $script:ManifestEntries) { $thisRun[$e.path] = $true }
+    $removable = @('created','unchanged_owned','overwritten','rendered','sidecar','merged_settings','merged_hooks_key','merged_markdown')
+    $interactive = [Environment]::UserInteractive -and -not [Console]::IsInputRedirected
+    $bulk = ''
+    foreach ($p in $script:OldManifest.paths) {
+        if ($p.scope -ne 'workspace') { continue }
+        if ($removable -notcontains $p.action) { continue }
+        $abs = $p.path
+        $relUnix = (ConvertTo-WorkspaceRelative $abs) -replace '\\','/'
+        if ($relUnix -like '.assert-iq/memory/*') { continue }
+        if ($relUnix -like '*.assert-iq.pre-install' -or $relUnix -like '*.assert-iq-new' -or $relUnix -like '*.assert-iq.uninstall-saved' -or $relUnix -like '*.assert-iq.pre-tailor') { continue }
+        if ($thisRun.ContainsKey($abs)) { continue }
+        if (Test-Path -LiteralPath (Join-Path $Source $relUnix)) { continue }
+        if (-not (Test-Path -LiteralPath $abs)) { continue }
+
+        $decision = $bulk
+        if (-not $decision) {
+            if ($Yes -or -not $interactive) {
+                Write-Host "  orphan from a previous version (kept; re-run interactively to remove): $relUnix"
+                continue
+            }
+            $decision = Read-Host "Orphan from a previous version: $relUnix — [r]emove / [k]eep / [R]emove-all / [K]eep-all"
+        }
+        if ($decision -eq 'R') { $bulk = 'R'; $decision = 'r' }
+        elseif ($decision -eq 'K') { $bulk = 'K'; $decision = 'k' }
+        if ($decision -eq 'r') {
+            Remove-Item -LiteralPath $abs -Force -ErrorAction SilentlyContinue
+            try {
+                $mf = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+                $mf.paths = @($mf.paths | Where-Object { $_.path -ne $abs })
+                Write-AtomicFile -Path $manifestPath -Content ($mf | ConvertTo-Json -Depth 10)
+            } catch { }
+            Write-Host "  removed: $relUnix"
+        } else {
+            Write-Host "  kept: $relUnix"
+        }
+    }
+}
+
+function Seed-MemoryIndex {
+    # Write a clean MEMORY.md template ONLY if one is not already present, so
+    # an upgrade never overwrites the user's dreamed index.
+    param([string]$Path)
+    if (Test-Path -LiteralPath $Path -PathType Leaf) { return }
+    $parent = Split-Path -Parent $Path
+    if ($parent -and -not (Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
+    $content = @'
+# MEMORY.md — Project Memory Index
+
+_Last consolidated: never — run `/dream` to populate_
+
+<!--
+Long-term memory INDEX for the Assert.IQ Dreaming feature (loaded at session
+start, index only). Maintained by the /dream consolidation pass:
+  - Hard cap: 200 lines; one-line pointers into topics/.
+  - Absolute dates only. Facts/decisions/preferences, not transcript excerpts.
+Hand-edit freely; the instruction files under .github/instructions/ are the
+immutable rules tier and are never modified by dreaming.
+-->
+
+## Architecture
+
+_(no entries yet)_
+
+## Workflow
+
+_(no entries yet)_
+
+## Active Gotchas
+
+_(no entries yet)_
+'@
+    Set-Content -LiteralPath $Path -Value $content -Encoding UTF8
+}
+
+function Seed-MemoryStore {
+    # Clean-slate seed for the Dreaming memory. NEVER copies the pack's own
+    # accumulated dream data (topics/*.md, logs) so every install/upgrade starts
+    # fresh. Only creates what's missing, so an upgrade preserves user content.
+    param([string]$MemDir)
+    New-Item -ItemType Directory -Path (Join-Path $MemDir 'topics') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $MemDir 'logs') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $MemDir '.dream') -Force | Out-Null
+    $statePath = Join-Path $MemDir '.dream\state.json'
+    if (-not (Test-Path -LiteralPath $statePath)) {
+        Set-Content -LiteralPath $statePath -Value "{`n  `"last_dream_utc`": null,`n  `"sessions_since_dream`": 0`n}" -Encoding UTF8
+    }
+    $topicKeep = Join-Path $MemDir 'topics\.gitkeep'
+    if (-not (Test-Path -LiteralPath $topicKeep)) { New-Item -ItemType File -Force -Path $topicKeep | Out-Null }
+    $logKeep = Join-Path $MemDir 'logs\.gitkeep'
+    if (-not (Test-Path -LiteralPath $logKeep)) { New-Item -ItemType File -Force -Path $logKeep | Out-Null }
+    # README is static docs (not dream data) — seed it if the pack ships one.
+    $srcReadme = Join-Path $Source '.assert-iq\memory\README.md'
+    $dstReadme = Join-Path $MemDir 'README.md'
+    if ((Test-Path -LiteralPath $srcReadme -PathType Leaf) -and -not (Test-Path -LiteralPath $dstReadme)) {
+        Copy-Item -LiteralPath $srcReadme -Destination $dstReadme -Force
+    }
+    Seed-MemoryIndex -Path (Join-Path $MemDir 'MEMORY.md')
+}
+
+if ($doUpgrade) { Invoke-UpgradePrepare }
 Resolve-Mode
 
 # =============================================================================
@@ -1143,6 +1473,11 @@ function Merge-MarkdownFile {
 function Copy-FileScoped {
     param([string]$Label, [string]$Src, [string]$Dst, [string]$Scope)
 
+    # Never touch the user's Dreaming memory on upgrade — it's their data.
+    if ($doUpgrade -and (($Dst -replace '\\','/') -like '*/.assert-iq/memory/*')) {
+        Record $Label 'skipped (memory preserved)' $Dst
+        return
+    }
     if (-not (Test-Path -LiteralPath $Src)) {
         Record $Label 'missing-source' $Src
         return
@@ -1163,6 +1498,12 @@ function Copy-FileScoped {
     if ($shSrc -and ($shSrc -eq $shDst)) {
         Add-ManifestEntry 'unchanged_owned' $Dst $Scope
         Record $Label 'unchanged (pack-owned)' $Dst
+        return
+    }
+
+    # On upgrade, three-way merge to preserve user edits.
+    if ($doUpgrade) {
+        Invoke-UpgradeThreeWay -Label $Label -Src $Src -Dst $Dst -Scope $Scope
         return
     }
 
@@ -1190,7 +1531,7 @@ function Copy-FileScoped {
 }
 
 function Copy-TreeScoped {
-    param([string]$Label, [string]$SrcDir, [string]$DstDir, [string]$Scope)
+    param([string]$Label, [string]$SrcDir, [string]$DstDir, [string]$Scope, [string[]]$Exclude = @())
 
     if (-not (Test-Path -LiteralPath $SrcDir -PathType Container)) {
         Record $Label 'missing-source' $SrcDir
@@ -1201,6 +1542,10 @@ function Copy-TreeScoped {
         if ($_.Name -in @('.DS_Store','Thumbs.db','desktop.ini')) { return }
         $rel = $_.FullName.Substring($SrcDir.Length).TrimStart('\','/')
         $relUx = $rel -replace '\\','/'
+        # Skip excluded relative-path prefixes.
+        $skip = $false
+        foreach ($pre in $Exclude) { if ($relUx -like "$pre*") { $skip = $true; break } }
+        if ($skip) { return }
         Copy-FileScoped -Label "$Label/$relUx" -Src $_.FullName -Dst (Join-Path $DstDir $rel) -Scope $Scope
     }
 }
@@ -1287,9 +1632,13 @@ function Get-RenderedEventsJson {
 # =============================================================================
 
 function Step-AssertIq {
+    # dreaming/ and memory/ are owned by Step-Dreaming (clean-slate seed +
+    # rendered session-events.json); per-workspace tracking files are
+    # gitignored. Exclude them here so nothing is double-handled.
+    $aiqExclude = @('dreaming/','memory/','.install-manifest.json','.merge-result-shas','.skip-worktree-paths')
     switch ($AssertIq) {
-        'workspace' { Copy-TreeScoped '.assert-iq' (Join-Path $Source '.assert-iq') (Join-Path $Workspace '.assert-iq') 'workspace' }
-        'user'      { Copy-TreeScoped '.assert-iq' (Join-Path $Source '.assert-iq') $userAssertIq 'user' }
+        'workspace' { Copy-TreeScoped '.assert-iq' (Join-Path $Source '.assert-iq') (Join-Path $Workspace '.assert-iq') 'workspace' -Exclude $aiqExclude }
+        'user'      { Copy-TreeScoped '.assert-iq' (Join-Path $Source '.assert-iq') $userAssertIq 'user' -Exclude $aiqExclude }
         'skip'      { Record '.assert-iq' 'skipped (user choice)' '-' }
         default     { throw "Invalid -AssertIq: '$AssertIq'" }
     }
@@ -1394,18 +1743,11 @@ function Step-Dreaming {
                 Record '.assert-iq/dreaming/' 'missing-source' $dreamSrcDir
                 return
             }
-            Copy-TreeScoped '.assert-iq/dreaming' $dreamSrcDir (Join-Path $Workspace '.assert-iq\dreaming') 'workspace'
-            # Scaffold the memory store (user content survives uninstall — only
-            # manifest-tracked seed files are removed).
+            Copy-TreeScoped '.assert-iq/dreaming' $dreamSrcDir (Join-Path $Workspace '.assert-iq\dreaming') 'workspace' -Exclude @('session-events.json')
+            # Seed the memory store clean — never ships the pack's own dream data.
             $memDir = Join-Path $Workspace '.assert-iq\memory'
-            New-Item -ItemType Directory -Path (Join-Path $memDir 'topics') -Force | Out-Null
-            New-Item -ItemType Directory -Path (Join-Path $memDir 'logs') -Force | Out-Null
-            New-Item -ItemType Directory -Path (Join-Path $memDir '.dream') -Force | Out-Null
-            $statePath = Join-Path $memDir '.dream\state.json'
-            if (-not (Test-Path -LiteralPath $statePath)) {
-                Set-Content -LiteralPath $statePath -Value "{`n  `"last_dream_utc`": null,`n  `"sessions_since_dream`": 0`n}" -Encoding UTF8
-            }
-            Record '.assert-iq/memory/' 'scaffolded' $memDir
+            Seed-MemoryStore -MemDir $memDir
+            Record '.assert-iq/memory/' 'seeded (clean slate)' $memDir
             $rendered = Get-RenderedEventsJson -PackRoot $Workspace
             if (-not $rendered) {
                 Record '.assert-iq/dreaming/session-events.json' 'missing-template' (Join-Path $dreamSrcDir 'session-events.template.json')
@@ -1425,16 +1767,10 @@ function Step-Dreaming {
                 return
             }
             $userBase = Join-Path $env:USERPROFILE '.agents\.assert-iq'
-            Copy-TreeScoped '.assert-iq/dreaming' $dreamSrcDir (Join-Path $userBase 'dreaming') 'user'
+            Copy-TreeScoped '.assert-iq/dreaming' $dreamSrcDir (Join-Path $userBase 'dreaming') 'user' -Exclude @('session-events.json')
             $memDir = Join-Path $userBase 'memory'
-            New-Item -ItemType Directory -Path (Join-Path $memDir 'topics') -Force | Out-Null
-            New-Item -ItemType Directory -Path (Join-Path $memDir 'logs') -Force | Out-Null
-            New-Item -ItemType Directory -Path (Join-Path $memDir '.dream') -Force | Out-Null
-            $statePath = Join-Path $memDir '.dream\state.json'
-            if (-not (Test-Path -LiteralPath $statePath)) {
-                Set-Content -LiteralPath $statePath -Value "{`n  `"last_dream_utc`": null,`n  `"sessions_since_dream`": 0`n}" -Encoding UTF8
-            }
-            Record '.assert-iq/memory/ (user)' 'scaffolded' $memDir
+            Seed-MemoryStore -MemDir $memDir
+            Record '.assert-iq/memory/ (user)' 'seeded (clean slate)' $memDir
             $userPackRoot = Join-Path $env:USERPROFILE '.agents'
             $rendered = Get-RenderedEventsJson -PackRoot $userPackRoot
             if (-not $rendered) {
@@ -1638,6 +1974,7 @@ Write-ExcludeBlock
 if ($Mode -eq 'trial') {
     Invoke-SkipWorktree
 }
+if ($doUpgrade) { Invoke-UpgradeOrphans }
 
 # =============================================================================
 # Summary

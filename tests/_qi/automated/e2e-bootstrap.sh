@@ -76,6 +76,23 @@ mk_pack_copy() {
   echo "$copy:$home"
 }
 
+# Build a disposable git-tagged copy of the pack to serve as an --upgrade
+# SOURCE. Tags the tree v<VERSION> so bootstrap --upgrade can reconstruct the
+# install baseline via `git show v<VERSION>:<path>`. Echoes the source dir.
+mk_tagged_source() {
+  local src ver
+  src="$(mktemp -d "${TMPDIR:-/tmp}/aiq-src.XXXXXX")"
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a --exclude '.git' --exclude 'node_modules' "$PACK/" "$src/"
+  else
+    ( cd "$PACK" && tar -cf - --exclude='.git' --exclude='node_modules' . | ( cd "$src" && tar -xf - ) )
+  fi
+  ver="$(head -n1 "$PACK/VERSION" | tr -d '[:space:]')"
+  ( cd "$src" && git init -q && git config user.email t@t && git config user.name t \
+    && git add -A && git commit -q -m "v$ver" && git tag "v$ver" )
+  echo "$src"
+}
+
 # ---- Assertion helpers -----------------------------------------------------
 fail() {
   local case_label="$1"; shift
@@ -668,8 +685,81 @@ case_34_install_state_sidecars_hidden_from_git() {
   porcelain="$( cd "$ws" && git status --porcelain )"
   echo "$porcelain" | grep -q '\.assert-iq/\.skip-worktree-paths' \
     && fail 34 "committed: .skip-worktree-paths leaked into git status"
-  echo "$porcelain" | grep -q '\.assert-iq/\.merge-result-shas' \
-    && fail 34 "committed: .merge-result-shas leaked into git status"
+  cleanup_fixture "$pair"
+}
+
+# ---- Clean-slate memory + Dreaming (v1.5.0) --------------------------------
+
+case_35_clean_slate_memory_seed() {
+  # Fresh install must seed the Dreaming memory clean: no bogus conflict
+  # (regression: session-events double-copy), no pack dream data shipped,
+  # and session-events.json rendered to the workspace root.
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  local out; out="$(run_boot "$pair" --preset=pod --mode=committed --yes)"
+  echo "$out" | grep -qi 'conflict' && fail 35 "fresh install reported a conflict"
+  assert_file_missing 35 "$ws/.assert-iq/dreaming/session-events.json.assert-iq-new"
+  assert_file_exists  35 "$ws/.assert-iq/memory/MEMORY.md"
+  assert_contains     35 "$ws/.assert-iq/memory/MEMORY.md" "Last consolidated: never"
+  [[ -z "$(find "$ws/.assert-iq/memory/logs" -name '2*' 2>/dev/null)" ]] || fail 35 "dream logs copied on install"
+  [[ -z "$(find "$ws/.assert-iq/memory/topics" -name '*.md' 2>/dev/null)" ]] || fail 35 "topic files copied on install"
+  assert_contains     35 "$ws/.assert-iq/memory/.dream/state.json" '"sessions_since_dream": 0'
+  assert_file_exists  35 "$ws/.assert-iq/dreaming/session-events.json"
+  assert_not_contains 35 "$ws/.assert-iq/dreaming/session-events.json" "__PACK_ROOT__"
+  cleanup_fixture "$pair"
+}
+
+case_36_uninstall_preserves_memory() {
+  # Uninstall must never delete the user's Dreaming memory (their data).
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
+  mkdir -p "$ws/.assert-iq/memory/logs/2026/08"
+  printf '# dreamt\n' > "$ws/.assert-iq/memory/logs/2026/08/2026-08-01.md"
+  run_boot "$pair" --uninstall --yes >/dev/null
+  assert_file_exists 36 "$ws/.assert-iq/memory/MEMORY.md"
+  assert_file_exists 36 "$ws/.assert-iq/memory/logs/2026/08/2026-08-01.md"
+  cleanup_fixture "$pair"
+}
+
+case_37_upgrade_merge_conflict_orphan() {
+  # End-to-end --upgrade: clean three-way merge (non-overlapping edits both
+  # survive), overlapping edit -> sidecar (user kept), removed file -> orphan
+  # reported (not deleted under --yes), memory untouched, version bumped.
+  local src; src="$(mk_tagged_source)"
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  run_boot "$pair" --preset=pod --mode=committed --yes --source="$src" >/dev/null
+
+  local target conflict orphan
+  target="$(cd "$ws" && find .github/skills -name SKILL.md | sed -n '1p')"
+  conflict="$(cd "$ws" && find .github/skills -name SKILL.md | sed -n '2p')"
+  orphan="$(cd "$ws" && find .github/skills -name SKILL.md | sed -n '3p')"
+
+  # User edits: non-overlapping (END) on target, overlapping (line 1) on conflict.
+  printf '\n<!-- USER-LOCAL-EDIT -->\n' >> "$ws/$target"
+  awk 'NR==1{print "# WS-EDIT L1"} NR!=1{print}' "$ws/$conflict" > "$ws/$conflict.x" && mv "$ws/$conflict.x" "$ws/$conflict"
+
+  # Advance SOURCE (working tree; the v-tag remains the install baseline).
+  local newver="99.0.0"
+  echo "$newver" > "$src/VERSION"
+  { echo "<!-- PACK-UPDATE -->"; cat "$src/$target"; } > "$src/$target.x" && mv "$src/$target.x" "$src/$target"
+  awk 'NR==1{print "# PACK-EDIT L1"} NR!=1{print}' "$src/$conflict" > "$src/$conflict.x" && mv "$src/$conflict.x" "$src/$conflict"
+  rm -f "$src/$orphan"
+
+  local out; out="$(run_boot "$pair" --upgrade --yes --source="$src")"
+
+  assert_contains     37 "$ws/$target" "USER-LOCAL-EDIT"
+  assert_contains     37 "$ws/$target" "PACK-UPDATE"
+  assert_file_missing 37 "$ws/$target.assert-iq-new"
+  assert_contains     37 "$ws/$conflict" "WS-EDIT L1"
+  assert_file_exists  37 "$ws/$conflict.assert-iq-new"
+  echo "$out" | grep -q "orphan from a previous version" || fail 37 "orphan not reported"
+  assert_file_exists  37 "$ws/$orphan"
+  assert_contains     37 "$ws/.assert-iq/memory/MEMORY.md" "Last consolidated: never"
+  [[ -z "$(find "$ws/.assert-iq/memory/logs" -name '2*' 2>/dev/null)" ]] || fail 37 "logs appeared on upgrade"
+  assert_contains     37 "$ws/.assert-iq/.install-manifest.json" "\"version\": \"$newver\""
+  rm -rf "$src"
   cleanup_fixture "$pair"
 }
 
@@ -718,6 +808,9 @@ run_case "31 preserves unrelated skip-worktree"      case_31_uninstall_preserves
 run_case "32 install respects existing skip-worktree" case_32_install_respects_existing_skip_worktree
 run_case "33 json merge clean roundtrip no .uninstall-saved" case_33_json_merge_clean_roundtrip_no_uninstall_saved
 run_case "34 install state sidecars hidden from git" case_34_install_state_sidecars_hidden_from_git
+run_case "35 clean-slate memory seed (no logs)"      case_35_clean_slate_memory_seed
+run_case "36 uninstall preserves memory"             case_36_uninstall_preserves_memory
+run_case "37 upgrade merge + conflict + orphan"      case_37_upgrade_merge_conflict_orphan
 
 echo ""
 echo "Summary: $(grn $CASES_PASS pass)  $(red $CASES_FAIL fail)  $(ylw $CASES_SKIP skip)"
