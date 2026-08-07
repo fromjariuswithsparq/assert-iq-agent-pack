@@ -113,6 +113,34 @@ mkdir -p "$ROOT/.claude/agents"
 mkdir -p "$MEMORY_DIR/topics" "$MEMORY_DIR/logs" "$MEMORY_DIR/.dream"
 [[ -f "$MEMORY_DIR/.dream/state.json" ]] || \
   printf '{\n  "last_dream_utc": null,\n  "sessions_since_dream": 0\n}\n' > "$MEMORY_DIR/.dream/state.json"
+# MEMORY.md is git-ignored (never ship maintainer memory); seed a clean index
+# if this clone doesn't have one yet.
+[[ -f "$MEMORY_DIR/MEMORY.md" ]] || cat > "$MEMORY_DIR/MEMORY.md" <<'MEOF'
+# MEMORY.md — Project Memory Index
+
+_Last consolidated: never — run `/dream` to populate_
+
+<!--
+Long-term memory INDEX for the Assert.IQ Dreaming feature (loaded at session
+start, index only). Maintained by the /dream consolidation pass:
+  - Hard cap: 200 lines; one-line pointers into topics/.
+  - Absolute dates only. Facts/decisions/preferences, not transcript excerpts.
+Hand-edit freely; the instruction files under .github/instructions/ are the
+immutable rules tier and are never modified by dreaming.
+-->
+
+## Architecture
+
+_(no entries yet)_
+
+## Workflow
+
+_(no entries yet)_
+
+## Active Gotchas
+
+_(no entries yet)_
+MEOF
 say "[ok] ensured Dreaming memory store at .assert-iq/memory/"
 
 # ---- 1. render session-events wiring from template -----------------------

@@ -4,7 +4,8 @@
 
 # Dreaming runtime — never ship the pack's own dream activity; every install
 # starts with a clean slate (installers seed a fresh MEMORY.md + state.json).
-# Committed source ships only MEMORY.md, README.md, and the empty-dir .gitkeeps.
+# Committed source ships only README.md and the empty-dir .gitkeeps.
+.assert-iq/memory/MEMORY.md
 .assert-iq/memory/.dream/state.json
 .assert-iq/memory/.dream/state.lock
 .assert-iq/memory/.dream/dream.lock

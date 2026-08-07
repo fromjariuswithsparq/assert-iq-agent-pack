@@ -5,6 +5,18 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.4] — 2026-08-07
+
+### Changed
+- **`MEMORY.md` is now git-ignored.** The pack-as-workspace memory index is no
+  longer committed, so maintainers can run `/dream` freely without their
+  working memory ever shipping to installers. The memory store now ships only
+  `README.md` and the empty-dir `.gitkeep`s (`topics/*.md`, `logs/`,
+  `.dream/state.json`, and now `MEMORY.md` are all local-only). Both installers
+  (`install.sh` / `install.ps1`) seed a clean `MEMORY.md` index when a clone
+  doesn't have one, so a fresh Path-A install still gets an index; `bootstrap`
+  already generated one inline.
+
 ## [1.5.3] — 2026-08-06
 
 ### Fixed
