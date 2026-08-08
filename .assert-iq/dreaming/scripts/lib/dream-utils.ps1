@@ -2,7 +2,8 @@
 # Dot-sourced by dream-record-session.ps1 and dream-gate.ps1; not run directly.
 
 if (-not $env:AIQ_PACK_ROOT) {
-    $env:AIQ_PACK_ROOT = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+    # …/.assert-iq/dreaming/scripts/lib → repo root is four levels up.
+    $env:AIQ_PACK_ROOT = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\..')).Path
 }
 $script:AiqPackRoot   = $env:AIQ_PACK_ROOT
 $script:AiqMemoryDir  = if ($env:AIQ_MEMORY_DIR) { $env:AIQ_MEMORY_DIR } else { Join-Path $script:AiqPackRoot '.assert-iq\memory' }

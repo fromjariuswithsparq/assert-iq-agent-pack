@@ -5,6 +5,34 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.5] — 2026-08-07
+
+### Fixed
+- **Dreaming now records in VS Code Copilot, not just Claude Code.** The pack
+  previously pointed VS Code's `chat.hookFilesLocations` at a custom
+  `.assert-iq/dreaming/session-events.json` path and *disabled* the default
+  `.claude/settings.json` location. Per the VS Code agent-hooks docs, VS Code
+  reads `.claude/settings.json` natively (same Claude hook format), so the pack
+  now wires **both** harnesses to that one file — Claude Code reads it directly;
+  VS Code loads it from its default location. Its baked
+  `${CLAUDE_PLUGIN_ROOT:-<workspace>}` fallback resolves the pack root under
+  Copilot, which doesn't set that env var. This is why session logs never
+  appeared in a Copilot-only workflow.
+- **Off-by-one fallback pack root.** When `AIQ_PACK_ROOT` is unset,
+  `dream-utils.{sh,ps1}` computed the pack root three levels up from the lib dir
+  (landing on `.assert-iq/`) instead of four (the repo root), which would write
+  to a stray `.assert-iq/.assert-iq/memory/` path. Fixed to four levels. (Masked
+  in normal use because the hook always exports `AIQ_PACK_ROOT`.)
+- **Fragile enabled-check (bash).** With no `dreaming:` block in `config.yaml`,
+  `aiq_enabled` scanned the whole file and matched the first unrelated
+  `enabled:` line. It now defaults to enabled when the block is absent, matching
+  the PowerShell side.
+
+Existing installs: VS Code settings are merged additively (your keys win), so an
+upgrade won't rewrite an existing `.vscode/settings.json` — set
+`"chat.hookFilesLocations": { ".claude/settings.json": true }` manually (and
+reload the window).
+
 ## [1.5.4] — 2026-08-07
 
 ### Changed

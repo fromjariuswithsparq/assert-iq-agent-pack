@@ -2,11 +2,12 @@
 # Shared helpers for the Assert.IQ Dreaming waking loop (bash side).
 # Sourced by dream-record-session.sh and dream-gate.sh; not run directly.
 
-# Pack root is injected by session-events.template.json (CLAUDE_PLUGIN_ROOT
-# wins at runtime under Claude Code; the baked __PACK_ROOT__ is the fallback
-# for VS Code Copilot). Default to three levels up from this lib dir.
+# Pack root is injected by session-events.template.json / .claude/settings.json
+# (CLAUDE_PLUGIN_ROOT wins at runtime under Claude Code; the baked __PACK_ROOT__
+# is the fallback for VS Code Copilot). Default to four levels up from this lib
+# dir (…/.assert-iq/dreaming/scripts/lib → repo root).
 if [ -z "${AIQ_PACK_ROOT:-}" ]; then
-  AIQ_PACK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+  AIQ_PACK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 fi
 AIQ_MEMORY_DIR="${AIQ_MEMORY_DIR:-$AIQ_PACK_ROOT/.assert-iq/memory}"
 AIQ_DREAM_STATE="$AIQ_MEMORY_DIR/.dream/state.json"
@@ -29,7 +30,9 @@ try:
 except Exception:
     sys.exit(0)
 m = re.search(r'^dreaming:\s*$(.*?)(^\S|\Z)', txt, re.M | re.S)
-block = m.group(1) if m else txt
+if not m:
+    sys.exit(0)  # no dreaming: block -> default enabled (don't scan unrelated keys)
+block = m.group(1)
 em = re.search(r'^\s+enabled:\s*(true|false)', block, re.M)
 sys.exit(1 if (em and em.group(1) == 'false') else 0)
 PY
