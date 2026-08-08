@@ -15,6 +15,10 @@
 !.assert-iq/memory/logs/.gitkeep
 transcripts/
 
+# Compiled Python artifacts from the optional dreaming service — never ship.
+__pycache__/
+*.pyc
+
 # Generated Claude artifacts (created by install.sh / install.ps1 / scripts/bootstrap.*).
 # .claude/settings.json is rendered from the session-events template with absolute pack root.
 # .claude/skills is a symlink to ../.github/skills (or a copy on Windows without dev-mode).

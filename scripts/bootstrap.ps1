@@ -1175,7 +1175,6 @@ function Invoke-UpgradeThreeWay {
 
     # Unedited since install -> take the new version outright.
     if ($recSha -and ($recSha -eq $dstSha)) {
-        Backup-IfUserOwned -Path $Dst -Scope $Scope
         Copy-Item -LiteralPath $Src -Destination $Dst -Force
         Add-ManifestEntry 'overwritten' $Dst $Scope
         Save-Base -Content $Src -Dst $Dst
@@ -1208,7 +1207,6 @@ function Invoke-UpgradeThreeWay {
         if ($mergeRc -eq 0) {
             # Clean three-way merge — non-destructive by definition.
             if ($Yes -or -not $interactive) {
-                Backup-IfUserOwned -Path $Dst -Scope $Scope
                 Copy-Item -LiteralPath $mergedTmp -Destination $Dst -Force
                 Add-ManifestEntry 'overwritten' $Dst $Scope
                 Save-MergeResultSha -Path $Dst
@@ -1222,7 +1220,7 @@ function Invoke-UpgradeThreeWay {
                 switch -Regex ($ans) {
                     '^[kK]' { Save-Base -Content $baseFile -Dst $Dst; Record $Label 'skipped (kept yours)' $Dst }
                     '^[sS]' { $side = "$Dst.assert-iq-new"; Copy-Item -LiteralPath $mergedTmp -Destination $side -Force; Add-ManifestEntry 'sidecar' $side $Scope; Save-Base -Content $baseFile -Dst $Dst; Record $Label 'sidecar (merged) -> .assert-iq-new' $side }
-                    default { Backup-IfUserOwned -Path $Dst -Scope $Scope; Copy-Item -LiteralPath $mergedTmp -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-MergeResultSha -Path $Dst; Save-Base -Content $Src -Dst $Dst; Record $Label 'merged (clean)' $Dst }
+                    default { Copy-Item -LiteralPath $mergedTmp -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-MergeResultSha -Path $Dst; Save-Base -Content $Src -Dst $Dst; Record $Label 'merged (clean)' $Dst }
                 }
             }
         } else {
@@ -1239,8 +1237,8 @@ function Invoke-UpgradeThreeWay {
                 Write-Host '  You and the pack changed overlapping lines.'
                 $ans = Read-Host '  [m]arkers into your file / [o]verwrite w/ pack / [k]eep mine / [s]idecar'
                 switch -Regex ($ans) {
-                    '^[mM]' { Backup-IfUserOwned -Path $Dst -Scope $Scope; Copy-Item -LiteralPath $mergedTmp -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-MergeResultSha -Path $Dst; Save-Base -Content $Src -Dst $Dst; Record $Label 'merged (conflict markers written)' $Dst }
-                    '^[oO]' { Backup-IfUserOwned -Path $Dst -Scope $Scope; Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-Base -Content $Src -Dst $Dst; Record $Label 'overwritten (pack)' $Dst }
+                    '^[mM]' { Copy-Item -LiteralPath $mergedTmp -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-MergeResultSha -Path $Dst; Save-Base -Content $Src -Dst $Dst; Record $Label 'merged (conflict markers written)' $Dst }
+                    '^[oO]' { Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-Base -Content $Src -Dst $Dst; Record $Label 'overwritten (pack)' $Dst }
                     '^[sS]' { $side = "$Dst.assert-iq-new"; Copy-Item -LiteralPath $Src -Destination $side -Force; Add-ManifestEntry 'sidecar' $side $Scope; Save-Base -Content $baseFile -Dst $Dst; Record $Label 'sidecar -> .assert-iq-new' $side }
                     default { Save-Base -Content $baseFile -Dst $Dst; Record $Label 'skipped (kept yours)' $Dst }
                 }
@@ -1251,7 +1249,7 @@ function Invoke-UpgradeThreeWay {
         $choice = Resolve-Conflict -Src $Src -Dst $Dst -Label "$Label (no base — merge unavailable)"
         switch ($choice) {
             'keep'      { Record $Label 'skipped (kept yours)' $Dst }
-            'overwrite' { Backup-IfUserOwned -Path $Dst -Scope $Scope; Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-Base -Content $Src -Dst $Dst; Record $Label 'overwritten' $Dst }
+            'overwrite' { Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-Base -Content $Src -Dst $Dst; Record $Label 'overwritten' $Dst }
             'merge'     { Merge-MarkdownFile -Label $Label -Src $Src -Dst $Dst -Scope $Scope }
             'sidecar'   { $side = "$Dst.assert-iq-new"; Copy-Item -LiteralPath $Src -Destination $side -Force; Add-ManifestEntry 'sidecar' $side $Scope; Record $Label 'sidecar -> .assert-iq-new' $side }
         }
@@ -1606,10 +1604,12 @@ function Copy-TreeScoped {
         return
     }
     Get-ChildItem -LiteralPath $SrcDir -Recurse -File | ForEach-Object {
-        # Skip OS/editor cruft.
+        # Skip OS/editor cruft and compiled Python artifacts.
         if ($_.Name -in @('.DS_Store','Thumbs.db','desktop.ini')) { return }
+        if ($_.Extension -eq '.pyc') { return }
         $rel = $_.FullName.Substring($SrcDir.Length).TrimStart('\','/')
         $relUx = $rel -replace '\\','/'
+        if ($relUx -match '(^|/)__pycache__/') { return }
         # Skip excluded relative-path prefixes.
         $skip = $false
         foreach ($pre in $Exclude) { if ($relUx -like "$pre*") { $skip = $true; break } }

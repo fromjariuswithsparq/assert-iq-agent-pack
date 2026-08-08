@@ -5,6 +5,26 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.6] — 2026-08-08
+
+### Fixed
+- **Uninstall after an upgrade left files behind.** When `--upgrade` overwrote a
+  pack-owned file that changed between versions, it created a
+  `.assert-iq.pre-install` backup of the old copy. Uninstall then *restored* that
+  backup (treating the pack file as if it were your pre-existing file), leaving
+  the changed files plus a `.assert-iq.uninstall-saved` sidecar behind — so
+  `.assert-iq/` was never fully removed. Upgrade no longer backs up pack-owned
+  files (the three-way merge already preserves your edits during the upgrade
+  itself), so uninstall removes them cleanly. Ported to `bootstrap.ps1`.
+- **Stopped shipping a compiled `.pyc`.** The optional dreaming service's
+  `__pycache__/*.pyc` build artifact was committed and installed. It's now
+  git-ignored and removed, and the install copy routines skip `*.pyc` /
+  `__pycache__/`.
+
+Note: the Dreaming memory store (`.assert-iq/memory/`) is still *intentionally*
+preserved on uninstall when it holds real consolidated content (your dreams); a
+pristine never-dreamed seed is removed for a clean tree.
+
 ## [1.5.5] — 2026-08-07
 
 ### Fixed

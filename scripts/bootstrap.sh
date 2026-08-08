@@ -496,7 +496,6 @@ upgrade_three_way() {
 
   # Unedited since install -> take the new version outright.
   if [[ -n "$rec_sha" && "$rec_sha" == "$dst_sha" ]]; then
-    backup_if_user_owned "$dst" "$scope"
     cp "$src" "$dst"
     manifest_add "overwritten" "$dst" "$scope"
     base_snapshot "$src" "$dst"
@@ -522,7 +521,7 @@ upgrade_three_way() {
     if git merge-file -p "$dst" "$base_file" "$src" > "$merged_tmp" 2>/dev/null; then
       # Clean three-way merge — non-destructive by definition.
       if [[ $ASSUME_YES -eq 1 || ! -t 0 ]]; then
-        backup_if_user_owned "$dst" "$scope"; cp "$merged_tmp" "$dst"
+        cp "$merged_tmp" "$dst"
         manifest_add "overwritten" "$dst" "$scope"; record_merge_result_sha "$dst"
         base_snapshot "$src" "$dst"
         record "$label" "merged (clean, auto)" "$dst"
@@ -538,7 +537,7 @@ upgrade_three_way() {
           s|S) local side="$dst.assert-iq-new"; cp "$merged_tmp" "$side"
                manifest_add "sidecar" "$side" "$scope"; base_snapshot "$base_file" "$dst"
                record "$label" "sidecar (merged) -> .assert-iq-new" "$side" ;;
-          *)   backup_if_user_owned "$dst" "$scope"; cp "$merged_tmp" "$dst"
+          *)   cp "$merged_tmp" "$dst"
                manifest_add "overwritten" "$dst" "$scope"; record_merge_result_sha "$dst"
                base_snapshot "$src" "$dst"
                record "$label" "merged (clean)" "$dst" ;;
@@ -557,11 +556,11 @@ upgrade_three_way() {
         local ans=""
         read -r -p "  [m]arkers into your file / [o]verwrite w/ pack / [k]eep mine / [s]idecar / [d]iff: " ans </dev/tty
         case "$ans" in
-          m|M) backup_if_user_owned "$dst" "$scope"; cp "$merged_tmp" "$dst"
+          m|M) cp "$merged_tmp" "$dst"
                manifest_add "overwritten" "$dst" "$scope"; record_merge_result_sha "$dst"
                base_snapshot "$src" "$dst"
                record "$label" "merged (conflict markers written)" "$dst" ;;
-          o|O) backup_if_user_owned "$dst" "$scope"; cp "$src" "$dst"
+          o|O) cp "$src" "$dst"
                manifest_add "overwritten" "$dst" "$scope"; base_snapshot "$src" "$dst"
                record "$label" "overwritten (pack)" "$dst" ;;
           s|S) local side="$dst.assert-iq-new"; cp "$src" "$side"
@@ -577,7 +576,7 @@ upgrade_three_way() {
     local choice; choice="$(resolve_conflict "$src" "$dst" "$label (no base — merge unavailable)")"
     case "$choice" in
       keep)      record "$label" "skipped (kept yours)" "$dst" ;;
-      overwrite) backup_if_user_owned "$dst" "$scope"; cp "$src" "$dst"
+      overwrite) cp "$src" "$dst"
                  manifest_add "overwritten" "$dst" "$scope"; base_snapshot "$src" "$dst"
                  record "$label" "overwritten" "$dst" ;;
       merge)     merge_markdown_file "$label" "$src" "$dst" "$scope" ;;
@@ -1603,11 +1602,12 @@ copy_tree() {
   local f rel base
   while IFS= read -r -d '' f; do
     base="$(basename "$f")"
-    # Skip OS/editor cruft.
+    # Skip OS/editor cruft and compiled Python artifacts.
     case "$base" in
-      .DS_Store|Thumbs.db|desktop.ini) continue ;;
+      .DS_Store|Thumbs.db|desktop.ini|*.pyc) continue ;;
     esac
     rel="${f#"$src_dir/"}"
+    case "$rel" in */__pycache__/*|__pycache__/*) continue ;; esac
     if [[ -n "$exclude" ]]; then
       local _skip=0 _pre
       for _pre in $exclude; do
