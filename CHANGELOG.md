@@ -5,6 +5,27 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.7] — 2026-08-08
+
+### Added
+- **High-level "Why Dreaming — and how it saves tokens" section** in
+  `dreaming-readme.html`. The dreaming guide previously jumped straight into
+  operator mechanics (the two loops, files, config); it now opens with a
+  plain-English explanation of *what* dreaming is, *why* it's in Assert.IQ, and
+  *how* it saves tokens — including a worked token-economics model and a
+  matching sidebar nav link. Aimed at readers who don't need what's under the
+  hood.
+
+### Fixed
+- **Stale hook reference in `README.assert-iq.md`.** The layout notes still said
+  `chat.hookFilesLocations` pointed at `./.assert-iq/dreaming/session-events.json`;
+  since v1.5.5 it points at `.claude/settings.json` (read natively by both VS Code
+  Copilot and Claude Code). Updated to match.
+
+### Changed
+- Rebuilt the docs search index (`assets/search-index.js`) to include the new
+  dreaming section.
+
 ## [1.5.6] — 2026-08-08
 
 ### Fixed

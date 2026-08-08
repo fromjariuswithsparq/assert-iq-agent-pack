@@ -362,7 +362,7 @@ Copy these directories into the repo root:
 - `.github/agents/`               ← `Assert-IQ.agent.md` + `Assert-IQ-PLAN.agent.md`
 - `.claude/`                      ← `agents/`, `settings.json`; `.claude/skills/` is created as a symlink by the installer
 - `.vscode/mcp.json`
-- `.vscode/settings.json`         ← wires `.github/skills/` into Copilot prompt-file loading and points `chat.hookFilesLocations` at `./.assert-iq/dreaming/session-events.json`
+- `.vscode/settings.json`         ← wires `.github/skills/` into Copilot prompt-file loading and points `chat.hookFilesLocations` at `.claude/settings.json` (the Dreaming session-event hooks, read natively by both VS Code Copilot and Claude Code)
 - `.assert-iq/dreaming/`          ← `scripts/`, `service/`, and `session-events.template.json` (the Dreaming machinery; `.assert-iq/memory/` is scaffolded alongside)
 - `.assert-iq/`
 - `tests/_qi/` (if not already present)

@@ -80,6 +80,7 @@
 <aside>
   <div class="nav-group">Dreaming</div>
   <a href="#top">Overview</a>
+  <a href="#why">Why Dreaming &amp; token savings</a>
   <a href="#loops">1. The two loops</a>
   <a href="#files">2. Files in this folder</a>
   <a href="#config">3. Configuration</a>
@@ -96,6 +97,32 @@
     <p>If you just want it to work, do nothing. A lightweight recorder runs at session end; when enough has accumulated you'll be nudged to run <code>/dream</code>.</p>
     <blockquote><strong>Where things live.</strong> The memory store is at <code>.assert-iq/memory/</code>; the machinery (scripts, optional service, session-events template) is at <code>.assert-iq/dreaming/</code>. The instruction/rule files under <code>.github/instructions/</code> are the immutable rules tier and are never modified by dreaming.</blockquote>
   </div>
+
+  <h2 id="why">Why Dreaming — and how it saves tokens</h2>
+  <p><strong>What it is, in plain English.</strong> As Assert.IQ works, a lightweight "waking loop" jots short notes about your project. Left alone, those notes pile up into contradictions, stale references, and duplicates — the notes become the noise. <strong>Dreaming</strong> is a periodic clean-up pass (the <code>/dream</code> skill) that reads the notes, resolves contradictions, prunes what's dead, de-duplicates, and rewrites a tight one-page <strong>index</strong> (<code>MEMORY.md</code>, capped at 200 lines) that points to detailed topic files. Memory improving memory — the same idea as sleep consolidating a day's short-term memories into durable ones.</p>
+  <p><strong>Why it's in Assert.IQ.</strong> A quality assistant is only valuable if it <em>compounds</em> — if the 30th session is smarter than the 1st about your codebase, conventions, gotchas, and the corrections you've already made. Without durable memory, every chat starts from zero, rediscovers the same context, and repeats the same mistakes. Dreaming keeps that memory <strong>small, current, and trustworthy</strong> so the agent actually benefits from it instead of drowning in it.</p>
+
+  <h3 id="how-it-saves-tokens">How it saves tokens</h3>
+  <p>Two mechanisms work together:</p>
+  <ul>
+    <li><strong>Read the index, not the world.</strong> The always-on rule in <code>qi-foundation.instructions.md</code> (applied to <code>**</code> — every interaction) tells the agent, at the start of <em>every</em> chat, to read only the ≤200-line <code>MEMORY.md</code> index, and to open a topic file <em>only</em> when a pointer is relevant. Orientation becomes a small, fixed, predictable cost instead of the agent re-reading many files, re-running searches, and re-confirming decisions to rebuild context it already had.</li>
+    <li><strong>Dreaming keeps that cost bounded.</strong> Raw memory bloats over time; a 1,000-line index would cost more to load every session than it saves. The 200-line cap plus the consolidation pass keep the index cheap to load <em>and</em> free of noise — so the agent trusts it and doesn't re-derive anyway.</li>
+  </ul>
+
+  <h4>The math — a worked model</h4>
+  <p>Conservative per-session assumptions (~12 tokens per index line):</p>
+  <table>
+    <thead><tr><th>Scenario</th><th>Per session</th><th>Per 100 sessions</th></tr></thead>
+    <tbody>
+      <tr><td>No memory — cold re-orientation each time (re-read ~4 key files ≈ 6,000 + repeat ~1 already-learned correction ≈ 3,000)</td><td>~9,000 tokens</td><td>~900,000</td></tr>
+      <tr><td>Dreamed memory — read the ~160-line index (~2,000) + occasionally one topic file (~800)</td><td>~2,800 tokens</td><td>~280,000</td></tr>
+      <tr><td><strong>Net saved</strong></td><td><strong>~6,200 tokens</strong></td><td><strong>~620,000 tokens</strong></td></tr>
+    </tbody>
+  </table>
+  <p>Subtract the dream pass itself — one consolidation run (~15,000 tokens) fires at most once per ≥5 sessions ⇒ ≤3,000 tokens/session amortized — and you are still <strong>net positive by ~3,000+ tokens every session</strong>, indefinitely. On a large codebase where a cold start reads 20k–40k tokens to orient, the net saving is <strong>~15,000–35,000 tokens per session</strong>.</p>
+  <p>The dollar figure is modest per session but compounds at scale; the bigger wins are <strong>fewer repeated mistakes</strong>, <strong>predictable context cost</strong> (the 200-line cap bounds it), and <strong>faster orientation</strong>.</p>
+
+  <div class="callout warn"><strong>When it pays off.</strong> Dreaming helps most on recurring, long-lived work — a codebase, a test suite, a triage queue. For one-shot or highly varied tasks there is little to consolidate, which is exactly why it is gated (24h <em>and</em> 5 sessions) and maturity-tiered. It never blocks a session, and the memory store is a plain-markdown git diff you can review or revert.</div>
 
   <h2 id="loops">1. The two loops</h2>
 <pre class="flow"><code>WAKING LOOP (per session, online)
