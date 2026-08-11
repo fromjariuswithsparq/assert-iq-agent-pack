@@ -25,7 +25,7 @@
     <div class="meta">Generated: 2026-08-11 19:27:12 UTC</div>
 <p><h1>Assert.IQ Agent Pack</h1></p><p>> The capability layer of Assert.IQ. Quality Intelligence-grounded skills,
 > instructions, modes, and tools that turn GitHub Copilot Chat **and**
-> Claude Code into a QI-aware delivery partner inside the IDE.</p><p>**Version**: v2.0-alpha1
+> Claude Code into a QI-aware delivery partner inside the IDE.</p><p>**Version**: v2.0.0
 **Status**: Internal Sparq asset — Intelligence Studio
 **Owner**: Jarius Hayes
 **Repo**: <https://github.com/fromjariuswithsparq/assert-iq-agent-pack></p><p>**What's New in v2.0**: Multi-agent orchestration (8 specialists), commercial business metrics dashboard (/measure-qi-impact), and quarterly ROI reporting for executive stakeholders.</p><p>---</p><h2>What this is</h2></p><p>This pack drops into a client codebase and gives the development team an
@@ -134,7 +134,7 @@ are written into the repo.</p><p></code>`<code>bash
 bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --preset=portable
 <h1>Reverse with: --uninstall --user</h1>
 </code>`<code></p><p>You can also opt in à la carte with </code>--skills-scope=user<code> (default is
-</code>workspace<code>; </code>both<code> puts skills in both places).</p><h3>Pinning to a tag</h3></p><p>Use </code>git checkout v1.7.0-alpha1<code> (or </code>git clone --branch v1.7.0-alpha1<code>) on the cloned
+</code>workspace<code>; </code>both<code> puts skills in both places).</p><h3>Pinning to a tag</h3></p><p>Use </code>git checkout v2.0.0-alpha1<code> (or </code>git clone --branch v2.0.0-alpha1<code>) on the cloned
 copy. Use any stable tag from the
 <a href="https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases">Releases page</a>.
 The pack is on the stable </code>1.x<code> line — bootstrap CLI flags, manifest
@@ -407,7 +407,7 @@ or </code>qi-traceability.instructions.md<code> with examples drawn from your co
 | **1.5.5** | **Dreaming fires in VS Code Copilot.** Pack now wires both harnesses (Copilot + Claude) to </code>.claude/settings.json<code>. Hook fallback pack-root fixed (off-by-one: 3 levels → 4 levels). Fragile </code>dreaming.enabled<code> check fixed. |
 | **1.5.6** | **Uninstall after upgrade no longer leaves files behind.** Upgrade backup mechanism removed. Dropped </code>.pyc<code> build artifact. Memory store intentionally preserved on uninstall when it holds real consolidated content. |
 | **1.5.7** | **Documentation integrity.** Added high-level "Why Dreaming & token savings" section to </code>dreaming-readme.html<code> with worked token-economics model. Fixed stale hook references. **Credibility checkpoint:** signals and docs fully reconciled. |
-| **1.6.0** | **Oracle Layer — defensible quality verification via rubric-based grading.** New </code>/define-quality-rubric<code> skill (interview-driven rubric authorship), </code>/grade-with-rubric<code> skill (independent artifact grading in isolated context), </code>.claude/agents/grader.md<code> (grader agent with Anthropic outcomes wiring), </code>.assert-iq/oracles/<code> registry (schemas, rubric templates, verdict lineage), oracle integration in </code>/check-merge<code> and </code>/release-confidence<code> (Outcome layer, maturity-gated weighting), new </code>qi-oracle.instructions.md<code> governance rules. Oracle positioning: rubric authorship (not generation) is the defensible differentiator. Grader has zero access to generator reasoning. Rubrics are immutable, versioned, evidence-driven. **29 skills total** (was 27). |</p><p>Tag releases. Keep a CHANGELOG in </code>.assert-iq/CHANGELOG.md<code>.</p><p>---</p><h2>Calibration & Reproducibility (v1.7.0+)</h2></p><h3>The Moat: Your Client-Specific Verdict Accuracy</h3></p><p>Assert.IQ v1.7.0 introduces **Decision Confidence Calibration** — a longitudinal
+| **1.6.0** | **Oracle Layer — defensible quality verification via rubric-based grading.** New </code>/define-quality-rubric<code> skill (interview-driven rubric authorship), </code>/grade-with-rubric<code> skill (independent artifact grading in isolated context), </code>.claude/agents/grader.md<code> (grader agent with Anthropic outcomes wiring), </code>.assert-iq/oracles/<code> registry (schemas, rubric templates, verdict lineage), oracle integration in </code>/check-merge<code> and </code>/release-confidence<code> (Outcome layer, maturity-gated weighting), new </code>qi-oracle.instructions.md<code> governance rules. Oracle positioning: rubric authorship (not generation) is the defensible differentiator. Grader has zero access to generator reasoning. Rubrics are immutable, versioned, evidence-driven. **29 skills total** (was 27). |</p><p>Tag releases. Keep a CHANGELOG in </code>.assert-iq/CHANGELOG.md<code>.</p><p>---</p><h2>Calibration & Reproducibility (v2.0.0+)</h2></p><h3>The Moat: Your Client-Specific Verdict Accuracy</h3></p><p>Assert.IQ v2.0.0 introduces **Decision Confidence Calibration** — a longitudinal
 measurement system that reveals how accurate YOUR verdicts are over time, against
 real escapes in production.</p><p>#### What Gets Recorded</p><p>Every PR risk assessment and release confidence judgment is recorded immutably:
 - Verdict band (green/amber/red) + numeric confidence (0.0–1.0)
