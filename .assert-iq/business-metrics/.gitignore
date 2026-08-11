@@ -1,0 +1,9 @@
+# Business metrics reports are client-account assets
+# Exclude from git by default in trial mode
+reports/
+*.html
+*.json
+
+# Keep baseline for reference
+!baseline.json
+!.gitignore

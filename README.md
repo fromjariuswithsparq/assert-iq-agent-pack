@@ -2,7 +2,7 @@
 
 > Quality Intelligence for every IDE, every sprint, every team.
 
-**v1.7.0-alpha1** · [Full documentation →](README.assert-iq.md)
+**v2.0.0** · [Full documentation →](README.assert-iq.md)
 
 ---
 
@@ -110,6 +110,61 @@ You: "/check-merge"
 ```
 
 Get started with `ORACLE_QUICK_START.md` or the full guide at `oracles-readme.html`.
+
+---
+
+## Multi-Agent Orchestration & Commercial Instrumentation (v2.0+)
+
+Assert.IQ v2.0 introduces a **multi-agent orchestration architecture** that isolates specialist analysis in parallel, then synthesizes findings into executive-ready business metrics.
+
+### Eight Specialist Agents
+
+When you invoke a quality or release decision skill, the lead agent now delegates to 8 isolated specialists running **in parallel**, then **serially**:
+
+**Parallel Batch (concurrent execution):**
+1. **risk-scorer** — PR risk assessment (change + protection layers)
+2. **coverage-analyst** — Test protection gap analysis
+3. **flake-adjudicator** — Test failure root-cause classification
+4. **hotspot-analyzer** — Fragile module identification (churn + complexity + escapes)
+
+**Serial Specialists (after parallel completes):**
+5. **oracle-grader** — Rubric-based quality scoring
+6. **calibration-specialist** — Verdict accuracy measurement (Brier score, layer fidelity, drift)
+7. **memory-curator** — Memory store health checks (cycles, staleness, contradictions)
+8. **traceability-auditor** — AC↔code↔test linkage validation
+
+Each specialist returns **structured JSON** with findings, recommendations, and evidence. The lead agent aggregates all outputs into a synthesized narrative + decision, preserving the audit trail in `.assert-iq/agent-runs/`.
+
+### Business Impact Dashboards
+
+The new **`/measure-qi-impact`** skill converts QI verdicts + baseline metrics into **VP-ready HTML dashboards** showing quarterly economic ROI:
+
+- **Escape Reduction** — Production incident count delta vs. baseline (% improvement + cost impact)
+- **Triage Hours Reclaimed** — Post-incident investigation time saved (hours + engineer cost)
+- **Release Cycle Acceleration** — Days saved PR→release (velocity improvement)
+- **Total Economic Value** — Combined ROI in dollars (sum of prevented incidents + triage savings)
+
+**Output format:**
+- **HTML Dashboard** — Professional, responsive, print-friendly (hero section + 4 metric cards + recommendation)
+- **JSON Report** — Structured data for trending and reporting
+- **Baseline Template** — Pre-QI metrics capture (escape rate, triage hours, cycle time)
+
+**Example Impact (Q3 2026):**
+```
+33% escape reduction (4 fewer incidents) → $200K cost avoidance
+55 engineer-hours reclaimed → $4,675 burden cost savings
+4 days cycle acceleration → velocity metrics improvement
+Total quarterly ROI: $204,675
+```
+
+Enable in `.assert-iq/config.yaml` — set `business_metrics.enabled: true` and provide baseline metrics in `.assert-iq/business-metrics/baseline.json`. Regenerate quarterly or on-demand with `/measure-qi-impact`.
+
+### Why This Matters
+
+- **Context Isolation** — Specialists don't see each other's prompts; each reasons independently.
+- **Parallel Speed** — 4 agents run simultaneously; orchestration reduces analysis latency.
+- **VP Conversations** — Business metrics are the missing lever for renewal and investment conversations. "Token savings" doesn't sell; **"$200K in prevented incidents + $4.7K in triage reclamation" does.**
+- **Predictive Accuracy** — Calibration layer measures verdict fidelity over time, feeding back into confidence scoring.
 
 ---
 

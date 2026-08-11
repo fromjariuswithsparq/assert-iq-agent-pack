@@ -41,9 +41,15 @@ inside each file.
 - **Subagents** — `.claude/agents/assert-iq.md` (default Assert.IQ
   subagent, full tools) and `.claude/agents/assert-iq-plan.md`
   (read-only planning sibling).
+  **v2.0+**: 8 specialist subagents in `.claude/agents/specialists/` (risk-scorer,
+  coverage-analyst, flake-adjudicator, oracle-grader, calibration-specialist,
+  memory-curator, traceability-auditor, hotspot-analyzer) provide isolated,
+  parallel analysis when lead agent orchestrates quality decisions.
 - **Skills** — `.github/skills/` (canonical) is mirrored at `.claude/skills`
-  so Claude auto-discovers all 26 QI skills (code review, test generation,
-  bug reports, traceability matrix, release confidence, hotspot map, etc.).
+  so Claude auto-discovers all 27 QI skills (code review, test generation,
+  bug reports, traceability matrix, release confidence, hotspot map, business
+  metrics dashboard, etc.). **v2.0+**: Includes `/measure-qi-impact` for
+  quarterly business ROI reporting.
 - **Dreaming** — a markdown memory store at `.assert-iq/memory/`, consolidated
   by the `/dream` skill. Session events (recorder + gate) are wired through
   `.claude/settings.json`, rendered from
@@ -64,6 +70,22 @@ inside each file.
   Pre-existing user files are preserved via SHA256 compare + interactive
   conflict resolver. Every install records
   `.assert-iq/.install-manifest.json` (version, mode, paths).
+
+## v2.0+ Multi-Agent Orchestration & Commercial Instrumentation
+
+**Multi-Agent Orchestration**: When a quality or release decision is needed, the lead agent (assert-iq.md) now orchestrates 8 isolated specialist subagents:
+- **Parallel batch** (run simultaneously): risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer
+- **Serial specialists** (after parallel completes): oracle-grader, calibration-specialist, memory-curator, traceability-auditor
+- Each returns structured JSON; lead agent synthesizes findings into narrative + decision
+- Audit trail preserved in `.assert-iq/agent-runs/`
+
+**Commercial Instrumentation**: New `/measure-qi-impact` skill (v2.0+) converts QI verdicts + baseline metrics into **VP-ready HTML dashboards** showing quarterly business impact:
+- Escape reduction % (vs. baseline)
+- Triage hours reclaimed (engineer-hours saved)
+- Release cycle acceleration (days faster)
+- Total economic ROI (escape cost + triage cost savings)
+
+Configure in `.assert-iq/config.yaml` → `business_metrics` section. Baseline metrics in `.assert-iq/business-metrics/baseline.json`. Reports output to `.assert-iq/business-metrics/reports/` (excluded from git).
 
 ## Companion files
 

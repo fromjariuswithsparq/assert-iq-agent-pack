@@ -4,10 +4,12 @@
 > instructions, modes, and tools that turn GitHub Copilot Chat **and**
 > Claude Code into a QI-aware delivery partner inside the IDE.
 
-**Version**: v1.7.0-alpha1
+**Version**: v2.0.0
 **Status**: Internal Sparq asset — Intelligence Studio
 **Owner**: Jarius Hayes
 **Repo**: <https://github.com/fromjariuswithsparq/assert-iq-agent-pack>
+
+**What's New in v2.0**: Multi-agent orchestration (8 specialists), commercial business metrics dashboard (/measure-qi-impact), and quarterly ROI reporting for executive stakeholders.
 
 ---
 

@@ -99,6 +99,16 @@ test_no_regressions_on_v16() {
     fi
 }
 
+test_specialist_orchestration() {
+    if bash .assert-iq/tests/_qi/automated/e2e-specialist-orchestration.sh > /dev/null 2>&1; then
+        echo "✅ E2E-28: Specialist orchestration architecture complete"
+        ((PASSED++))
+    else
+        echo "❌ FAIL"
+        ((FAILED++))
+    fi
+}
+
 echo "=== E2E: Comprehensive Validation ==="
 test_all_unit_tests_pass
 test_all_integration_tests_pass
@@ -108,6 +118,7 @@ test_analysis_suite_complete
 test_configuration_complete
 test_governance_updated
 test_no_regressions_on_v16
+test_specialist_orchestration
 
 echo ""
 echo "Results: $PASSED PASS, $FAILED FAIL"

@@ -43,11 +43,27 @@ is `qi-foundation.instructions.md`.
 
 ## Skills
 
-26 QI skills under `.github/skills/`. Each `SKILL.md` carries a
+27 QI skills under `.github/skills/`. Each `SKILL.md` carries a
 `description` field that triggers auto-routing in compatible agents.
 Key skills: `code-review`, `risk-assess-pr`, `release-confidence`,
 `generate-automated-unit-test`, `generate-traceability-matrix`,
-`generate-hotspot-map`, `agentic-heal`.
+`generate-hotspot-map`, `agentic-heal`, `measure-qi-impact` (v2.0+).
+
+## v2.0+ Multi-Agent Orchestration & Commercial Instrumentation
+
+**Multi-Agent Orchestration (v2.0+)**: When a quality or release decision is needed, the lead agent now orchestrates 8 isolated specialist agents:
+- **Parallel batch** (run simultaneously): risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer
+- **Serial specialists** (after parallel completes): oracle-grader, calibration-specialist, memory-curator, traceability-auditor
+- Each returns structured JSON; lead agent synthesizes findings into narrative + decision
+- Audit trail preserved in `.assert-iq/agent-runs/`
+
+**Commercial Instrumentation (v2.0+)**: New `/measure-qi-impact` skill converts QI verdicts + baseline metrics into VP-ready HTML dashboards showing quarterly business impact:
+- Escape reduction % (vs. baseline)
+- Triage hours reclaimed (engineer-hours saved)  
+- Release cycle acceleration (days faster)
+- Total economic ROI (escape cost + triage cost savings)
+
+Configure in `.assert-iq/config.yaml` → `business_metrics` section. Baseline metrics in `.assert-iq/business-metrics/baseline.json`. Reports output to `.assert-iq/business-metrics/reports/`.
 
 ## Governance
 

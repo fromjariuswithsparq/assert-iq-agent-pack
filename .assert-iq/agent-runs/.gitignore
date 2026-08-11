@@ -1,0 +1,7 @@
+# Orchestration artifacts (agent-runs) are local-only by default
+# They contain context-specific specialist outputs and intermediate data
+# Add to git if your team requires audit trail in version control
+
+*
+!.gitignore
+!index.json

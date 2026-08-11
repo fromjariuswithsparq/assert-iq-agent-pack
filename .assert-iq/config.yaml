@@ -1595,3 +1595,21 @@ memory_sanity:
   staleness_threshold_days: 180
   semantic_drift_detection: true         # requires anthropic SDK (optional)
   max_issues_to_report: 20
+
+
+# =============================================================================
+# BUSINESS METRICS & COMMERCIAL INSTRUMENTATION  (v2.0+)
+# =============================================================================
+# Convert QI verdicts, coverage data, and flake records into business ROI
+# metrics for executive stakeholders (VPs of Engineering, Business).
+# Generates quarterly HTML dashboards showing escape reduction, triage hours
+# saved, cycle-time improvement, and economic value.
+# =============================================================================
+business_metrics:
+  enabled: true
+  escape_incident_cost: 50000            # Avg cost to business per production incident ($)
+  engineer_burden_rate: 85               # $/hour all-in (salary + benefits + overhead)
+  baseline_path: .assert-iq/business-metrics/baseline.json
+  reporting_period: quarterly            # monthly | quarterly | annual
+  report_sink: .assert-iq/business-metrics/reports/
+  auto_generate: quarterly               # or false (manual-only generation)
