@@ -4,7 +4,7 @@
 > instructions, modes, and tools that turn GitHub Copilot Chat **and**
 > Claude Code into a QI-aware delivery partner inside the IDE.
 
-**Version**: v1.5.8
+**Version**: v1.6.0-alpha1
 **Status**: Internal Sparq asset — Intelligence Studio
 **Owner**: Jarius Hayes
 **Repo**: <https://github.com/fromjariuswithsparq/assert-iq-agent-pack>
@@ -24,7 +24,7 @@ The pack operationalizes Sparq's Quality Intelligence framework:
 
 - The four-layer signal model (Change → Protection → Trust → Outcome →
   Decision Confidence) is loaded as Copilot's reasoning lens on every interaction.
-- 27 skills cover the QE lifecycle: planning, development, review, execution,
+- 29 skills cover the QE lifecycle: planning, development, review, execution,
   decision, post-incident learning, and meta (setup/optimization).
 - A QI Advisor chat mode provides maturity-aware coaching.
 - MCP wiring connects to ADO or Jira and to GitHub for first-class
@@ -308,7 +308,7 @@ Upgrades are an explicit, intentional act. To move to a later tag:
 
 The installer creates `.claude/skills` as a **directory symlink** pointing
 at `../.github/skills/`, so Copilot and Claude share one canonical copy of
-the 27 skills. Behavior varies by platform:
+the 29 skills. Behavior varies by platform:
 
 | Platform | What happens | What you need to do |
 |---|---|---|
@@ -486,6 +486,13 @@ that requires it.
 |---|---|
 | `/assert-iq-bootstrap` | Onboard the Assert.IQ pack into a codebase. |
 | `/assert-iq-tailor` | Customize the pack to your repository — discover the stack, tailor config.yaml, governance.md, and instruction files. |
+
+### Oracle & Verification
+
+| Skill | Purpose |
+|---|---|
+| `/define-quality-rubric` | Author versioned quality rubrics (acceptance contracts) via guided interview. |
+| `/grade-with-rubric` | Grade artifacts independently against a rubric in isolated grader context. |
 
 ---
 
@@ -677,6 +684,7 @@ or `qi-traceability.instructions.md` with examples drawn from your codebase.
 | **1.5.5** | **Dreaming fires in VS Code Copilot.** Pack now wires both harnesses (Copilot + Claude) to `.claude/settings.json`. Hook fallback pack-root fixed (off-by-one: 3 levels → 4 levels). Fragile `dreaming.enabled` check fixed. |
 | **1.5.6** | **Uninstall after upgrade no longer leaves files behind.** Upgrade backup mechanism removed. Dropped `.pyc` build artifact. Memory store intentionally preserved on uninstall when it holds real consolidated content. |
 | **1.5.7** | **Documentation integrity.** Added high-level "Why Dreaming & token savings" section to `dreaming-readme.html` with worked token-economics model. Fixed stale hook references. **Credibility checkpoint:** signals and docs fully reconciled. |
+| **1.6.0** | **Oracle Layer — defensible quality verification via rubric-based grading.** New `/define-quality-rubric` skill (interview-driven rubric authorship), `/grade-with-rubric` skill (independent artifact grading in isolated context), `.claude/agents/grader.md` (grader agent with Anthropic outcomes wiring), `.assert-iq/oracles/` registry (schemas, rubric templates, verdict lineage), oracle integration in `/check-merge` and `/release-confidence` (Outcome layer, maturity-gated weighting), new `qi-oracle.instructions.md` governance rules. Oracle positioning: rubric authorship (not generation) is the defensible differentiator. Grader has zero access to generator reasoning. Rubrics are immutable, versioned, evidence-driven. **29 skills total** (was 27). |
 
 Tag releases. Keep a CHANGELOG in `.assert-iq/CHANGELOG.md`.
 

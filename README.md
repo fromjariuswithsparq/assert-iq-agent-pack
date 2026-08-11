@@ -44,6 +44,51 @@ QI is the operating model. Assert.IQ is how teams act on it — from day one, in
 
 ---
 
+## Oracle Layer — Defensible Quality Verification (v1.6.0+)
+
+The single largest gap in AI-driven testing is this: **generation without specification.**
+
+Assert.IQ ships with the **Oracle Layer** — a rubric-based grading system that inverts the problem. Instead of generating artifacts (tests, reports, plans) and hoping they're good, you define what "good" looks like *first*, then grade independently.
+
+**How it works:**
+
+1. **Author rubrics** (`/define-quality-rubric`) — Guided interview → define dimensions (e.g., "assertion clarity", "test independence") → versioned JSON spec
+2. **Grade artifacts** (`/grade-with-rubric`) — Isolated grader agent evaluates test/report/plan against rubric → PASS / CONDITIONAL / FAIL verdict + evidence
+3. **Integrate with decisions** — Oracle verdicts feed into the **Outcome layer** of your merge/release gates (maturity-gated: early 0%, mid 20%, higher 50%)
+
+**Why this matters:**
+
+- **Rubric authorship** (defining quality) is the defensible differentiator, not test generation
+- **Independent grading** — grader has zero access to how the artifact was produced, ensuring objectivity
+- **Immutable specs** — rubrics are versioned (v1.0, v1.1) and tracked in git; full lineage preserved
+- **Evidence-driven** — every verdict cites specific evidence; never subjective
+
+**Quick example:**
+
+```
+You: "/define-quality-rubric"
+  → Author rubric: Unit Test Acceptance Contract (v1.0)
+    - Dimensions: assertion clarity, independence, determinism, focus
+    - Weights: 1.0, 0.8, 0.9, 0.7
+    - Saved to: .assert-iq/oracles/rubrics/test-unit-v1.0.json
+
+You: "/grade-with-rubric tests/unit/login.test.ts test-unit-v1.0"
+  → Grader evaluates independently
+  → Verdict: CONDITIONAL (0.92 / 1.0)
+    - ✓ PASS: independence, determinism, focus
+    - ⚠ CONDITIONAL: assertion clarity (line 25 bare assert)
+  → Fix line 25 → Re-grade → PASS
+
+You: "/check-merge"
+  → Outcome layer includes oracle verdict
+  → No FAIL verdicts on touched tests → green Outcome
+  → Verdict: MERGE
+```
+
+Get started with `ORACLE_QUICK_START.md` or the full guide at `oracles-readme.html`.
+
+---
+
 ## Get started in three steps
 
 ### 1 · Install the pack

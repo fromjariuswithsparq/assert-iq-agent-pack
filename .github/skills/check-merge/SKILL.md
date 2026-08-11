@@ -93,7 +93,14 @@ editing required.
    Add framework-specific markers in
    `.assert-iq/config.yaml > merge_gate.skip_markers`.
 
-8. **Code-review feedback source** — `{{REVIEW_SOURCE}}` is where the
+8. **Oracle verdicts (v1.6.0+)** — If oracle layer is enabled
+   (`.assert-iq/config.yaml > oracle.enabled: true`), the agent may
+   reference grading verdicts from `/grade-with-rubric` on artifacts in
+   the PR (tests, bug reports, plans, etc.). Oracle verdicts contribute
+   to the **Outcome layer** with maturity-tier weighting (early: 0%, mid: 20%,
+   higher: 50%). Configure in `.assert-iq/config.yaml > oracle.maturity_gating`.
+
+9. **Code-review feedback source** — `{{REVIEW_SOURCE}}` is where the
    agent finds unresolved code-review comments:
    - PR review threads on `{{PR_HOST}}`
    - Output of the `/code-review` skill (cached in
@@ -171,15 +178,21 @@ customization block above).
    function / commit / PR should resolve to a work item.
 5. **Check for quarantined or skipped tests** near touched code using
    `{{SKIP_MARKERS}}`. A new skip in the diff is an automatic amber.
-6. **Check `{{REVIEW_SOURCE}}`** for unaddressed blocker / major comments
+4. **Check oracle verdicts (if enabled)** — Look for recent `/grade-with-rubric`
+   verdicts on PR artifacts in `.assert-iq/oracles/outcomes/`. FAIL verdicts may
+   indicate quality concerns; treat per maturity tier (early: advisory; mid: discuss;
+   higher: co-gate).
+5. **Check `{{REVIEW_SOURCE}}`** for unaddressed blocker / major comments
    from `/code-review` or human reviewers.
-7. **Compute verdict** by layer (all four must be addressed):
+6. **Compute verdict** by layer (all four must be addressed):
    - **Change layer** — risk band acknowledged, scope of diff sane
    - **Protection layer** — coverage thresholds met on changed lines
    - **Trust layer** — no new skips / quarantines; flaky tests not on the
      critical path of this PR
    - **Outcome layer** — no open escapes or hot incidents touching the
-     changed component
+     changed component; oracle verdicts (if enabled) on touched artifacts
+     show PASS or CONDITIONAL (not FAIL), or FAIL verdicts have accepted
+     mitigations per maturity tier
    Verdict:
    - **MERGE** — all four layers green, no blockers.
    - **HOLD** — any red signal (failing required check, missing coverage
@@ -187,12 +200,13 @@ customization block above).
      comment, escaped defect on touched component).
    - **DISCUSS** — amber signals require a human decision (risk-accepted
      mitigation, scope change, low-coverage justified by reviewer).
-8. **Output a one-screen merge-readiness card** with:
+9. **Output a one-screen merge-readiness card** with:
    - Verdict (MERGE / HOLD / DISCUSS)
    - Per-layer status (✓ / ⚠ / ✗)
    - Blocking items (if any) with file path + line + owner
    - Linked PR / commit / check URLs on `{{PR_HOST}}` and `{{CI_PROVIDER}}`
    - Traceability summary (work-item IDs covered)
+   - Oracle verdicts (if any enabled) on touched artifacts (test, report, plan)
    - Confidence and what would change the verdict
 
 ## Governance

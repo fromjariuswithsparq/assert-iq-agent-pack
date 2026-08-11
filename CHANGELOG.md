@@ -5,6 +5,26 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] — 2026-08-11 (In Progress)
+
+### Added
+- **Oracle Layer — rubric-based independent quality verification.** New skills:
+  - `/define-quality-rubric` — guided interview for authoring versioned quality rubrics (acceptance contracts with dimensions, levels, passing criteria)
+  - `/grade-with-rubric` — independent artifact grading in isolated grader agent context (PASS/CONDITIONAL/FAIL verdicts with evidence)
+- **Grader agent** (`.claude/agents/grader.md`) — isolated evaluation context with no access to generator reasoning; produces evidence-driven verdicts with per-dimension scoring
+- **Oracle registry** (`.assert-iq/oracles/`) — schemas, sample rubrics (unit test, integration test, bug report, plan), verdict storage with full lineage (append-only history)
+- **Oracle governance** (`.github/instructions/qi-oracle.instructions.md`) — rubric authorship rules, grading standards, maturity gating, immutability contract
+- **Oracle integration** — `/check-merge` and `/release-confidence` now consume oracle verdicts in Outcome layer with maturity-tier weighting (early: 0%, mid: 20%, higher: 50%)
+- **Documentation** — `ORACLE_QUICK_START.md` (5-step workflow), oracle sections in `README.md` and `README.assert-iq.md`, oracle grading examples
+- **Config updates** — `.assert-iq/config.yaml` now includes `oracle:` block (grader model, defaults by artifact type, verdict_sink, maturity_gating)
+- **Skill count:** 27 → 29 total (added 2 oracle skills)
+
+### Positioning
+- **Rubric authorship** (not test generation) is the defensible differentiator
+- **Independent grading** — grader has zero access to how artifacts were produced
+- **Immutable, versioned specs** — rubrics are treated as acceptance contracts, not templates
+- **Evidence-driven verdicts** — every verdict cites specific evidence (line numbers, patterns, reasoning)
+
 ## [1.5.8] — 2026-08-11
 
 ### Fixed

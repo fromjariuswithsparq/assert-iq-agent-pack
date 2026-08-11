@@ -67,9 +67,13 @@ fabricates.
      `azure_monitor` / `cloudwatch` / `honeycomb` / `sentry` /
      `bugsnag` / `pagerduty` / `opsgenie` / `incident_io` /
      `firehydrant` / `statuspage` / `custom_csv` / `none`
-   - When `none`, the Outcome layer is scored "Unable to assess"
-     and the Protection weighting is increased per the partial-
-     signal mode below.
+   - When `none`, the Outcome layer is scored "Unable to assess".
+   - **Oracle verdicts (v1.6.0+):** When oracle layer is enabled
+     (`.assert-iq/config.yaml > oracle.enabled: true`), verdicts from
+     `/grade-with-rubric` on release artifacts (tests, reports, plans)
+     contribute to Outcome layer per maturity-tier weighting (early: 0%,
+     mid: 20%, higher: 50%). Any FAIL verdicts without mitigations
+     downgrade Outcome to Medium at minimum.
 
 8. **Score thresholds** — the High/Medium/Low coverage and flake
    thresholds (≥80%, 60–80%, <60%; <2%, 2–5%, >5%) are universal
@@ -165,7 +169,7 @@ This skill assesses **release-level** confidence (multiple PRs, a release scope)
 | **Change risk** | PR list, diff scope, files touched, services impacted | Criticality of workflows, blast radius, reversibility |
 | **Protection** | Coverage, traceability, PR reviews | Coverage on impacted code, requirement-to-test mapping |
 | **Signal trust** | Test results, flake history, CI status | Pass rates, flake/block counts, overrides, test age |
-| **Outcome evidence** | Prod telemetry, incident history, escaped defects | Recent incidents, error rate trends, SLO status |
+| **Outcome evidence** | Prod telemetry, incident history, oracle verdicts, escaped defects | Recent incidents, error rate trends, SLO status, oracle grading results
 
 **If a signal source is unavailable:** Note it explicitly. Don't fabricate. Score that layer with reduced confidence.
 
@@ -196,7 +200,7 @@ Score each layer **High / Medium / Low**:
 | **Change** | Low-criticality, small scope, fully reversible | Mixed criticality, moderate scope, mostly reversible | High-criticality workflows, large scope, irreversible |
 | **Protection** | ≥80% coverage on impacted code, full traceability | 60-80% coverage, partial traceability | <60% coverage, no traceability, bypassed reviews |
 | **Trust** | <2% flake rate, no overrides, tests well-aged | 2-5% flake rate, minor overrides | >5% flake, overridden failures, untested new tests |
-| **Outcome** | No incidents on touched components (30d), stable | Minor incidents, slight variance | Recent P1/P2 on touched components, degrading trends |
+| **Outcome** | No incidents on touched components (30d), oracle verdicts all PASS/CONDITIONAL | Minor incidents, slight variance, oracle CONDITIONAL verdicts with mitigations | Recent P1/P2 on touched components, degrading trends, oracle FAIL verdicts |
 
 #### Intra-layer aggregation
 
