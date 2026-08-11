@@ -5,6 +5,11 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.8] — 2026-08-11
+
+### Fixed
+- **Critical documentation integrity failures.** The landing page (README.md) claimed v1.5.7; the full documentation (README.assert-iq.md) header said v1.3.0 and footer said v1.2.0. The version history table ended at v1.2.0 (no entries for 1.3.0–1.5.7). The skill registry listed only 23 skills while prose claimed 26, and 4 critical skills were missing: `/dream` (the flagship differentiator), `/eval-optimizer`, `/assert-iq-bootstrap`, and `/assert-iq-tailor`. The inventory count vs. reality was 23 listed vs. 27 actual. Hindsight Hooks was marked as retired in the Dreaming guide but still referenced as active features in version history. **All signals now reconcile:** version history updated through v1.5.7; skill registry expanded to all 27 skills (5 new rows: Learn + 1, Cross-cutting + 1, new Setup & Meta section + 2); prose skill count corrected to 27; all version banners consistent (v1.5.7). Documentation now exhibits the trustworthiness the pack claims to provide.
+
 ## [1.5.7] — 2026-08-08
 
 ### Added

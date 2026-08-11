@@ -24,8 +24,8 @@ The pack operationalizes Sparq's Quality Intelligence framework:
 
 - The four-layer signal model (Change → Protection → Trust → Outcome →
   Decision Confidence) is loaded as Copilot's reasoning lens on every interaction.
-- 26 skills cover the QE lifecycle: planning, development, review, execution,
-  decision, and post-incident learning.
+- 27 skills cover the QE lifecycle: planning, development, review, execution,
+  decision, post-incident learning, and meta (setup/optimization).
 - A QI Advisor chat mode provides maturity-aware coaching.
 - MCP wiring connects to ADO or Jira and to GitHub for first-class
   bidirectional context.
@@ -308,7 +308,7 @@ Upgrades are an explicit, intentional act. To move to a later tag:
 
 The installer creates `.claude/skills` as a **directory symlink** pointing
 at `../.github/skills/`, so Copilot and Claude share one canonical copy of
-the 26 skills. Behavior varies by platform:
+the 27 skills. Behavior varies by platform:
 
 | Platform | What happens | What you need to do |
 |---|---|---|
@@ -468,6 +468,7 @@ that requires it.
 
 | Skill | Purpose |
 |---|---|
+| `/dream` | Dreaming — offline memory consolidation. Read recent session logs + transcripts, resolve contradictions, prune stale entries. |
 | `/analyze-escaped-defect` | Post-incident analysis — which signal layer should have caught it. |
 | `/generate-bug-report` | Convert a failure into a tracker-ready defect. |
 
@@ -477,6 +478,14 @@ that requires it.
 |---|---|
 | `/generate-traceability-matrix` | Build a req↔code↔test matrix from `@qi-trace` headers. |
 | `/generate-hotspot-map` | Audit code volatility, structural complexity, and defect density for risk prioritization. |
+| `/eval-optimizer` | Evaluate and automatically optimize any AI instruction artifact (Skill, system prompt, custom instructions). |
+
+### Setup & Meta
+
+| Skill | Purpose |
+|---|---|
+| `/assert-iq-bootstrap` | Onboard the Assert.IQ pack into a codebase. |
+| `/assert-iq-tailor` | Customize the pack to your repository — discover the stack, tailor config.yaml, governance.md, and instruction files. |
 
 ---
 
@@ -662,6 +671,12 @@ or `qi-traceability.instructions.md` with examples drawn from your codebase.
 | **1.1.0** | **Hindsight Hooks: scope-aware install + double-fire dedup.** New `--hooks=user` / `-Hooks user` install mode in `scripts/bootstrap.{sh,ps1}` lets power users install hooks once at `~/.agents/hooks/` and have them fire across every VS Code workspace; the per-workspace install path is unchanged and remains the default. New `si_dedup_or_exit` / `Invoke-SiDedupOrExit` helpers suppress duplicate fires of the same `(session_id, event)` pair within `SKILL_IMPROVE_DEDUP_WINDOW_SECONDS` (default 5; set to 0 to disable) via atomic `set -o noclobber` (bash) / `FileMode.CreateNew` (PowerShell) marker claims under `hooks/state/.dedup-<sha256>`; wired into SessionStart and Stop only — PostToolUse legitimately fires once per tool call. Hook scripts now resolve `SKILL_IMPROVE_ROOT` from the environment (set by the wrapper template) so workspace and user installs route to their own roots deterministically. Janitor sweep prunes stale `.dedup-*` markers older than 1 hour. New `e2e-hooks.sh` suite (15 cases) verifies workspace + user layouts, SessionStart routing, PostToolUse telemetry + detect, Stop log entry, `config.enabled=false` and `SKILL_IMPROVE_DISABLED=1` no-ops, dedup behavior, and user uninstall. |
 | **1.1.1** | **Patch.** Hides Hindsight Hooks runtime artifacts from git so workspaces don't see hook state files appear as untracked changes. Per-directory `.gitignore` files now ship inside `hooks/state/`, `hooks/logs/`, and `hooks/sessions/` at the pack source; `copy_tree()` already copies dotfiles, so the rules propagate verbatim into every workspace install — no mutation of the workspace `.gitignore` required (consistent with the design rule that bootstrap never touches the user's `.gitignore`). Untracks the previously-committed runtime seeds `hooks/logs/skill-improve.log` and `hooks/state/.last-janitor`; structural seeds `dismissed-lessons.json` and `edit-frequency.json` remain tracked. Also enables GitHub Pages at `https://fromjariuswithsparq.github.io/assert-iq-agent-pack/` with `README.assert-iq.html` as the landing page, and refreshes stale current-version banners across the README family. |
 | **1.2.0** | **Token economy: ~15–20% lighter always-on stack.** Shared rules (Core principles, Maturity awareness, Governance, Output standards) consolidated into `.github/instructions/qi-foundation.instructions.md`; `.github/copilot-instructions.md`, `CLAUDE.md`, and `AGENTS.md` rewritten as thin pointers (Copilot path: 6,617 → 5,128 chars; Claude path: 9,630 → 7,977 chars per turn). Workspace-topology mechanics (fetch fallback chain, UNGRADED contract) moved out of the always-on `qi-foundation.instructions.md` into a new lazy-loaded reference doc `.assert-iq/workspace-topology.md` that only gets pulled when `workspace.role != monorepo` — monorepo users (the default) no longer carry split-repo prose on every prompt. Two heaviest skill descriptions trimmed: `code-review` (1,147 → 520 chars), `eval-optimizer` (1,023 → 584 chars), `generate-hotspot-map` (435 → 292 chars); skill bodies untouched. Net always-on savings: roughly **670 tokens/turn (Copilot)** and **715 tokens/turn (Claude)** plus **~300 tokens** off the skill-routing block — zero behavior change, every rule that loaded before still loads, just from a new home. The seven cross-repo skills (`risk-assess-pr`, `check-merge`, `release-confidence`, `code-review`, `check-test-coverage`, `generate-traceability-matrix`, `analyze-escaped-defect`) plus `generate-hotspot-map` now point to `.assert-iq/workspace-topology.md` for the full contract. |
+| **1.3.0–1.4.x** | Internal releases. Upgrade engine foundation, workspace topology refinement, trial-mode uninstall, base-cache tagging. |
+| **1.5.0** | **Dreaming — offline memory consolidation.** Replaces the retired Hindsight Hooks feature. New `/dream` skill (phases: Orient → Gather → Consolidate → Prune & Index) with on-demand + optional cron invoke. Three-tier memory: Rules tier (`.github/instructions/*`; immutable) / Long-term (`.assert-iq/memory/MEMORY.md` index ≤200 lines + `topics/`) / Short-term (session logs + transcripts). Waking loop (session recorder + dual gate: 24h AND 5 sessions). Memory store is git-ignored in committed mode; pristine seed pruned on uninstall (dreamt content preserved). |
+| **1.5.1–1.5.4** | Incremental fixes: base-cache tag backfill (v1.2.0–v1.4.0), trial-mode surface discovery, hook-wiring cleanup, MEMORY.md git-ignore. |
+| **1.5.5** | **Dreaming fires in VS Code Copilot.** Pack now wires both harnesses (Copilot + Claude) to `.claude/settings.json`. Hook fallback pack-root fixed (off-by-one: 3 levels → 4 levels). Fragile `dreaming.enabled` check fixed. |
+| **1.5.6** | **Uninstall after upgrade no longer leaves files behind.** Upgrade backup mechanism removed. Dropped `.pyc` build artifact. Memory store intentionally preserved on uninstall when it holds real consolidated content. |
+| **1.5.7** | **Documentation integrity.** Added high-level "Why Dreaming & token savings" section to `dreaming-readme.html` with worked token-economics model. Fixed stale hook references. **Credibility checkpoint:** signals and docs fully reconciled. |
 
 Tag releases. Keep a CHANGELOG in `.assert-iq/CHANGELOG.md`.
 
