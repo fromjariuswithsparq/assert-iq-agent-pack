@@ -129,6 +129,42 @@ dreaming:
     model: "claude-Opus-4-8"
 
 
+# =============================================================================
+# ORACLE LAYER  — Independent quality verification via rubric grading (v1.6.0+)
+# =============================================================================
+# Rubric-based grading in isolated context. Define what "done" looks like with
+# versioned acceptance contracts, then grade independently. Rubric authorship
+# (not test generation) is the defensible differentiator.
+#
+# Maturity gating:
+#   early   → rubric authoring only; grading available but advisory only
+#   mid     → rubric authoring + guided templates; manual grading; optional CI
+#   higher  → auto-suggest rubrics; auto-grade on CI; can block merges
+# =============================================================================
+oracle:
+  enabled: true                          # master switch (env: AIQ_ORACLE_ENABLED)
+  
+  grader:
+    model: "claude-3-5-sonnet"           # grader model for all verdicts
+    timeout_seconds: 60                  # grading timeout
+  
+  # Default rubric ID per artifact type (used when --rubric-id not specified)
+  defaults_by_artifact_type:
+    test: "test-unit-v1.0"
+    test_integration: "test-integration-v1.0"
+    bug_report: "bug-report-v1.0"
+    plan: "plan-v1.0"
+  
+  # Where oracle verdicts are posted
+  verdict_sink: "local"                  # options: github | gitlab | ado | local | none
+  
+  # Maturity-gated weighting in /check-merge and /release-confidence
+  maturity_gating:
+    early:    { oracle_weight: 0.0,   mode: "advisory_only" }
+    mid:      { oracle_weight: 0.2,   mode: "optional_gate" }
+    higher:   { oracle_weight: 0.5,   mode: "can_block_merge" }
+
+
 # -----------------------------------------------------------------------------
 # WORK-ITEM TRACKER  (REQUIRED for traceability comments)
 # -----------------------------------------------------------------------------

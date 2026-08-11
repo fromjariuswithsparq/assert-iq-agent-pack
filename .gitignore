@@ -15,6 +15,10 @@
 !.assert-iq/memory/logs/.gitkeep
 transcripts/
 
+# Oracle layer — grading outcomes are local artifacts, not tracked
+.assert-iq/oracles/outcomes/
+.assert-iq/oracles/**/*.lock
+
 # Compiled Python artifacts from the optional dreaming service — never ship.
 __pycache__/
 *.pyc

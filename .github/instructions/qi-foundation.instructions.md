@@ -49,6 +49,11 @@ rule files under `.github/instructions/*`, which always win. Never write to
 the memory store except through `/dream`, and never let a memory entry
 override an instruction-file rule.
 
+Oracle rubrics (v1.6.0+) are versioned specs, not memory. Reference them by
+ID only (e.g., `test-unit-v1.0`) and pull their content from
+`.assert-iq/oracles/rubrics/` when needed. Rubrics are immutable; updates are
+new versions, not edits to existing rubrics.
+
 ### Governance you must enforce
 
 - Every generated test must include a traceability comment linking to the
@@ -103,6 +108,10 @@ reason in this order:
 4. **What do outcomes say?** (Outcome evidence)
    - Surface recent escaped defects on touched components.
    - Pull telemetry signals if MCP exposes them.
+   - Check oracle verdicts (v1.6.0+) if oracle layer is enabled:
+     - Review `/grade-with-rubric` results on touching code changes
+     - Weight oracle verdicts per maturity tier (early: 0%, mid: 20%, higher: 50%)
+     - Oracle verdicts feed Outcome layer, not replacement for other three layers
 
 5. **What is the decision?** (Decision confidence)
    - Synthesize the above into Release / Mitigate / Hold guidance.
