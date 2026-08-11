@@ -531,3 +531,21 @@ carrying: `tracker_id` (when filed), `severity`, `priority`,
 (boolean), `duplicate_check_result`
 (`none` | `linked_open` | `linked_closed_regression`),
 `pii_redactions_applied`, and `incident_ref` (when linked).
+
+## Verify with oracle (v1.6.0+)
+
+Generated bug reports are AI-authored drafts. Before filing in your
+tracker (especially high-severity reports), verify the report quality
+with oracle grading:
+
+```
+/grade-with-rubric <bug_report.md>  --rubric-id=bug-report-v1.0
+```
+
+This produces independent oracle feedback on:
+- Reproducibility (can others follow the steps to recreate?)
+- Expected vs. actual clarity (is the gap unmistakable?)
+- Severity justification (is the business impact clear?)
+
+**When to grade:** Always for security/P1 bugs; optionally for P2/P3
+reports. Oracle FAIL verdicts should block filing until addressed.

@@ -407,6 +407,24 @@ signal per run conforming to `.assert-iq/signal-schema.json`, carrying:
 `anti_pattern_proposed` (boolean — true when a new signature was
 proposed for user confirmation).
 
+## Verify UI test brittleness with oracle (v1.6.0+)
+
+After diagnosing and fixing a UI test failure, grade the test with
+oracle to detect if it's prone to future brittleness:
+
+```
+/grade-with-rubric <fixed_ui_test>  --rubric-id=test-unit-v1.0
+```
+
+Oracle reveals if brittleness is due to:
+- **Independence issues:** Test depends on state from other tests?
+- **Determinism gaps:** Waits still insufficient?
+- **Focus drift:** Test now over-coupled to implementation?
+
+Oracle CONDITIONAL/FAIL verdicts indicate the fix is temporary — more
+architectural work needed (Page Object refactor, selector hardening,
+wait strategy).
+
 ## Anti-Patterns appendix
 
 The skill's long-term memory. Each row is a reusable failure

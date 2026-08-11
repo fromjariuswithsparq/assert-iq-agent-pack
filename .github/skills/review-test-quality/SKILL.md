@@ -396,3 +396,24 @@ When the QI signal sink is wired, this skill emits a
 `high_count`, `medium_count`, `low_count`,
 `dimensions_evaluated`, `systemic_patterns_count`,
 `framework`, and `escalation_policy`.
+
+## Complement with oracle grading (v1.6.0+)
+
+This skill performs manual analysis across design patterns and
+maintainability. For **independent, objective verification** of
+individual test quality, use oracle grading:
+
+```
+/grade-with-rubric <test_file>  --rubric-id=test-unit-v1.0
+```
+
+**Complementary workflows:**
+1. Run `/review-test-quality` to identify systemic patterns and
+   high-leverage improvements
+2. For specific tests flagged as high/blocker severity, run
+   `/grade-with-rubric` to get dimension-level feedback on fixes
+3. Use oracle verdicts to validate remediation on repaired tests
+
+Oracle grading adds **assertion clarity, independence, determinism,
+and focus** dimension scoring that complements this skill's
+systemic analysis.

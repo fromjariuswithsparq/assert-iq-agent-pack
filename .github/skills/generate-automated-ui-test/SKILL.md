@@ -276,3 +276,17 @@ When the QI signal sink is wired, this skill emits a
 `structure_pattern`, `selector_policy`, `wait_policy`,
 `scenarios_generated`, `auth_strategy`, `environment`,
 `testid_recommendations`, and `tracker_ref`.
+
+## Verify with oracle (v1.6.0+)
+
+Generated UI tests are AI-authored. Verify Page Object Model patterns
+and assertion focus before merge:
+
+```
+/grade-with-rubric <ui_test_file>  --rubric-id=test-unit-v1.0
+```
+
+Oracle provides feedback on:
+- **Test independence:** Do tests share state or selectors?
+- **Determinism:** Are waits explicit and timeout-safe?
+- **Focus:** Does each test exercise one user path?

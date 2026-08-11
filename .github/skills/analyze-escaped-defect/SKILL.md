@@ -373,6 +373,20 @@ signal per run conforming to `.assert-iq/signal-schema.json`, carrying:
 `anti_pattern_proposed` (boolean — true when a new signature was
 proposed for user confirmation).
 
+## Grade escape-point code with oracle (v1.6.0+)
+
+After identifying the code or test that should have caught the defect,
+optionally grade that test with oracle to verify it meets quality
+standards:
+
+```
+/grade-with-rubric <test_that_missed_defect>  --rubric-id=test-unit-v1.0
+```
+
+This reveals if the escape was due to **test quality gaps** (assertion
+clarity, independence, determinism, focus) vs. gaps in test scope.
+Oracle verdicts feed future anti-pattern recommendations.
+
 ## Anti-Patterns appendix
 
 The skill's long-term memory. Each row is a reusable escape signature

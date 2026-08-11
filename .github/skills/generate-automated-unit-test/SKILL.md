@@ -253,3 +253,23 @@ When the QI signal sink is wired, this skill emits a
 `mocking_library`, `layout`, `scenarios_generated`,
 `parameterization_used`, `property_based_used`, `seams_mocked`,
 `coverage_hint`, and `tracker_ref`.
+
+## Verify with oracle (v1.6.0+)
+
+Generated unit tests are AI-authored drafts. Verify them against
+Assert.IQ's defensible quality rubric before merge:
+
+```
+/grade-with-rubric <test_file>  --rubric-id=test-unit-v1.0
+```
+
+This runs independent oracle grading on the generated test(s) against
+the **Unit Test Acceptance Contract**, producing:
+- Verdict (PASS / CONDITIONAL / FAIL) with score (0.0–1.0)
+- Evidence-driven feedback on assertion clarity, independence,
+  determinism, test focus
+- Dimension-level scoring to guide fixes
+
+**Maturity gating:** early tier receives advisory verdicts; mid/higher
+tiers weight oracle feedback in merge decisions. See
+`check-merge` for gate behavior per tier.

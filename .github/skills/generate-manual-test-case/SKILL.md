@@ -364,6 +364,23 @@ route category), `risk_tier`, `ambiguous_acs_assumed`,
 `automation_candidates`, `destructive_cases` (count), and
 `tracker_ref`.
 
+## Verify with oracle (v1.6.0+)
+
+Generated manual test cases are AI-authored. Before handoff to QA,
+verify case clarity and testability with oracle grading:
+
+```
+/grade-with-rubric <test_cases.md>  --rubric-id=test-unit-v1.0
+```
+
+Oracle scores on:
+- **Assertion clarity:** Are steps unambiguous?
+- **Independence:** Is each case self-contained?
+- **Focus:** Does each case test one scenario?
+
+Oracle CONDITIONAL/FAIL verdicts should prompt case refinement before
+QA handoff.
+
 ---
 
 ## Governance

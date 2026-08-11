@@ -1601,3 +1601,18 @@ signal per run conforming to `.assert-iq/signal-schema.json`, carrying:
 `unimplemented` / `merged_with_open` / `awaiting_response`), and
 `top_findings[]` (each with `category`, `severity`, `location`,
 `one_line_summary`).
+
+## Complement with oracle grading (v1.6.0+)
+
+This skill performs **subjective architectural and maintainability
+review**. For **independent verification of test code quality** in the
+reviewed PR or files, optionally run oracle grading:
+
+```
+/grade-with-rubric <changed_test>  --rubric-id=test-unit-v1.0
+```
+
+**When to use:** PR review flags test changes but quality metrics are
+unclear. Oracle grading adds objective dimension scoring (assertion
+clarity, independence, determinism, focus) as a complement to this
+skill's subjective assessment.

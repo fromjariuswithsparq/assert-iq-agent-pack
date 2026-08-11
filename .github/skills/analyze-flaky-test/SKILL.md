@@ -342,6 +342,26 @@ signal per run conforming to `.assert-iq/signal-schema.json`, carrying:
 `anti_pattern_proposed` (boolean — true when a new signature was
 proposed for user confirmation).
 
+## Verify fixes with oracle (v1.6.0+)
+
+After flake analysis identifies the root cause and you apply a fix,
+verify that the remediation improved test quality without introducing
+new brittleness:
+
+```
+/grade-with-rubric <fixed_test>  --rubric-id=test-unit-v1.0
+```
+
+Oracle grading checks if the fix:
+- Maintains assertion clarity (fix didn't obscure intent?)
+- Preserves test independence (fix didn't couple tests?)
+- Improves determinism (actually less flaky now?)
+- Keeps focus (fix is surgical, not broad?)
+
+**Workflow:** Run analyze-flaky-test → apply fix → grade with oracle
+to validate fix quality. Oracle verdicts feed `/check-merge` to gate
+the fix before merge.
+
 ## Anti-Patterns appendix
 
 The skill's long-term memory. Each row is a reusable flake signature

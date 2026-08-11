@@ -218,3 +218,21 @@ When the QI signal sink is wired, this skill emits a
 / automation‐ui / manual / exploratory), `flagged_for_review`,
 `maturity_tier`, `tie_breaks_applied`, `tracker_ref`. Each
 dispatched sub-skill emits its own generation signal in addition.
+
+## Verify generated artifacts with oracle (v1.6.0+)
+
+After this skill routes ACs and generates tests, verify quality of
+automated artifacts before merge. For each generated test file:
+
+```
+/grade-with-rubric <test_file>  --rubric-id=test-unit-v1.0  # unit tests
+/grade-with-rubric <test_file>  --rubric-id=test-integration-v1.0  # integration
+```
+
+**Recommended workflow:**
+1. Generate tests from ACs (this skill)
+2. Grade each automated artifact
+3. Remediate on CONDITIONAL/FAIL verdicts
+4. Merge only when oracle grades PASS
+
+This ensures AC→test traceability is backed by defensible test quality.

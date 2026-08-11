@@ -479,3 +479,21 @@ When the QI signal sink is wired, this skill emits a
 `risk_areas` (count by level), `exit_criteria_count`,
 `measurable_exit_criteria_count`, `constraints_flagged`,
 `residual_risks_accepted`, `tracker_ref`.
+
+## Verify with oracle (v1.6.0+)
+
+Generated test plans are AI-authored strategy documents. Verify plan
+quality against Assert.IQ's defensible rubric before commitment:
+
+```
+/grade-with-rubric <plan.md>  --rubric-id=plan-v1.0
+```
+
+This produces oracle feedback on:
+- Scope clarity (is the "what" unmistakable?)
+- Signal orientation (are success criteria testable + outcome-focused?)
+- Risk acknowledgment (are blind spots identified explicitly?)
+
+**When to grade:** Always before socializing plan with stakeholders.
+Oracle CONDITIONAL verdicts should prompt refinement; FAIL verdicts
+indicate scope/signal misalignment.

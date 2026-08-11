@@ -158,3 +158,23 @@ When the QI signal sink is wired, this skill emits a `test.healing` signal
 per run conforming to `.assert-iq/signal-schema.json`, carrying:
 `test_id`, `iterations`, `final_outcome`, `classification_history`,
 `change_scope`, `confidence`, and `tracker_ref`.
+
+## Verify healed tests with oracle (v1.6.0+)
+
+After agentic healing succeeds, verify that the fix doesn't sacrifice
+test quality. Grade the healed test independently:
+
+```
+/grade-with-rubric <healed_test>  --rubric-id=test-unit-v1.0
+```
+
+This surfaces if the healing:
+- Introduced assertion clarity issues (brittle fix?)
+- Compromised test independence (now coupled to other state?)
+- Reduced determinism (added flakiness elsewhere?)
+- Lost focus (testing too much now?)
+
+**Maturity behavior:** Higher tiers can auto-gate healed tests on
+oracle PASS; mid tier receives informational verdict; early tier
+advisory. Oracle FAIL means the heal worked but the test quality
+declined — human review recommended.

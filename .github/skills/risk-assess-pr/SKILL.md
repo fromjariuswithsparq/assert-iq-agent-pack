@@ -432,3 +432,17 @@ signal per run conforming to `.assert-iq/signal-schema.json`, carrying:
 `late_change_materiality`, `uncovered_functions_count`,
 `escapes_in_window`, `flake_pct`, `decision_policy`, and
 `tracker_ref`.
+
+## Check oracle verdicts in PR (v1.6.0+)
+
+This skill surfaces four-layer signals. When oracle layer is enabled,
+check for existing oracle verdicts on PR artifacts before approving:
+
+1. **Changed tests:** Look for oracle FAIL verdicts on modified tests
+   in `.assert-iq/oracles/outcomes/`
+2. **New tests:** If PR adds tests, grade them with oracle before merge
+3. **Bug reports:** If PR links to bug report, check if it was graded
+   and passes oracle test-plan-v1.0 rubric
+
+Oracle verdicts feed the **Outcome layer** (step 4 of this skill's
+reasoning) and may downgrade verdict if oracle FAIL on critical paths.

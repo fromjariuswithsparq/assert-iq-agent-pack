@@ -263,3 +263,16 @@ When the QI signal sink is wired, this skill emits a
 `contract_source`, `contract_confidence`
 (`spec` | `inferred`), `scenarios_generated`, `auth_model`,
 `mocking_mode`, `environment`, and `tracker_ref`.
+
+## Verify with oracle (v1.6.0+)
+
+Generated API tests are AI-authored. Verify contract coverage and
+assertion quality before merge. Use the unit-test rubric to evaluate
+scenarios and assertions:
+
+```
+/grade-with-rubric <api_test_file>  --rubric-id=test-unit-v1.0
+```
+
+Oracle provides objective feedback on test independence, determinism,
+and focus in the API test layer.

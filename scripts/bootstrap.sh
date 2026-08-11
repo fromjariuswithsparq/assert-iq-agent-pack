@@ -1240,12 +1240,14 @@ uninstall_run() {
       "$WORKSPACE/.github/agents"
       "$WORKSPACE/.claude/agents"
       "$WORKSPACE/.assert-iq/dreaming"
+      "$WORKSPACE/.assert-iq/oracles"
     )
     if [[ $UNINSTALL_USER -eq 1 ]]; then
       tree_roots+=(
         "$USER_VSCODE_SKILLS"
         "$USER_CLAUDE_SKILLS"
         "$HOME/.agents/.assert-iq/dreaming"
+        "$HOME/.agents/.assert-iq/oracles"
         "$USER_ASSERT_IQ"
       )
     fi
@@ -1254,6 +1256,7 @@ uninstall_run() {
     done
     local d
     local -a empty_dirs=(
+      "$WORKSPACE/.assert-iq/oracles"
       "$WORKSPACE/.assert-iq/dreaming"
       "$WORKSPACE/.vscode"
       "$WORKSPACE/.claude/agents"
@@ -1271,6 +1274,7 @@ uninstall_run() {
         "$HOME/.agents"
         "$USER_CLAUDE_SKILLS"
         "$(dirname "$USER_CLAUDE_MD")"
+        "$HOME/.agents/.assert-iq/oracles"
         "$USER_ASSERT_IQ"
       )
     fi

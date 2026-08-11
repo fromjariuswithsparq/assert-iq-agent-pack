@@ -292,3 +292,16 @@ When the QI signal sink is wired, this skill emits a
 `acs_deferred`, `risk_band`, `lines_changed`, `sensitive_paths_touched`,
 `credential_blockers` (always 0 — PR is blocked otherwise),
 `draft`, `scope_creep_flagged`.
+
+## Pre-flight oracle grading (v1.6.0+)
+
+Before opening PR, optionally grade generated artifacts in the branch
+with oracle to catch quality issues early:
+
+```
+/grade-with-rubric <test_file>  --rubric-id=test-unit-v1.0
+```
+
+**Recommended workflow:** Generate → Grade with oracle → Fix on verdict
+→ Open PR. This reduces reviewer churn and keeps oracle verdict history
+in `.assert-iq/oracles/outcomes/` for traceability.

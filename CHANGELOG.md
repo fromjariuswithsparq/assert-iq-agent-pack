@@ -5,6 +5,23 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] — 2026-08-11
+
+### Fixed
+- **Bootstrap uninstall cleanup.** Oracle directories (`.assert-iq/oracles/{outcomes,rubrics,schemas}/`) were not removed during uninstall due to missing entries in cleanup arrays. Added oracle directory to `tree_roots` and `empty_dirs` in `scripts/bootstrap.sh` for both workspace and user-scope installations. Verified clean removal in test workflow.
+
+### Added
+- **Oracle grading routing across 15 core skills.** Comprehensive integration of oracle layer into generation, review, healing, and routing workflows:
+  - **Generation:** `/generate-automated-unit-test`, `/generate-bug-report`, `/generate-test-plan`, `/generate-automated-api-test`, `/generate-automated-ui-test`, `/generate-manual-test-case` now include post-artifact oracle grading guidance with specific rubric IDs.
+  - **Review & Analysis:** `/code-review`, `/review-test-quality`, `/analyze-flaky-test`, `/analyze-escaped-defect` now surface oracle as complementary quality signal with maturity tier behavior.
+  - **Healing:** `/agentic-heal` now includes post-heal oracle verification to detect quality regressions (assertion clarity, independence, determinism, focus).
+  - **Routing & Gates:** `/generate-tests-from-ac`, `/risk-assess-pr`, `/new-pull-request` now surface oracle verdicts in workflow and pre-flight checks.
+  - **Diagnostics:** `/debug-ui-tests` now includes oracle brittleness verification post-fix.
+  - All additions reference v1.6.0+ oracle layer, include maturity tier gating (early/mid/higher), and specify rubric IDs for recommended grading runs.
+
+### Documentation
+- Oracle integration guide added across all 15 affected skills showing rubric ID, expected verdict types, and per-tier behavior.
+
 ## [1.6.0] — 2026-08-11
 
 ### Added
