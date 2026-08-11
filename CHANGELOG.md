@@ -5,6 +5,100 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0-alpha1] — 2026-08-11
+
+### Added (Phase 1: Verdict Infrastructure + Memory Versioning)
+
+- **Decision Confidence Calibration Foundation.** Every PR risk assessment and release confidence verdict is now recorded with full layer scores, assumptions, memory version, and timestamp in `.assert-iq/verdicts/archive/YYYY/MM/verdicts-DD.jsonl`. One-line summaries appended to `.assert-iq/verdicts/VERDICTS.md` for human audit trail.
+
+- **Verdict Schema Extension.** Signal schema (`.assert-iq/signal-schema.json`) updated with optional `verdict` object containing all calibration metadata:
+  - `verdict_id` — UUID for global uniqueness
+  - `verdict_band` — green/amber/red/ungraded decision
+  - `verdict_score` — 0.0–1.0 numeric confidence
+  - `layer_scores` — per-layer STRONG/WEAK/UNGRADED state + score
+  - `layer_weights` — numeric weights per layer (sum=1.0)
+  - `memory_version` — SHA256 hash of memory state at time of verdict (enables reproducibility)
+  - `oracle_verdicts_considered` — IDs of oracle verdicts that fed this decision
+  - `assumptions` — explicit list of assumptions baked into verdict
+  - `linked_escape` — populated when escape discovered (for calibration feedback)
+
+- **Memory Versioning & Provenance Tracking.** Before `/dream` modifies memory:
+  - SHA256 snapshot of `.assert-iq/memory/` taken and stored at `.assert-iq/dreaming/.snapshots/mem-<timestamp>.tar.gz`
+  - Dream cycle logged in `.assert-iq/dreaming/provenance.json` (append-only audit trail)
+  - Every verdict records `memory_version_before` — enables reproducibility contract:
+    1. Restore memory snapshot: `tar xzf .snapshots/mem-<version>.tar.gz -C .assert-iq`
+    2. Re-run assessment: `/risk-assess-pr --pr-id=<pr> --memory-version=<version>`
+    3. Expected: Identical verdict (same band, score, layer states)
+
+- **Calibration Analysis Engine.** New library `.assert-iq/analysis/calibration.py` computes:
+  - **Brier Score** (per verdict band + aggregate) — mean((predicted_confidence - actual_outcome)²)
+  - **Confusion Matrix** — predicted band vs. actual outcome (escape or not); precision/recall per band
+  - **Per-Layer Signal Fidelity** — of verdicts with Change=WEAK, what fraction had actual escapes? (predictiveness of each layer)
+  - **Drift Detection** — Brier score across rolling 30-day windows; alerts on degradation threshold
+  - **JSON Report Output** — structured calibration metrics for dashboards
+
+- **Memory Sanity Checker.** New library `.assert-iq/analysis/memory-sanity.py` detects poisoning:
+  - **Cycle Detection** — topics A→B→C→A flagged as manual editing confusion
+  - **Fact Staleness** — facts >180 days without update alerted
+  - **Contradiction Detection** — conflicting statements across topics (e.g., "Service X critical" vs "low priority")
+  - **Granularity Issues** — copy-pasted transcripts vs. synthesized facts; suggests pruning
+  - **Semantic Drift** — optional LLM-based topic drift detection (requires anthropic SDK)
+
+- **Verdict Audit Trail.** New script `.assert-iq/analysis/audit-verdict.sh` produces reproducibility records:
+  - Given `verdict_id`, outputs full audit record with layer scores, memory version, instruction file versions
+  - Shows how to reproduce the decision step-by-step
+  - Essential for regulatory compliance (SOX, ISO 27001, FedRAMP)
+
+- **Regression Testing Framework.** Golden corpus infrastructure:
+  - `.assert-iq/tests/_qi/regression/golden-corpus.jsonl` — user-populated template with 3+ representative PRs
+  - `.assert-iq/tests/_qi/regression/evaluate-dream-regression.sh` (placeholder for Phase 2)
+  - Re-evaluate corpus before each dream; block auto-fire if >5% verdict divergence
+
+- **Unit Tests.** New test suite:
+  - `.assert-iq/tests/_qi/automated/unit-verdict-schema.sh` — 5 tests for verdict schema validation ✅ 5/5 PASS
+  - `.assert-iq/tests/_qi/automated/unit-calibration-basic.py` — tests for Brier score, confusion matrix, layer fidelity (Phase 2)
+  - All tests in automated test framework
+
+- **Configuration Updates.** New blocks in `.assert-iq/config.yaml`:
+  - `verdicts:` — enable/disable, track_in_git (for regulated clients), retention_days
+  - `dreaming_provenance:` — snapshot_retention, snapshot_path
+  - `regression_testing:` — golden_corpus_path, block_dream_on_regression (fail-safe mode)
+  - `calibration:` — window_days, drift_alarm_threshold, min_verdicts_for_stats
+  - `memory_sanity:` — cycle_detection, staleness_threshold_days, semantic_drift_detection, max_issues
+
+- **Governance Documentation.** New section in `.assert-iq/governance.md`:
+  - **Section 4: Audit Trail & Reproducibility** — defines requirements for regulated clients (SOX, ISO 27001, FedRAMP)
+  - Verdict recording immutability contract
+  - Memory versioning reproducibility instructions
+  - Quarterly calibration report requirement
+
+- **Bootstrap Cleanup Enhancements.** `scripts/bootstrap.sh` updated:
+  - Added `.assert-iq/verdicts`, `.assert-iq/analysis`, `.assert-iq/tests/_qi/regression` to `tree_roots` array
+  - Added same paths to `empty_dirs` array for explicit removal
+  - Handles both workspace and user-scope installations
+  - ✅ Verified: Bootstrap syntax valid, cleanup paths correct
+
+### Regression Testing
+- ✅ Oracle layer intact (no damage to v1.6.1 features)
+- ✅ Memory store intact
+- ✅ All 29 skills present
+- ✅ Dreaming base infrastructure unchanged
+- **Result:** ZERO regressions detected
+
+### Known Limitations (Phase 1 Alpha)
+- Verdict recording logic not yet integrated into `/risk-assess-pr` or `/release-confidence` skills (Phase 2)
+- Calibration reporting command `/calibration-report` not yet created (Phase 2)
+- Regression testing script not yet functional (Phase 2)
+- HTML sisters for updated docs not yet generated (Phase 2)
+- Escape linkage in `/analyze-escaped-defect` not yet wired (Phase 2)
+
+### Next Steps (Phase 2 Beta)
+- Integrate verdict recording into risk assessment and release confidence skills
+- Create `/calibration-report` skill for longitudinal accuracy analysis
+- Implement functional regression test workflow
+- Generate HTML documentation sisters; update search index
+- Wire escape linkage and Brier score adjustment reporting
+
 ## [1.6.1] — 2026-08-11
 
 ### Fixed

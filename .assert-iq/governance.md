@@ -91,7 +91,43 @@ triggers that don't apply.
 | _<Add project-specific trigger>_ | _<Role>_ | _<contact>_ | _<SLA>_ |
 
 
-## 4. AI tool boundary
+## 4. Audit Trail & Reproducibility (v1.7.0+)
+
+All verdicts issued by Assert.IQ (PR risk assessments, release confidence decisions) 
+are immutably recorded with full layer scores, assumptions, and memory version at 
+the time of verdict. This enables longitudinal calibration, reproducibility for audits, 
+and regulatory compliance.
+
+**Verdict Recording:**
+- Every verdict is recorded to `.assert-iq/verdicts/archive/YYYY/MM/verdicts-DD.jsonl`
+- One-line summary appended to `.assert-iq/verdicts/VERDICTS.md` (human audit trail)
+- Verdict index auto-updated for calibration analytics
+
+**Memory Versioning:**
+- Before `/dream` modifies memory, a SHA256 hash snapshot is created
+- Snapshot stored at `.assert-iq/dreaming/.snapshots/mem-<timestamp>.tar.gz`
+- Every verdict records the memory version used (for reproducibility)
+- Dream cycle provenance logged in `.assert-iq/dreaming/provenance.json`
+
+**For Regulated Clients (SOX, ISO 27001, FedRAMP):**
+- Set `verdicts.track_in_git: true` in `config.yaml` (all verdicts tracked in git)
+- `.assert-iq/verdicts/VERDICTS.md` and `.assert-iq/dreaming/provenance.json` committed (immutable proof)
+- Golden corpus regression tests run before higher-tier auto-fire dreams (block on divergence)
+- Quarterly calibration reports auto-generated (Brier score, confusion matrix, drift alerts)
+- Any client, auditor, or regulator can query: `audit-verdict <verdict_id>` to reproduce a decision
+
+**Reproducibility Contract:**
+If a client needs to reproduce a verdict from March, they can:
+1. Restore the memory snapshot: `tar xzf .snapshots/mem-<date>.tar.gz -C .assert-iq`
+2. Restore instruction files from that date: `git checkout <commit-date>`
+3. Re-run the assessment: `/risk-assess-pr --pr-id=<pr> --memory-version=<version>`
+4. Expected result: Identical verdict (same band, score, layer states)
+
+This combination of versioned memory + immutable verdict records + reproducibility 
+instructions means you can answer "Why did we pass this PR?" with auditable proof.
+
+
+## 5. AI tool boundary
 
 Document which AI surfaces are permitted to operate against this codebase.
 Any tool not listed here is out of scope and requires a separate review before
@@ -135,7 +171,7 @@ use.
   diffs); trial installs keep it local-only via `.git/info/exclude`.
 
 
-## 5. Approval
+## 6. Approval
 
 Replace names and dates. Get all required signatures before the first
 AI-assisted merge. Re-approve quarterly or on any material change.

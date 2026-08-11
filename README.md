@@ -2,7 +2,7 @@
 
 > Quality Intelligence for every IDE, every sprint, every team.
 
-**v1.6.0** · [Full documentation →](README.assert-iq.md)
+**v1.7.0-alpha1** · [Full documentation →](README.assert-iq.md)
 
 ---
 
@@ -34,13 +34,37 @@ The immediate impact:
 
 Assert.IQ is the accelerator. It drops a QI reasoning layer directly into **GitHub Copilot Chat** and **Claude Code** so teams don't have to learn a new tool or change their workflow. The IDE they already use becomes QI-aware.
 
-- **26 skills** covering the full QE lifecycle — test generation, code review, risk assessment, hotspot mapping, traceability matrices, release confidence, escaped-defect analysis, exploratory charters, and more.
+- **29 skills** covering the full QE lifecycle — test generation, code review, risk assessment, hotspot mapping, traceability matrices, release confidence, escaped-defect analysis, exploratory charters, oracle-based grading, and more.
 - **Two agents** (`Assert-IQ` for full execution, `Assert-IQ-PLAN` for plan-first workflows) with a built-in handoff button between them.
 - **Maturity-aware behavior** — a one-file config scales the pack from "early / manual generation only" to "higher / autonomous healing," meeting teams where they are.
 - **MCP wiring** to GitHub, ADO, Jira, Sentry, Grafana, Playwright, Slack, and 13 more tool surfaces — configured in one file, credentials kept in your OS keychain.
 - **Dreaming** — a markdown memory store that consolidates learnings across sessions (via the `/dream` skill) so the agent gets sharper on your codebase over time, without the token cost of per-tool-call hooks.
 
 QI is the operating model. Assert.IQ is how teams act on it — from day one, in the tools they already use.
+
+---
+
+## Decision Confidence Calibration — Proving Your QI Verdicts (v1.7.0+)
+
+Assert.IQ v1.7.0 introduces **Decision Confidence Calibration**: a longitudinal accuracy measurement system that proves how good your PR and release verdicts are against real production escapes.
+
+**What's recorded:**
+- Every PR risk assessment and release confidence judgment → immutable verdict record (band, score, layer states, assumptions, memory hash)
+- When an escape is discovered → linked back to original verdict
+- Over time → Brier score, confusion matrix, per-layer fidelity, drift alerts
+
+**Why it matters:**
+- **For vendors:** After 60 days, you have escape correlation data competitors can't replicate. Show regulated clients: "Our verdicts had 94% precision on green-band PRs in your environment."
+- **For regulated clients:** Verdicts are auditable end-to-end. SOX audits can ask "Why did we ship PR #4521?" and get: memory snapshot → reproducible assessment → linked escape (if any).
+- **For teams:** Brier score trending reveals memory drift. Regression tests prevent dreams from degrading accuracy.
+
+**Quick example:**
+```bash
+python3 .assert-iq/analysis/calibration.py --window-days 90 --output report.json
+# Outputs: Brier Score, Confusion Matrix, Per-Layer Fidelity, Drift Alerts
+```
+
+Enable in `.assert-iq/config.yaml` — all facilities ship in the pack. For regulated clients, set `verdicts.track_in_git: true` to commit audit trail to git.
 
 ---
 

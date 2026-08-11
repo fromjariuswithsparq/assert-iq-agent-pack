@@ -192,6 +192,38 @@ When presenting oracle verdicts to users:
 - **Recommend action** — "Fix artifact" or "Refine rubric"
 - **Respect maturity** — Don't overstate confidence in early/mid tier (oracle is advisory/optional)
 
+## Oracle Verdicts & Calibration Integration (v1.7.0+)
+
+Oracle verdicts feed into Decision Confidence Calibration:
+
+### Recording Oracle Verdicts in Assessments
+
+When `/risk-assess-pr` or `/release-confidence` issues a verdict, include:
+- `oracle_verdicts_considered`: Array of oracle verdict IDs that informed the assessment
+- Reference oracle verdicts in assumptions (e.g., "Test quality graded PASS via oracle-test-unit-v1.0")
+
+### Escape Linkage & Feedback
+
+When `/analyze-escaped-defect` links an escape to a prior verdict:
+1. Query `.assert-iq/verdicts/archive/` to find the original verdict
+2. Check if oracle was marked PASS/CONDITIONAL on graded artifacts
+3. If escape contradicts oracle verdict → flag as oracle drift (add to calibration report)
+4. Update verdict record with `linked_escape: {defect_id, discovery_date, layer_failure}`
+
+### Calibration Weighting by Maturity
+
+Oracle verdicts weigh into Outcome layer calibration:
+- **early** — 0% weight (advisory only; Outcome layer ignores oracle)
+- **mid** — 20% weight (optional signal; combined with escaped defects)
+- **higher** — 50% weight (primary signal; oracle drift penalties apply)
+
+### Precision Tracking
+
+Track per-rubric precision:
+- How many artifacts graded PASS later had defects?
+- Per rubric ID, per dimension
+- Use to adjust oracle weighting over time (if PASS verdicts have high escape rate, reduce weight)
+
 ## Further Reading
 
 - Rubric authoring skill: `.github/skills/define-quality-rubric/SKILL.md`
@@ -200,3 +232,4 @@ When presenting oracle verdicts to users:
 - Registry & usage: `.assert-iq/oracles/README.md`
 - Config: `.assert-iq/config.yaml > oracle:`
 - QI foundation: `.github/instructions/qi-foundation.instructions.md`
+- Calibration metrics: `.github/instructions/qi-foundation.instructions.md > Decision Confidence Calibration & Reproducibility`

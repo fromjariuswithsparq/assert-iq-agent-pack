@@ -9,6 +9,45 @@
     "branch": { "type": "string" },
     "pr_id": { "type": ["string", "null"] },
     "maturity_tier": { "enum": ["early", "mid", "higher"] },
+    "verdict": {
+      "description": "(v1.7.0+) Optional verdict object for decision confidence calibration and reproducibility.",
+      "type": "object",
+      "properties": {
+        "verdict_id": { "type": "string", "description": "UUID; globally unique identifier for this decision" },
+        "verdict_type": { "enum": ["pr_risk_assessment", "release_confidence", "hotspot_map", "other"], "description": "Type of verdict issued" },
+        "verdict_band": { "enum": ["green", "amber", "red", "ungraded"], "description": "Color band of the verdict" },
+        "verdict_score": { "type": "number", "minimum": 0.0, "maximum": 1.0, "description": "Numeric confidence score (0.0-1.0)" },
+        "layer_scores": {
+          "type": "object",
+          "description": "Per-layer scores with state and numeric value",
+          "properties": {
+            "change": { "type": "object", "properties": { "state": { "enum": ["strong", "weak", "ungraded"] }, "score": { "type": ["number", "null"] } } },
+            "protection": { "type": "object", "properties": { "state": { "enum": ["strong", "weak", "ungraded"] }, "score": { "type": ["number", "null"] } } },
+            "trust": { "type": "object", "properties": { "state": { "enum": ["strong", "weak", "ungraded"] }, "score": { "type": ["number", "null"] } } },
+            "outcome": { "type": "object", "properties": { "state": { "enum": ["strong", "weak", "ungraded"] }, "score": { "type": ["number", "null"] } } }
+          }
+        },
+        "layer_weights": {
+          "type": "object",
+          "description": "Per-layer weights (must sum to ~1.0)",
+          "properties": {
+            "change": { "type": "number" },
+            "protection": { "type": "number" },
+            "trust": { "type": "number" },
+            "outcome": { "type": "number" }
+          }
+        },
+        "maturity_tier": { "enum": ["early", "mid", "higher"], "description": "Maturity tier at time of verdict" },
+        "memory_version": { "type": "string", "description": "Hash/timestamp of memory state used (for provenance)" },
+        "oracle_verdicts_considered": { "type": "array", "items": { "type": "string" }, "description": "Oracle verdict IDs that fed this decision" },
+        "issued_at": { "type": "string", "format": "date-time", "description": "ISO 8601 timestamp when verdict was issued" },
+        "issued_by": { "type": "string", "description": "Agent ID or user name that issued the verdict" },
+        "pr_id": { "type": ["string", "null"], "description": "PR identifier if verdict applies to a PR" },
+        "release_id": { "type": ["string", "null"], "description": "Release identifier if verdict applies to a release" },
+        "assumptions": { "type": "array", "items": { "type": "string" }, "description": "Assumptions baked into this verdict" },
+        "linked_escape": { "type": ["object", "null"], "description": "If escape discovered, link to defect record" }
+      }
+    },
     "signal_type": {
       "description": "Optional discriminator. When present and equal to 'hotspot.map_generated', the payload is a per-repo periodic registry signal and the 'hotspot' object is required instead of 'layers'.",
       "enum": ["pr.risk_assessed", "coverage.analysis", "release.confidence", "hotspot.map_generated"]

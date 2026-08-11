@@ -119,3 +119,68 @@ reason in this order:
 
 You may not assert "this is safe to ship" without all four layers being
 addressed. If a layer cannot be evaluated, say so explicitly.
+
+## Decision Confidence Calibration & Reproducibility (v1.7.0+)
+
+### Verdict Recording
+
+Every PR risk assessment (`/risk-assess-pr`) and release confidence judgment
+(`/release-confidence`) is recorded with full fidelity in
+`.assert-iq/verdicts/archive/YYYY/MM/verdicts-DD.jsonl`:
+
+- Verdict ID (UUID) for global uniqueness
+- Verdict band (green/amber/red/ungraded)
+- Numeric confidence score (0.0–1.0)
+- Per-layer scores: Change, Protection, Trust, Outcome (STRONG/WEAK/UNGRADED + 0.0–1.0)
+- Layer weights (normalized to ~1.0)
+- Maturity tier at time of verdict
+- **Memory version (SHA256 hash)** — the state of `.assert-iq/memory/` used for this verdict
+- Assumptions (explicit list) and linked escape (if discovered post-release)
+
+### Reproducibility Contract
+
+Any verdict can be reproduced by:
+1. Restoring memory snapshot: `tar xzf .assert-iq/dreaming/.snapshots/mem-<version>.tar.gz -C .assert-iq`
+2. Re-running assessment with the same PR/release ID
+3. Expected outcome: Identical verdict band, score, and layer states
+
+Regulatory clients (SOX, ISO 27001, FedRAMP) use this for audit trail compliance.
+
+### Calibration Metrics
+
+Longitudinal accuracy is measured via:
+
+- **Brier Score** (per verdict band) — mean((predicted_confidence - actual_outcome)²)
+  - Green verdicts where escapes occurred penalize score
+  - Rolling 30-day windows detect drift (alarm if Brier degrades >0.15)
+- **Confusion Matrix** — predicted band vs. actual escape/no-escape
+  - Precision per band (TP / (TP + FP))
+  - Identifies systematic mispredictions
+- **Per-Layer Signal Fidelity** — of verdicts marked WEAK on layer X, what fraction had actual escapes?
+  - Measures predictiveness of each layer
+- **Memory Drift Detection** — post-dream, compare verdict accuracy before/after
+  - Regression test corpus prevents memory degradation
+
+### Memory Poisoning Prevention
+
+Before `/dream` consolidates memory:
+1. Run `python3 .assert-iq/analysis/memory-sanity.py` for sanity checks:
+   - Cycle detection (A→B→C→A flags editorial confusion)
+   - Fact staleness (>180 days without update)
+   - Contradiction detection (conflicting facts across topics)
+   - Granularity checks (copy-paste vs. synthesized facts)
+2. Snapshot memory: `.assert-iq/dreaming/.snapshots/mem-<timestamp>.tar.gz`
+3. Log dream cycle in `.assert-iq/dreaming/provenance.json` (append-only audit)
+4. Post-dream: regression test golden corpus (fail if >5% verdict divergence)
+
+Higher maturity tiers enforce regression blocking; lower tiers alert only.
+
+### Audit Trail
+
+One-line summaries appended to `.assert-iq/verdicts/VERDICTS.md` for human audit:
+```
+<YYYY-MM-DD HH:MM:SS UTC> | <verdict_id> | <type> | <band> | <score> | <pr_id> | <layer_summary> | <linked_escape>
+```
+
+Query any verdict: `bash .assert-iq/analysis/audit-verdict.sh <verdict_id>` outputs full record
+with reproducibility instructions.

@@ -4,7 +4,7 @@
 > instructions, modes, and tools that turn GitHub Copilot Chat **and**
 > Claude Code into a QI-aware delivery partner inside the IDE.
 
-**Version**: v1.6.0
+**Version**: v1.7.0-alpha1
 **Status**: Internal Sparq asset — Intelligence Studio
 **Owner**: Jarius Hayes
 **Repo**: <https://github.com/fromjariuswithsparq/assert-iq-agent-pack>
@@ -193,8 +193,8 @@ You can also opt in à la carte with `--skills-scope=user` (default is
 
 ### Pinning to a tag
 
-Use `git checkout v1.6.0` (or `git clone --branch v1.6.0`) on the cloned
-copy. Use the latest tag from the
+Use `git checkout v1.7.0-alpha1` (or `git clone --branch v1.7.0-alpha1`) on the cloned
+copy. Use any stable tag from the
 [Releases page](https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases).
 The pack is on the stable `1.x` line — bootstrap CLI flags, manifest
 schema, skill names, and workspace surface layout will not change in
@@ -687,6 +687,75 @@ or `qi-traceability.instructions.md` with examples drawn from your codebase.
 | **1.6.0** | **Oracle Layer — defensible quality verification via rubric-based grading.** New `/define-quality-rubric` skill (interview-driven rubric authorship), `/grade-with-rubric` skill (independent artifact grading in isolated context), `.claude/agents/grader.md` (grader agent with Anthropic outcomes wiring), `.assert-iq/oracles/` registry (schemas, rubric templates, verdict lineage), oracle integration in `/check-merge` and `/release-confidence` (Outcome layer, maturity-gated weighting), new `qi-oracle.instructions.md` governance rules. Oracle positioning: rubric authorship (not generation) is the defensible differentiator. Grader has zero access to generator reasoning. Rubrics are immutable, versioned, evidence-driven. **29 skills total** (was 27). |
 
 Tag releases. Keep a CHANGELOG in `.assert-iq/CHANGELOG.md`.
+
+---
+
+## Calibration & Reproducibility (v1.7.0+)
+
+### The Moat: Your Client-Specific Verdict Accuracy
+
+Assert.IQ v1.7.0 introduces **Decision Confidence Calibration** — a longitudinal
+measurement system that reveals how accurate YOUR verdicts are over time, against
+real escapes in production.
+
+#### What Gets Recorded
+
+Every PR risk assessment and release confidence judgment is recorded immutably:
+- Verdict band (green/amber/red) + numeric confidence (0.0–1.0)
+- Layer scores (Change, Protection, Trust, Outcome each with STRONG/WEAK state)
+- Assumptions baked into the verdict
+- SHA256 hash of memory used (enables reproducibility from any date)
+- When an escape is discovered, it's linked back to the original verdict
+
+#### Why This Matters
+
+1. **For vendors:** After 60 days, you have escape correlation data that competitors can't replicate.
+   You can show regulated clients: "Our verdicts had 94% precision on green-band PRs in your environment."
+2. **For regulated clients:** Verdicts are auditable end-to-end. SOX audits can ask "Why did we ship PR #4521?"
+   and get: memory state snapshot → reproducible assessment → linked escape (if any).
+3. **For teams:** Brier score trending reveals if your memory is drifting (old patterns becoming stale).
+   Regression tests prevent dreams from degrading accuracy.
+
+#### Using Calibration Metrics
+
+Run on-demand:
+```bash
+python3 .assert-iq/analysis/calibration.py --window-days 90 --output report.json
+```
+
+Generates:
+- **Brier Score** — mean squared error between predicted confidence and actual outcome
+- **Confusion Matrix** — TP/FP per verdict band
+- **Per-Layer Fidelity** — which layers are predictive vs. noisy
+- **Drift Alerts** — Brier score degradation over rolling windows
+
+#### Reproducibility Contract
+
+For regulated clients, the reproducibility chain is:
+1. Restore memory to date X: `tar xzf .snapshots/mem-20260801T100000Z.tar.gz -C .assert-iq`
+2. Re-run assessment: `/risk-assess-pr --pr-id 4521 --memory-version sha256:abc...`
+3. Get same verdict: Same band, score, and layer states
+
+This satisfies audit requirements for SOX, ISO 27001, FedRAMP.
+
+#### Configuration
+
+Enable/disable in `.assert-iq/config.yaml`:
+```yaml
+verdicts:
+  enabled: true
+  track_in_git: false  # Set to true for regulated clients (must commit to git)
+  retention_days: 730
+
+calibration:
+  enabled: true
+  window_days: 90
+  drift_alarm_threshold: 0.15
+
+regression_testing:
+  block_dream_on_regression: false  # Set to true at higher maturity tiers
+  max_verdict_divergence_pct: 5
+```
 
 ---
 

@@ -1241,6 +1241,9 @@ uninstall_run() {
       "$WORKSPACE/.claude/agents"
       "$WORKSPACE/.assert-iq/dreaming"
       "$WORKSPACE/.assert-iq/oracles"
+      "$WORKSPACE/.assert-iq/verdicts"
+      "$WORKSPACE/.assert-iq/analysis"
+      "$WORKSPACE/.assert-iq/tests/_qi/regression"
     )
     if [[ $UNINSTALL_USER -eq 1 ]]; then
       tree_roots+=(
@@ -1248,6 +1251,8 @@ uninstall_run() {
         "$USER_CLAUDE_SKILLS"
         "$HOME/.agents/.assert-iq/dreaming"
         "$HOME/.agents/.assert-iq/oracles"
+        "$HOME/.agents/.assert-iq/verdicts"
+        "$HOME/.agents/.assert-iq/analysis"
         "$USER_ASSERT_IQ"
       )
     fi
@@ -1257,6 +1262,9 @@ uninstall_run() {
     local d
     local -a empty_dirs=(
       "$WORKSPACE/.assert-iq/oracles"
+      "$WORKSPACE/.assert-iq/verdicts"
+      "$WORKSPACE/.assert-iq/analysis"
+      "$WORKSPACE/.assert-iq/tests/_qi/regression"
       "$WORKSPACE/.assert-iq/dreaming"
       "$WORKSPACE/.vscode"
       "$WORKSPACE/.claude/agents"
@@ -1275,6 +1283,8 @@ uninstall_run() {
         "$USER_CLAUDE_SKILLS"
         "$(dirname "$USER_CLAUDE_MD")"
         "$HOME/.agents/.assert-iq/oracles"
+        "$HOME/.agents/.assert-iq/verdicts"
+        "$HOME/.agents/.assert-iq/analysis"
         "$USER_ASSERT_IQ"
       )
     fi

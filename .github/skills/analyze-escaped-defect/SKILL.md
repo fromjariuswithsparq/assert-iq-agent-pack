@@ -399,3 +399,41 @@ surfaced in the response. Entries are blameless and pattern-level.
 | Signature | Root cause | Diagnostic shortcut | First seen | Last seen | Recurrences |
 | --- | --- | --- | --- | --- | --- |
 | _(empty — seeded by user-confirmed captures from step 7)_ | | | | | |
+
+## Verdict Linkage & Calibration (v1.7.0+)
+
+When analyzing an escaped defect, link it to the original PR risk assessment verdict
+for calibration feedback:
+
+1. **Query verdict sink** — Search `.assert-iq/verdicts/archive/` for the PR
+   that shipped the defect:
+   ```bash
+   grep -r "\"pr_id\": \"$PR_ID\"" .assert-iq/verdicts/archive/ | \
+     jq '.verdict_id, .verdict_band, .layer_scores'
+   ```
+
+2. **Analyze misprediction** — Compare original verdict band to escape discovery:
+   - Original band: GREEN → Escape discovered → **FALSE POSITIVE** (Brier penalty)
+   - Original band: AMBER → Escape on AMBER layer → **Expected** (no penalty)
+   - Original band: RED → Mitigated before release → **Avoided** (calibration credit)
+
+3. **Record linkage** — Update the original verdict record with escape metadata:
+   ```json
+   "linked_escape": {
+     "defect_id": "BUG-4521",
+     "discovery_date": "2026-08-15T10:30:00Z",
+     "layer_failure": "protection",  // which layer's weakness led to escape
+     "escape_severity": "p1"
+   }
+   ```
+
+4. **Update calibration metrics** — Recompute Brier score across all verdicts:
+   ```bash
+   python3 .assert-iq/analysis/calibration.py --window-days 90 --with-escapes
+   ```
+
+5. **Surface drift alerts** — If Brier score on green-band verdicts exceeds
+   threshold (default 0.15), alert via `.assert-iq/memory/` entry and trigger
+   dream regression check.
+
+**Implementation guide**: See `.assert-iq/VERDICT_INTEGRATION_GUIDE.md` (Pattern 3)

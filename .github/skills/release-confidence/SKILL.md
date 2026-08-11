@@ -476,3 +476,39 @@ When the QI signal sink is wired, this skill emits a
 unable-to-assess flags), `red_flags_triggered`, `mitigations_count`,
 `blockers_count`, `risks_accepted`, `partial_signal_mode`,
 `compliance_lock`, and `tracker_ref` (release work-item or tag).
+
+## Verdict Recording (v1.7.0+)
+
+This skill records every release confidence verdict to the verdict sink
+(`.assert-iq/verdicts/`) for longitudinal decision confidence calibration:
+
+1. **Verdict object** — After computing layer scores, construct verdict with:
+   - `verdict_type: "release_confidence"`
+   - `verdict_band`: green/amber/red/ungraded (from GO / GO-WITH-MITIGATION / HOLD)
+   - `verdict_score`: 0.0–1.0 (average layer score with mitigation adjustments)
+   - `layer_scores`: change/protection/trust/outcome, each with state + score
+   - `maturity_tier`: from config.yaml
+   - `memory_version`: SHA256 hash of `.assert-iq/memory/` at time of verdict
+   - `release_id`: release tag/branch/build ID
+   - `assumptions`: list of reasoning assumptions
+
+2. **Recording** — Use helper library:
+   ```python
+   from verdict_recorder import VerdictRecorder
+   recorder = VerdictRecorder()
+   result = recorder.record_verdict(verdict_obj)  # Non-blocking
+   ```
+
+3. **Verdict inclusion in report** — Include verdict ID in markdown report:
+   ```markdown
+   **Verdict ID**: {verdict_id} (audit trail reference)
+   ```
+
+4. **Calibration metrics** — Optional: include Brier score and fidelity data:
+   ```markdown
+   **Calibration (30-day rolling window)**:
+   - Brier Score: 0.12 (green-band accuracy)
+   - Layer Fidelity: Change=0.89, Protection=0.76, Trust=0.92, Outcome=0.68
+   ```
+
+**Implementation guide**: See `.assert-iq/VERDICT_INTEGRATION_GUIDE.md` (Pattern 2)

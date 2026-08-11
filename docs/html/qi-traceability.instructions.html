@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Traceability instructions</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; }
+        h1, h2, h3 { color: #2c3e50; border-bottom: 1px solid #e1e4e8; padding-bottom: 0.3em; }
+        h1 { border-bottom: 2px solid #0366d6; }
+        code { background: #f6f8fa; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+        pre { background: #f6f8fa; padding: 12px; border-radius: 6px; overflow-x: auto; }
+        .meta { color: #666; font-size: 0.9em; margin-bottom: 20px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f6f8fa; }
+        .search-highlight { background: #fff8cc; }
+        a { color: #0366d6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>Traceability instructions</h1>
+    <div class="meta">Generated: 2026-08-11 16:35:24 UTC</div>
+<p>---
+applyTo: "**/*.{cs,xaml}"
+description: "Requirement → code → test traceability enforcement."
+---</p><h1>Traceability instructions</h1></p><p>**When this applies:** introducing or modifying production C# / XAML code
+(<code>**/*.{cs,xaml}</code>) that implements a tracked work item. Copilot loads via
+<code>applyTo</code>; Claude Code: apply whenever the user adds or changes C#/XAML
+code tied to a work item.</p><p>When introducing new functions, classes, or modules that implement a tracked
+work item, attach a trace comment in the project's idiomatic style:</p><p>- TypeScript / JavaScript: JSDoc <code>@qi-trace</code>
+- Python: docstring <code>:qi-trace:</code>
+- Java / Kotlin: Javadoc <code>@qi-trace</code>
+- C# (general): XML doc element <code>/// <qi-trace … /></code>
+- .NET MAUI / Xamarin (C#): XML doc element <code>/// <qi-trace … /></code> on the code-behind class or ViewModel
+- .NET MAUI / Xamarin (XAML): XML comment <code><!-- qi-trace: --></code> immediately above the root element
+- Go: comment block <code>// qi-trace:</code></p><p>The trace must include:
+- <code>work-item</code>: the ADO work item ID or Jira issue key
+- <code>acceptance-criteria</code>: the AC reference (e.g., <code>AC-2</code>)
+- <code>risk-tier</code>: <code>low | medium | high</code>
+- <code>test-coverage</code>: relative path(s) to the covering test file(s)</p><p>When a function is modified, do not silently drop or alter an existing trace.
+If the change invalidates the trace, flag it and ask the user to confirm the
+new linkage.</p><h2>.NET MAUI & Xamarin.UITest specifics</h2></p><p>For .NET MAUI pages, controls, and ViewModels, place the XML doc trace on the
+class declaration in the code-behind or ViewModel file:</p><p>``<code>csharp
+/// <qi-trace
+///   work-item="AB#1234"
+///   acceptance-criteria="AC-3"
+///   risk-tier="medium"
+///   test-coverage="tests/UI/LoginPageTests.cs" />
+public partial class LoginPage : ContentPage { … }
+</code>`<code></p><p>For XAML files, add an XML comment directly above the root element:</p><p></code>`<code>xml
+<!-- qi-trace: work-item="AB#1234" acceptance-criteria="AC-3" risk-tier="medium" test-coverage="tests/UI/LoginPageTests.cs" -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" …>
+</code>`<code></p><p>For Xamarin.UITest test classes, place the trace on the test class and on each
+</code>[Test]<code> method that covers an acceptance criterion:</p><p></code>`<code>csharp
+/// <qi-trace
+///   work-item="AB#1234"
+///   acceptance-criteria="AC-3"
+///   risk-tier="medium"
+///   test-coverage="tests/UI/LoginPageTests.cs" />
+[TestFixture]
+public class LoginPageTests { … }
+</code>`<code></p><p>- </code>test-coverage<code> for MAUI/Xamarin should point to the Xamarin.UITest project file
+  or specific test class, not just a folder.
+- When a XAML page and its code-behind both carry a trace, they must reference
+  the **same** </code>work-item<code> and </code>acceptance-criteria`; flag any mismatch.
+</p>
+</body>
+</html>

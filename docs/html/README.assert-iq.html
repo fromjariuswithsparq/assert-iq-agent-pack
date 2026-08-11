@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Assert.IQ Agent Pack</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; }
+        h1, h2, h3 { color: #2c3e50; border-bottom: 1px solid #e1e4e8; padding-bottom: 0.3em; }
+        h1 { border-bottom: 2px solid #0366d6; }
+        code { background: #f6f8fa; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+        pre { background: #f6f8fa; padding: 12px; border-radius: 6px; overflow-x: auto; }
+        .meta { color: #666; font-size: 0.9em; margin-bottom: 20px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f6f8fa; }
+        .search-highlight { background: #fff8cc; }
+        a { color: #0366d6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>Assert.IQ Agent Pack</h1>
+    <div class="meta">Generated: 2026-08-11 16:35:24 UTC</div>
+<p><h1>Assert.IQ Agent Pack</h1></p><p>> The capability layer of Assert.IQ. Quality Intelligence-grounded skills,
+> instructions, modes, and tools that turn GitHub Copilot Chat **and**
+> Claude Code into a QI-aware delivery partner inside the IDE.</p><p>**Version**: v1.7.0-alpha1
+**Status**: Internal Sparq asset — Intelligence Studio
+**Owner**: Jarius Hayes
+**Repo**: <https://github.com/fromjariuswithsparq/assert-iq-agent-pack></p><p>---</p><h2>What this is</h2></p><p>This pack drops into a client codebase and gives the development team an
+opinionated, QI-grounded layer over **GitHub Copilot Chat and Claude Code**
+in VS Code (and any other <code>AGENTS.md</code>-aware tooling: Codex CLI, Cursor,
+Aider). It is *not* a SaaS product. It is *not* a runtime. It is a
+versioned set of files — markdown, YAML, JSON — that lives in the repo
+and is owned by the team.</p><p>The pack operationalizes Sparq's Quality Intelligence framework:</p><p>- The four-layer signal model (Change → Protection → Trust → Outcome →
+  Decision Confidence) is loaded as Copilot's reasoning lens on every interaction.
+- 29 skills cover the QE lifecycle: planning, development, review, execution,
+  decision, post-incident learning, and meta (setup/optimization).
+- A QI Advisor chat mode provides maturity-aware coaching.
+- MCP wiring connects to ADO or Jira and to GitHub for first-class
+  bidirectional context.</p><p>QI is the operating model. Assert.IQ is the commercialized acceleration.
+This pack is one concrete way teams *act* on QI — without ever becoming a
+tooling pitch.</p><p>---</p><h2>Dual-target: Copilot and Claude Code</h2></p><p>The pack ships one canonical copy of every asset and exposes it through both
+tools' native config surfaces. There is no duplicated content — only thin
+entry-point files (<code>CLAUDE.md</code>, <code>AGENTS.md</code>, <code>.claude/agents/*</code>) plus a
+short installer that wires <code>.claude/settings.json</code> and the skills symlink.</p><p>| Asset | Canonical location | Copilot reads | Claude reads |
+|---|---|---|---|
+| Always-on guidance | <code>.github/copilot-instructions.md</code> (Copilot-native) + mirrored body in <code>CLAUDE.md</code> | <code>.github/copilot-instructions.md</code> | <code>CLAUDE.md</code> |
+| Scoped instructions | <code>.github/instructions/*.instructions.md</code> | same (auto via <code>applyTo</code>) | same (via <code>@</code>-imports in <code>CLAUDE.md</code>; "When this applies" prose) |
+| Skills (22) | <code>.github/skills/*/SKILL.md</code> | <code>.github/skills/</code> directly | <code>.claude/skills/</code> (symlink → <code>.github/skills/</code>) |
+| Chat mode / subagent | <code>.github/agents/Assert-IQ.agent.md</code> + <code>.github/agents/Assert-IQ-PLAN.agent.md</code> (Copilot) + <code>.claude/agents/assert-iq.md</code> + <code>.claude/agents/assert-iq-plan.md</code> (Claude) | agent files | subagent files |
+| Dreaming | <code>.assert-iq/dreaming/</code> (scripts + optional service) + <code>.assert-iq/memory/</code> store | yes (via <code>chat.hookFilesLocations</code>) | <code>.claude/settings.json</code> (hooks block, synced by installer) |
+| MCP wiring | <code>.vscode/mcp.json</code> | yes | yes (VS Code MCP is tool-agnostic) |
+| Per-client config | <code>.assert-iq/*</code> | yes | yes |
+| Generic agent pointer | <code>AGENTS.md</code> | n/a | n/a (read by Codex CLI / Cursor / Aider) |</p><p>**After dropping the pack into a repo, run the installer once:**</p><p>``<code>bash
+bash install.sh        # macOS / Linux
+.\install.ps1          # Windows PowerShell
+</code>`<code></p><p>The installer is idempotent. It (1) renders and syncs the session-events
+wiring into </code>.claude/settings.json<code> (merging — it preserves any other settings
+keys you have), (2) scaffolds the </code>.assert-iq/memory/<code> store, and (3) creates
+</code>.claude/skills<code> as a symlink to </code>../.github/skills<code>
+(falling back to a copy on Windows without Developer Mode — in that case
+re-run the installer after editing skills).</p><p>Copilot requires no extra wiring — it reads </code>.github/*<code> natively.</p><p>> **Note on the </code>.html<code> siblings.** The </code>*.html<code> files at the repo root
+> (</code>README.html<code>, </code>README.assert-iq.html<code>, </code>claude-readme.html<code>,
+> </code>vscode-readme.html<code>, </code>dreaming-readme.html<code>, </code>MCP.html<code>) are rendered
+> snapshots of the corresponding </code>.md<code> files, intended for offline /
+> static-host distribution. They are **not** the source of truth — edit
+> the </code>.md<code> files only and regenerate the HTMLs from those. If you change
+> a doc and don't refresh the HTML, the two will drift.</p><p>---</p><h2>Installation</h2></p><p>The pack supports exactly two install paths. They serve different needs
+— pick based on whether you're evaluating Assert.IQ or actually
+deploying it into a team's repo.</p><h3>Path A — try it on the pack repo itself</h3></p><p>Best when you want to play with Assert.IQ without touching your team's
+repository. You clone the pack, run the installer, and open the **pack
+folder** as your VS Code / Claude Code workspace. Everything runs
+against the pack's own files.</p><p></code>`<code>bash
+git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack
+cd assert-iq-agent-pack
+bash install.sh        # macOS / Linux / WSL
+<h1>or</h1>
+pwsh ./install.ps1     # Windows PowerShell 7+
+</code>`<code></p><p>What it does (all inside the pack folder):</p><p>1. Renders </code>.assert-iq/dreaming/session-events.json<code> from its template
+   with the pack root absolute path baked in (VS Code Copilot has no env
+   var equivalent of </code>CLAUDE_PLUGIN_ROOT<code>, so the path is resolved at
+   install time), and scaffolds the </code>.assert-iq/memory/<code> store.
+2. Merges the rendered </code>hooks<code> block into </code>.claude/settings.json<code>,
+   preserving any other keys you already have.
+3. Creates </code>.claude/skills<code> as a symlink to </code>../.github/skills<code> so
+   Claude Code discovers the same skills Copilot does (falls back to a
+   copy on Windows without Developer Mode — re-run after edits in that
+   case).</p><p>Idempotent on every platform — safe to re-run any time. Reverse it
+cleanly with </code>bash install.sh --uninstall<code> (or </code>pwsh ./install.ps1
+-Uninstall<code>).</p><h3>Path B — install it into your codebase</h3></p><p>This is the real deployment path. Bootstrap copies the full set of
+workspace-loaded surfaces into a target repo so Copilot Chat and Claude
+Code can discover the skills, agents, instructions, Dreaming machinery, and config
+from that codebase.</p><p>**Run the bootstrap script from a terminal in your target repo.** No
+editor required, nothing to install in chat first:</p><p></code>`<code>bash
+<h1>1. Clone the pack somewhere on your machine (one time, anywhere)</h1>
+git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack ~/assert-iq-agent-pack</p><h1>2. cd into YOUR repo</h1>
+cd ~/code/my-app</p><h1>3. Run the bootstrap script from the clone</h1>
+bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
+<h1>Windows PowerShell:</h1>
+pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
+</code>`<code></p><p>The script is fully standalone — it accepts </code>--preset=solo|pod<code>,
+prompts interactively when run in a TTY, and writes everything Copilot
+and Claude need into your workspace. **There is no chicken-and-egg.**
+You do not need to open VS Code or Claude Code first, and the
+</code>/assert-iq-bootstrap<code> skill does not need to be loaded — the script
+is what the skill calls under the hood.</p><p>> **Where does </code>--preset=solo<code> put the QI instructions?** Solo is
+> designed for a single developer who wants the QI rules to apply to
+> *every* repo they open, not just this one. The instruction files
+> (</code>qi-foundation<code>, </code>qi-test-design<code>, etc.) and </code>CLAUDE.md<code> install to
+> your VS Code user prompts folder
+> (</code>~/Library/Application Support/Code/User/prompts/<code> on macOS,
+> </code>~/.config/Code/User/prompts/<code> on Linux,
+> </code>%APPDATA%\Code\User\prompts\<code> on Windows) and </code>~/.claude/CLAUDE.md<code>
+> respectively — **not** to </code>.github/instructions/<code> in the workspace.
+> Use </code>--preset=pod<code> if you want the instructions checked into this
+> repo for the whole team.</p><p>> **Already have the pack loaded** (the cloned pack opened in your
+> editor, or the skills installed user-globally to
+> </code>~/.agents/skills/<code>)? You can also run </code>/assert-iq-bootstrap<code> from
+> chat — same outcome, chat-driven prompts.</p><p></code>--mode=trial<code> is the safe default: every pack file lands in your
+workspace, and each path is added to </code>.git/info/exclude<code> so your team
+sees nothing. **Your codebase's </code>.gitignore<code> is never touched.** When
+you're ready for the team to see it, run
+</code>bash scripts/bootstrap.sh --graduate<code> (or use </code>--mode=committed<code> from
+the start).</p><p>#### Portable mode — skills user-globally, minimal workspace footprint</p><p>If you'd rather not put the full pack into your workspace (not even in
+trial mode), use </code>--preset=portable<code>. Skills install to
+</code>~/.agents/skills/<code> (VS Code Copilot Chat) and </code>~/.claude/skills/<code>
+(Claude Code) so every workspace you open has the 26 QI skills
+available. Workspace footprint shrinks to just the Assert-IQ chat
+agent files (</code>.github/agents/<code>, </code>.claude/agents/<code>) and the install
+manifest — no instructions, dreaming, settings, MCP config, or </code>CLAUDE.md<code>
+are written into the repo.</p><p></code>`<code>bash
+bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --preset=portable
+<h1>Reverse with: --uninstall --user</h1>
+</code>`<code></p><p>You can also opt in à la carte with </code>--skills-scope=user<code> (default is
+</code>workspace<code>; </code>both<code> puts skills in both places).</p><h3>Pinning to a tag</h3></p><p>Use </code>git checkout v1.7.0-alpha1<code> (or </code>git clone --branch v1.7.0-alpha1<code>) on the cloned
+copy. Use any stable tag from the
+<a href="https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases">Releases page</a>.
+The pack is on the stable </code>1.x<code> line — bootstrap CLI flags, manifest
+schema, skill names, and workspace surface layout will not change in
+incompatible ways without a major-version bump.</p><h3>What bootstrap delivers (Path B)</h3></p><p>The bootstrap copies the **complete workspace surface** into the target
+repo. Copilot and Claude Code can't auto-discover skills or agents that
+aren't physically present in the workspace, so all of them ship in.</p><p>| Surface | Why it's per-repo |
+|---|---|
+| </code>.assert-iq/config.yaml<code> | Maturity tier, tracker, framework, signal sink — varies by repo. |
+| </code>.assert-iq/governance.md<code> | Compliance posture — varies by client / regulatory regime. |
+| </code>.assert-iq/maturity-profile.md<code> | Tier rationale — team-specific. |
+| </code>.github/copilot-instructions.md<code> + </code>.github/instructions/qi-*.instructions.md<code> | Copilot reads these only from the workspace; their </code>applyTo<code> globs scope to repo files. |
+| </code>.github/skills/<code> | All 26 QI skills — Copilot Chat reads them from this workspace path. |
+| </code>.github/agents/<code> | </code>Assert-IQ.agent.md<code> and </code>Assert-IQ-PLAN.agent.md<code> custom chat modes. |
+| </code>.claude/agents/<code> | Claude Code subagent counterparts (</code>assert-iq.md<code>, </code>assert-iq-plan.md<code>). |
+| </code>.claude/skills<code> | Symlink to </code>../.github/skills<code> (copy fallback on Windows without Developer Mode) so Claude Code discovers the same skills. |
+| </code>CLAUDE.md<code> / </code>AGENTS.md<code> | Claude and other agent runners read these from the repo root. |
+| </code>.vscode/settings.json<code> + </code>.vscode/mcp.json<code> | Wires VS Code Copilot to read instructions, prompts, and **Dreaming session events** from the workspace; declares optional GitHub / ADO / Jira MCP servers. JSON deep-merged into any pre-existing settings (additive; your values win on conflicts). |
+| </code>.assert-iq/dreaming/<code> (</code>scripts/<code>, </code>service/<code>, </code>session-events.template.json<code>) + </code>.assert-iq/memory/<code> | The Dreaming machinery that fires on </code>SessionStart<code> / </code>Stop<code>, plus the markdown memory store. </code>session-events.json<code> is rendered at bootstrap time so the script paths resolve to the workspace copies. |
+| </code>.claude/settings.json<code> | Claude Code reads the </code>hooks<code> block from here. Bootstrap merges only the </code>hooks<code> key, preserving any other settings you have. |</p><h3>Trial vs Committed (Path B)</h3></p><p>Three install modes, all driven by the bootstrap script
+(</code>scripts/bootstrap.sh<code> / </code>scripts/bootstrap.ps1<code>):</p><p>| Mode | What happens | Reverse with |
+|---|---|---|
+| </code>--mode=trial<code> | Files land in workspace; their paths added to </code>.git/info/exclude<code> (local-only). </code>.gitignore<code> untouched. | </code>--graduate<code> (promote) or </code>--uninstall<code> (remove) |
+| </code>--mode=committed<code> | Files land in workspace and are visible to git. | </code>--uninstall<code> |
+| </code>--mode=ask<code> (default in TTY) | Prompts interactively. Non-TTY falls back to </code>committed<code>. | — |</p><p>**Pre-existing files are preserved.** The script SHA256-compares each
+file. If the destination matches the pack version, it's silently
+recorded as </code>unchanged_owned<code>. If the user has a different file at that
+path, the script falls back to an interactive resolver:
+</code>[k]eep<code> / </code>[o]verwrite<code> / </code>[m]erge<code> / </code>[s]idecar (writes .assert-iq-new)<code> /
+</code>[d]iff<code> / </code>[K/O/M/S]all<code> / </code>[a]bort<code>. Non-TTY runs auto-keep.</p><p>For the three Markdown allowlist files — </code>.github/copilot-instructions.md<code>,
+</code>CLAUDE.md<code>, and </code>AGENTS.md<code> — the resolver shows </code>[m]erge (recommended)<code>
+as an extra choice. Merge wraps the pack content in idempotent HTML-comment
+markers (</code><!-- assert-iq:begin v=... --><code> / </code><!-- assert-iq:end --><code>) at the
+top of the file, leaving everything below untouched. Re-installing replaces
+only the marker block in place, so re-runs are fully idempotent and your
+team-authored content outside the markers is never rewritten. Other files
+(JSON settings, session events, skills, etc.) keep the existing K / O / S behavior
+— the </code>m<code> option is hidden for them, and a JSON deep-merge still applies
+to </code>.vscode/settings.json<code> and </code>.claude/settings.json<code>. To force one mode
+non-interactively, pass </code>CONFLICT_BULK_CHOICE=K|O|M|S<code> as an environment
+variable.</p><p>**Pre-install backups for safe uninstall.** Whenever the bootstrap
+overwrites or merges into a file you already had, it first snapshots the
+original to </code><file>.assert-iq.pre-install<code>. A later
+</code>scripts/bootstrap.sh --uninstall<code> restores from that snapshot
+byte-for-byte; if the file changed since install, the post-install copy
+is preserved at </code><file>.assert-iq.uninstall-saved<code> so nothing is silently
+lost.</p><p>Every install writes </code>.assert-iq/.install-manifest.json<code> recording
+</code>{version, installed_at, mode, paths[]}<code>. Trial mode uses this manifest
+to know which paths to add to </code>.git/info/exclude<code> (and which to remove
+on </code>--graduate<code>). Uninstall reads the same manifest.</p><p>**Graduating from trial → committed:**</p><p></code>`<code>bash
+<h1>macOS / Linux</h1>
+scripts/bootstrap.sh --graduate</p><h1>Windows</h1>
+pwsh -File scripts/bootstrap.ps1 -Graduate</p><h1>Then commit the pack files when ready:</h1>
+git add .assert-iq .claude .github CLAUDE.md AGENTS.md
+git commit -m "chore: adopt Assert.IQ agent pack"
+</code>`<code></p><p>**Removing the pack from a workspace:**</p><p></code>`<code>bash
+<h1>macOS / Linux</h1>
+scripts/bootstrap.sh --uninstall          # add --user to also remove user-global copies
+scripts/bootstrap.sh --uninstall --dry-run  # preview without changing anything</p><h1>Windows</h1>
+pwsh -File scripts/bootstrap.ps1 -Uninstall
+pwsh -File scripts/bootstrap.ps1 -Uninstall -DryRun
+</code>`<code></p><h3>Upgrading to a new release</h3></p><p>Upgrades are an explicit, intentional act. To move to a later tag:</p><p>1. Read the release notes on the
+   <a href="https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases">Releases page</a>.
+2. Uninstall the path you used:
+   - **Path A:** </code>bash install.sh --uninstall<code> in the cloned pack.
+   - **Path B:** </code>bash scripts/bootstrap.sh --uninstall<code> in each
+     target repo.
+3. </code>git pull<code> (or re-clone) to the new tag, then re-run the same path
+   to refresh.</p><h3>Platform notes (</code>.claude/skills<code> symlink)</h3></p><p>The installer creates </code>.claude/skills<code> as a **directory symlink** pointing
+at </code>../.github/skills/<code>, so Copilot and Claude share one canonical copy of
+the 29 skills. Behavior varies by platform:</p><p>| Platform | What happens | What you need to do |
+|---|---|---|
+| **macOS / Linux** | Symlink created normally. | Nothing — edits to either path reflect instantly. |
+| **Windows + Developer Mode (or admin shell)** | Symlink created normally. | Enable Developer Mode once: </code>Settings → Privacy & security → For developers → Developer Mode On<code>. Then run </code>install.ps1<code>. |
+| **Windows without Developer Mode / admin** | Installer **falls back to copying** </code>.github/skills/<code> → </code>.claude/skills/<code> and logs the fallback. | **Re-run </code>install.ps1<code> after editing any skill** so Claude sees the change. There is real drift risk here — prefer Developer Mode. |
+| **CI runners, Docker </code>COPY<code>, manual zip downloads** | Symlinks may not be preserved — you may get a broken link or a copy. | Prefer the GitHub-generated source tarball (preserves symlinks), or run </code>install.sh<code> / </code>install.ps1<code> after checkout to repair the link. |</p><p>The installer is idempotent on every platform — re-running it is always
+safe.</p><p>---</p><h2>The four layers of the pack</h2></p><p></code>`<code>
+LAYER          PRIMITIVE                                  ROLE
+─────────      ─────────────────────────────────          ──────────────────────────
+Foundation     .github/copilot-instructions.md            Always-on QI guidance
+               .github/instructions/*.instructions.md     (loaded automatically;
+               CLAUDE.md                                   Claude reads CLAUDE.md)</p><p>Skills         .github/skills/<name>/SKILL.md             Invokable workflows
+               (mirrored read-only at .claude/skills/)    (called via /skill-name)</p><p>Modes          .github/agents/Assert-IQ.agent.md          Default front-door agent
+               .github/agents/Assert-IQ-PLAN.agent.md     Read-only planning sibling
+               .claude/agents/assert-iq{,-plan}.md         Claude Code subagents</p><p>Tools          .vscode/mcp.json                           External integrations
+                                                          (ADO, Jira, GitHub)</p><p>Dreaming       .assert-iq/dreaming/ + .assert-iq/memory/  Markdown memory
+               (wired via .vscode/settings.json and        consolidation via
+               .claude/settings.json)                      the /dream skill
+</code>`<code></p><p>---</p><h2>Quick start</h2></p><h3>1. Drop the pack into the client repo</h3></p><p>Copy these directories into the repo root:
+- </code>MANIFEST.md<code> (root-level inventory of all files in the pack)
+- </code>README.assert-iq.md<code>
+- </code>CLAUDE.md<code> + </code>AGENTS.md<code>       ← always-on guidance for Claude Code and other </code>AGENTS.md<code>-aware tooling
+- </code>.github/copilot-instructions.md<code>
+- </code>.github/instructions/<code>
+- </code>.github/skills/<code>               ← each skill is a folder with a </code>SKILL.md<code>
+- </code>.github/agents/<code>               ← </code>Assert-IQ.agent.md<code> + </code>Assert-IQ-PLAN.agent.md<code>
+- </code>.claude/<code>                      ← </code>agents/<code>, </code>settings.json<code>; </code>.claude/skills/<code> is created as a symlink by the installer
+- </code>.vscode/mcp.json<code>
+- </code>.vscode/settings.json<code>         ← wires </code>.github/skills/<code> into Copilot prompt-file loading and points </code>chat.hookFilesLocations<code> at </code>.claude/settings.json<code> (the Dreaming session-event hooks, read natively by both VS Code Copilot and Claude Code)
+- </code>.assert-iq/dreaming/<code>          ← </code>scripts/<code>, </code>service/<code>, and </code>session-events.template.json<code> (the Dreaming machinery; </code>.assert-iq/memory/<code> is scaffolded alongside)
+- </code>.assert-iq/<code>
+- </code>tests/_qi/<code> (if not already present)</p><p>> **Note on hidden directories.** </code>.github/<code>, </code>.vscode/<code>, </code>.claude/<code>, and </code>.assert-iq/<code> are dot-prefixed
+> and hidden by default in macOS Finder and Windows Explorer. Show hidden files
+> (</code>Cmd+Shift+.<code> on macOS; View → Hidden items on Windows) to see them, or open
+> the folder in VS Code which shows all files. The </code>MANIFEST.md<code> at the root
+> lists every file in the pack so you can verify the extraction is complete.</p><h3>2. Configure for the client context</h3></p><p>Open </code>.assert-iq/config.yaml<code> and set:
+- </code>client.name<code>
+- </code>maturity.tier<code> — </code>early<code>, </code>mid<code>, or </code>higher<code> based on the QI Diagnostic
+- </code>tracker.type<code> — </code>ado<code> or </code>jira<code>, plus the connection details
+- </code>vcs.type<code> — </code>github<code>, </code>ado-repos<code>, </code>gitlab<code>, or </code>bitbucket<code>
+- </code>test_framework<code> — primary framework, language, test command
+- </code>manual_test_management.tool<code> — </code>ado_test_plans<code>, </code>xray<code>, </code>testrail<code>,
+  </code>zephyr<code>, or </code>markdown<code></p><p>Open </code>.assert-iq/maturity-profile.md<code> and document the rationale for the
+chosen tier.</p><h3>3. Wire MCP</h3></p><p>Open </code>.vscode/mcp.json<code> and confirm the servers for the configured tracker
+and VCS are enabled. Provide the required PATs / API tokens at the input
+prompts.</p><h3>4. Validate</h3></p><p>In Copilot Chat, type:</p><p></code>`<code>
+/risk-assess-pr
+</code>`<code></p><p>The agent should respond with a four-layer scaffolded assessment of the
+current branch. If MCP is wired correctly, it will pull live work item
+data; if not, it will ask for it.</p><h3>5. Pick a starter skill for the team</h3></p><p>Recommended first invocations:
+- Plan phase: </code>/review-acceptance-criteria<code> on a recent work item
+- Develop phase: </code>/generate-tests-from-ac<code> on the same work item
+- PR phase: </code>/code-review<code> on the current branch</p><p>---</p><h2>The skill registry</h2></p><p>Skills are organized by QE lifecycle phase. All skills are invoked in
+Copilot Chat with </code>/skill-name<code>. Maturity gating is enforced by each skill
+that requires it.</p><h3>Plan</h3></p><p>| Skill | Purpose |
+|---|---|
+| </code>/review-acceptance-criteria<code> | Review ACs for testability before generation. |
+| </code>/generate-test-plan<code> | Generate a one-page operating test plan. |
+| </code>/generate-tests-from-ac<code> | Router — classify each AC and dispatch to automation, manual, or exploratory. |</p><h3>Develop</h3></p><p>| Skill | Purpose |
+|---|---|
+| </code>/generate-automated-unit-test<code> | Generate unit tests for a function, class, or module. |
+| </code>/generate-automated-api-test<code> | Generate API tests with schema validation and error envelopes. |
+| </code>/generate-automated-ui-test<code> | Generate UI tests using Page Object Model and stable selectors. |
+| </code>/generate-manual-test-case<code> | Generate scripted manual test cases for ADO Test Plans / Xray / TestRail / markdown. |
+| </code>/generate-exploratory-charter<code> | Generate a session-based exploratory test charter. |
+| </code>/generate-test-data<code> | Generate deterministic, PII-safe test data using the project's factory pattern. |</p><h3>Code Review / PR</h3></p><p>| Skill | Purpose |
+|---|---|
+| </code>/code-review<code> | Review changes through the QI four-layer lens. |
+| </code>/check-test-coverage<code> | Risk-weighted coverage analysis on changed surfaces. |
+| </code>/check-merge<code> | Pre-merge quality gate aggregating all signals into a verdict. |
+| </code>/new-pull-request<code> | Open a PR with a QI-aware body — risk band, AC linkage, traceability. |
+| </code>/review-test-quality<code> | Review existing tests for design quality (independence, determinism, brittle patterns). |</p><h3>Execute / Debug</h3></p><p>| Skill | Purpose |
+|---|---|
+| </code>/debug-ui-tests<code> | Diagnose a failing UI test — flaky vs brittle vs broken vs regression. |
+| </code>/analyze-flaky-test<code> | Pattern analysis over historical run data to identify flake root causes. |
+| </code>/agentic-heal<code> | Autonomously diagnose, repair, and re-execute failing tests within bounded retries. (Mid+ maturity) |</p><h3>Decision</h3></p><p>| Skill | Purpose |
+|---|---|
+| </code>/risk-assess-pr<code> | Score a PR across all four QI layers and post a structured comment. |
+| </code>/release-confidence<code> | Aggregate signals across an upcoming release into a go/no-go report. (Mid+ maturity) |</p><h3>Learn</h3></p><p>| Skill | Purpose |
+|---|---|
+| </code>/dream<code> | Dreaming — offline memory consolidation. Read recent session logs + transcripts, resolve contradictions, prune stale entries. |
+| </code>/analyze-escaped-defect<code> | Post-incident analysis — which signal layer should have caught it. |
+| </code>/generate-bug-report<code> | Convert a failure into a tracker-ready defect. |</p><h3>Cross-cutting</h3></p><p>| Skill | Purpose |
+|---|---|
+| </code>/generate-traceability-matrix<code> | Build a req↔code↔test matrix from </code>@qi-trace<code> headers. |
+| </code>/generate-hotspot-map<code> | Audit code volatility, structural complexity, and defect density for risk prioritization. |
+| </code>/eval-optimizer<code> | Evaluate and automatically optimize any AI instruction artifact (Skill, system prompt, custom instructions). |</p><h3>Setup & Meta</h3></p><p>| Skill | Purpose |
+|---|---|
+| </code>/assert-iq-bootstrap<code> | Onboard the Assert.IQ pack into a codebase. |
+| </code>/assert-iq-tailor<code> | Customize the pack to your repository — discover the stack, tailor config.yaml, governance.md, and instruction files. |</p><h3>Oracle & Verification</h3></p><p>| Skill | Purpose |
+|---|---|
+| </code>/define-quality-rubric<code> | Author versioned quality rubrics (acceptance contracts) via guided interview. |
+| </code>/grade-with-rubric<code> | Grade artifacts independently against a rubric in isolated grader context. |</p><p>---</p><h2>How to use</h2></p><h3>Invoking a skill</h3></p><p>Open Copilot Chat in VS Code. Type </code>/<code> to see available skills. Type the
+skill name to invoke. Provide inputs when prompted, or skip if the skill
+can resolve them from context (work item from branch name, scope from current
+diff, etc.).</p><h3>Using the Assert-IQ agents</h3></p><p>Pick **</code>Assert-IQ<code>** from the agent dropdown for default behavior — it
+routes to the right skill and has full tools to act. Pick
+**</code>Assert-IQ-PLAN<code>** when you want plan-first behavior on a larger or
+riskier task; it produces a plan and surfaces a **Start Implementation**
+handoff button that switches back to </code>Assert-IQ<code> for execution. Both
+agents are maturity-aware: they adjust recommendations based on
+</code>maturity.tier<code> and proactively raise traceability gaps, coverage gaps
+on changed surfaces, flaky tests near touched code, and governance
+concerns when AI is being applied to high-risk areas.</p><h3>Combining skills</h3></p><p>Skills compose. A typical PR-time workflow:</p><p></code>`<code>
+/review-acceptance-criteria PROJ-123
+/generate-tests-from-ac PROJ-123
+   → routes to /generate-automated-unit-test, /generate-manual-test-case, etc.
+/code-review
+/check-test-coverage
+/check-merge
+/new-pull-request
+</code>`<code></p><p>A typical post-incident workflow:</p><p></code>`<code>
+/analyze-escaped-defect PROJ-456
+   → produces gap analysis + recommended regression test
+/generate-tests-from-ac     (for the recommended regression)
+/generate-bug-report          (if the analysis surfaces additional issues)
+</code>`<code></p><p>---</p><h2>Maturity awareness</h2></p><p>The pack reads </code>.assert-iq/maturity-profile.md<code> and adjusts behavior:</p><p>| Tier | Behavior |
+|---|---|
+| **Early** | Foundation + traceability + manual generation only. Agentic Healing disabled. Risk assessment and release confidence operate in advisory mode without strong opinions. Manual fallback produced even when ACs route to automation. |
+| **Mid** | Add risk assessment, automated test generation, healing in suggest-only mode. Routing classifier operates as designed. |
+| **Higher** | Full pack including autonomous healing within configured retry bounds. Predictive release confidence enabled. Routing classifier flags manual ACs that could be automated. |</p><p>Maturity is set during the QI Diagnostic and re-evaluated quarterly.</p><p>---</p><h2>Governance & guardrails</h2></p><p>The pack enforces governance at multiple layers:</p><p>| Concern | Control |
+|---|---|
+| AI-generated tests merged without review | </code>@qi-review-required true<code> header + branch protection |
+| Healing patches production code | </code>allowed_scope: test-only<code> default, regression escalation |
+| Secrets in prompts or signals | Mask rule in foundation instructions, secret scanning in CI |
+| Premature acceleration on low-maturity | Maturity tier gate in every applicable skill |
+| Vendor lock-in | Markdown / YAML / JSON only — portable to other LLM IDE tools |
+| Signal payload drift | JSON schema in </code>.assert-iq/signal-schema.json<code> |
+| IP leakage via MCP tool calls | Scoped PATs, audit logging |
+| Hallucinated traceability | Trace must reference a real work item resolvable via MCP |
+| Compliance violations | </code>governance.md<code> defines client compliance posture |
+| Auto-creating defects without review | </code>bug_reporter.auto_create_threshold<code> |</p><p>Every skill includes an explicit Governance section. Read it before
+delegating the skill to a less-experienced engineer.</p><p>---</p><h2>Customization</h2></p><h3>Common customizations</h3></p><p>| Need | Where |
+|---|---|
+| Switch test framework | </code>.assert-iq/config.yaml<code> → </code>test_framework.primary<code> |
+| Switch tracker (ADO ↔ Jira) | </code>.assert-iq/config.yaml<code> → </code>tracker.type<code> and </code>.vscode/mcp.json<code> |
+| Adjust maturity tier | </code>.assert-iq/config.yaml<code> → </code>maturity.tier<code> and </code>.assert-iq/maturity-profile.md<code> |
+| Change healing retry bound | </code>.assert-iq/config.yaml<code> → </code>agentic_healing.retry_bound<code> |
+| Add a domain skill (e.g., performance, accessibility) | New folder under </code>.github/skills/<name>/<code> with a </code>SKILL.md<code> |
+| Adjust client-specific code patterns | </code>.github/instructions/qi-test-design.instructions.md<code> |
+| Change telemetry sink | </code>.assert-iq/config.yaml<code> → </code>signals.sink<code> |</p><h3>Adding a new skill</h3></p><p>1. Create a folder at </code>.github/skills/your-skill/<code> containing </code>SKILL.md<code> with:
+   - YAML frontmatter with </code>name<code>, </code>description<code>, and </code>mode: agent<code>
+   - </code># Title<code>
+   - </code>## Inputs<code>
+   - </code>## Procedure<code>
+   - </code>## Governance<code>
+2. If the skill needs supporting templates (XML, CSV, schemas, examples), drop
+   them in the same folder. Reference them from </code>SKILL.md<code> by relative path.
+3. If the skill needs new instructions, add a corresponding
+   </code>.instructions.md<code> file in </code>.github/instructions/<code> with an </code>applyTo<code> glob.
+4. Update this README's skill registry and the root </code>MANIFEST.md<code>. Because
+   </code>.claude/skills/<code> is a symlink to </code>.github/skills/<code>, Claude Code picks
+   the new skill up automatically — no second copy needed.</p><p>---</p><h2>Troubleshooting</h2></p><p>**The skill says it can't find the work item.**
+Confirm MCP is wired (</code>.vscode/mcp.json<code>) and the PAT has read access.
+Test by running a minimal MCP query directly.</p><p>**Generated tests don't match our framework conventions.**
+Update </code>.github/instructions/qi-test-design.instructions.md<code> with explicit
+examples of your project's pattern. The agent reads instructions before
+generating.</p><p>**Healing keeps escalating regressions but the test is wrong.**
+This is by design — healing never patches production code. If the test
+expectation is genuinely outdated, fix the test directly or use
+</code>/debug-ui-tests<code> with the </code>broken<code> classification path.</p><p>**Risk assessment scores feel off.**
+Adjust the weighting heuristics in
+</code>.github/skills/risk-assess-pr/SKILL.md<code>. Each layer is independently
+tunable.</p><p>**The router sends too many ACs to manual.**
+Tighten </code>routing.automation_threshold<code> in </code>config.yaml<code>, or adjust the
+classification heuristics in
+</code>.github/skills/generate-tests-from-ac/SKILL.md<code>.</p><p>**Skill outputs feel generic.**
+The pack relies on instructions files for project-specific shape. Update
+</code>qi-test-design.instructions.md<code>, </code>qi-manual-test-design.instructions.md<code>,
+or </code>qi-traceability.instructions.md<code> with examples drawn from your codebase.</p><p>---</p><h2>What this pack is not</h2></p><p>- It is not a runtime. There is no service to deploy.
+- It is not a SaaS. The client owns the files; if Sparq rotates off the
+  account, the pack stays.
+- It is not a replacement for QE judgment. Every output is a draft;
+  human review is required.
+- It is not a tooling pitch for Assert.IQ. Use it where the maturity
+  supports it. Lead with QI thinking, not with this pack.</p><p>---</p><h2>Versioning</h2></p><p>| Version | Notes |
+|---|---|
+| 0.1.0 | Foundation, instructions, MCP, 9 starter skills (as </code>.prompt.md<code> files). |
+| 0.1.5 | Manual & Exploratory addendum — router, manual test design, charter generator. |
+| 0.2.0 | Renamed to Agent Pack. Added 9 lifecycle skills. |
+| 0.3.0 | Added 8 high-leverage skills. README, governance template, maturity-profile template. 22 skills total. |
+| 0.4.0 | Skills refactored to </code>.github/skills/<name>/SKILL.md<code> directory structure. Added </code>MANIFEST.md<code>, </code>.vscode/settings.json<code>. README updated. |
+| 0.5.0 | Dual-target support: works with both GitHub Copilot Chat and Claude Code from the same pack folder. Added </code>CLAUDE.md<code>, </code>AGENTS.md<code>, </code>.claude/agents/<code>, </code>.claude/settings.json<code>, </code>.claude/skills/<code> symlink, </code>install.sh<code> / </code>install.ps1<code>. Added "When this applies" prose to all five instruction files. Hooks integrated under </code>hooks/<code>. |
+| 0.6.x | Bootstrap rewrite: </code>scripts/bootstrap.sh<code> / </code>.ps1<code> with </code>trial<code> / </code>committed<code> / </code>ask<code> modes, </code>solo<code> / </code>pod<code> presets, interactive conflict resolver, </code>.git/info/exclude<code> for trial mode (codebase </code>.gitignore<code> untouched), and </code>--graduate<code> to flip trial → committed. </code>.assert-iq/.install-manifest.json<code> written on every install. |
+| 0.7.0-rc.1 | Claude plugin format: </code>.claude-plugin/plugin.json<code>, </code>hooks/hooks.json<code> with portable </code>${CLAUDE_PLUGIN_ROOT}<code> paths. Single install path for both VS Code Copilot and Claude Code. |
+| 0.7.0-rc.2 | Added </code>.claude-plugin/marketplace.json<code> so VS Code Copilot's </code>Chat: Install Plugin From Source<code> accepts the repo. README install instructions clarified (no </code>@ref<code> pinning on the Copilot side). |
+| 0.7.0-rc.3 | Bootstrap surfaces three more workspace artifacts: </code>.vscode/<code> (settings + mcp), </code>hooks/<code> (scripts + rendered </code>hooks.json<code>), and </code>.claude/settings.json<code>. Additive JSON deep-merge for settings files — user's scalar values win on conflicts, object keys union from both sides — so pre-existing user config is never clobbered. Hook scripts now actually fire after a plugin install. |
+| 0.7.0-rc.4 | Bootstrap now also surfaces the Hindsight Hooks runtime directories — </code>hooks/state/<code> (seed JSON for </code>dismissed-lessons<code> and </code>edit-frequency<code>), </code>hooks/logs/<code> (writable log sink), and an empty </code>hooks/sessions/<code> directory for per-session scratch. Without these, hooks fired but had no state to read or anywhere to write. Trial-mode </code>.git/info/exclude<code> now records 38 paths (was 35). |
+| 0.7.0-rc.5 | Hardened bootstrap manifest and hook path rendering (PR #3). Validated apply-selection tokens in </code>skill-improve-apply<code> so invalid selections no longer silently dismiss candidates (PR #4). |
+| **0.7.0** | **First official release. Windows verified end-to-end. Fixes since rc.5: escaped </code>$manifestPath<code> interpolation in the bootstrap graduate log (PR #5); trial-mode unignore guidance added to README (PR #6); Windows hook commands switched to </code>pwsh -File<code> so PS1 hooks fire correctly on Windows (PR #7).** |
+| **0.8.0** | **Expanded MCP server catalog.** </code>.vscode/mcp.json<code> now wires 20 MCP servers (was 3): adds </code>git<code>, </code>gitlab<code>, </code>bitbucket<code>, </code>filesystem<code>, </code>postgres<code>, </code>sqlite<code>, </code>aws<code>, </code>sentry<code>, </code>grafana<code>, </code>datadog<code>, </code>honeycomb<code>, </code>playwright<code>, </code>puppeteer<code>, </code>notion<code>, </code>confluence<code>, </code>slack<code>, </code>teams<code>. All secrets routed through </code>${input:…}<code> prompts so the file stays safe to commit. New </code>.vscode/MCP.md<code> is a per-server setup guide covering prereqs (</code>uv<code>, </code>node<code>), VS Code quick start, Claude Code / Claude Desktop equivalents, credential sourcing, and troubleshooting. |
+| **0.9.0** | **Workspace topology + Five Whys discipline + install-model rework.** New </code>workspace.role<code> config (</code>monorepo<code> default, </code>prod<code>, </code>tests<code>) plus optional </code>companion_repo<code> (</code>path<code> / </code>remote<code> / </code>fetch: mcp \| local_path \| manual_paste<code>) wires split-repo teams whose tests live separate from prod code. Topology contract centralized in </code>qi-foundation.instructions.md<code> § Workspace topology with fetch fallback (MCP → local path → manual paste) and UNGRADED degradation (</code>reason: companion_repo_unset \| companion_repo_unreachable<code>) per the v0.2 signal-schema </code>partial_signal_mode<code> contract — never fabricated. Seven cross-repo skills (</code>risk-assess-pr<code>, </code>check-merge<code>, </code>release-confidence<code>, </code>code-review<code>, </code>check-test-coverage<code>, </code>generate-traceability-matrix<code>, </code>analyze-escaped-defect<code>) carry short pointers to the rule. Five Whys discipline added to </code>debug-ui-tests<code>, </code>analyze-flaky-test<code>, and </code>analyze-escaped-defect<code>: mandatory evidence-per-link chains, </code>max_depth<code> runaway guard, user-gated Anti-Patterns appendix. Install model reworked into **two paths**: Path A pack-as-workspace (</code>install.sh<code> / </code>install.ps1<code> at the cloned pack root) and Path B codebase install (</code>/assert-iq-bootstrap<code> or </code>bash scripts/bootstrap.sh --mode=trial<code>); the </code>.claude-plugin/<code> directory is removed. Both installers gain </code>--uninstall<code> with </code>--user<code> / </code>--yes<code> / </code>--dry-run<code>; bootstrap snapshots pre-existing user files to </code><file>.assert-iq.pre-install<code> for byte-for-byte restore. Four new workspace surfaces (</code>.github/skills/<code>, </code>.github/agents/<code>, </code>.claude/agents/<code>, </code>.claude/skills<code> symlink with copy fallback on Windows without Developer Mode) bring the total to twelve. Skill count 23 → 24. Version centralized in a new </code>VERSION<code> file. Backward-compatible: single-repo users see zero behavioral change. |
+| **1.0.0** | **First stable release.** API-stable surface: bootstrap CLI flags, manifest schema, skill names, and workspace surface layout will not change incompatibly without a major-version bump. Adds the </code>assert-iq-bootstrap<code> skill (the </code>/assert-iq-bootstrap<code> slash command itself), the </code>generate-hotspot-map<code> skill (churn × complexity × defect-density audit producing a Hotspot Risk Index registry), HTML snapshots of the README family for offline / static-host distribution, and the </code>e2e-bootstrap.sh<code> regression suite (23 cases covering pod / solo / portable presets, committed / trial / ask modes, skills-scope variants, idempotent reinstall, conflict + backup + restore, dry-run, invalid-arg rejection — all isolated under mktemp </code>$HOME<code> so it's safe to run on a developer machine). |
+| **1.1.0** | **Hindsight Hooks: scope-aware install + double-fire dedup.** New </code>--hooks=user<code> / </code>-Hooks user<code> install mode in </code>scripts/bootstrap.{sh,ps1}<code> lets power users install hooks once at </code>~/.agents/hooks/<code> and have them fire across every VS Code workspace; the per-workspace install path is unchanged and remains the default. New </code>si_dedup_or_exit<code> / </code>Invoke-SiDedupOrExit<code> helpers suppress duplicate fires of the same </code>(session_id, event)<code> pair within </code>SKILL_IMPROVE_DEDUP_WINDOW_SECONDS<code> (default 5; set to 0 to disable) via atomic </code>set -o noclobber<code> (bash) / </code>FileMode.CreateNew<code> (PowerShell) marker claims under </code>hooks/state/.dedup-<sha256><code>; wired into SessionStart and Stop only — PostToolUse legitimately fires once per tool call. Hook scripts now resolve </code>SKILL_IMPROVE_ROOT<code> from the environment (set by the wrapper template) so workspace and user installs route to their own roots deterministically. Janitor sweep prunes stale </code>.dedup-*<code> markers older than 1 hour. New </code>e2e-hooks.sh<code> suite (15 cases) verifies workspace + user layouts, SessionStart routing, PostToolUse telemetry + detect, Stop log entry, </code>config.enabled=false<code> and </code>SKILL_IMPROVE_DISABLED=1<code> no-ops, dedup behavior, and user uninstall. |
+| **1.1.1** | **Patch.** Hides Hindsight Hooks runtime artifacts from git so workspaces don't see hook state files appear as untracked changes. Per-directory </code>.gitignore<code> files now ship inside </code>hooks/state/<code>, </code>hooks/logs/<code>, and </code>hooks/sessions/<code> at the pack source; </code>copy_tree()<code> already copies dotfiles, so the rules propagate verbatim into every workspace install — no mutation of the workspace </code>.gitignore<code> required (consistent with the design rule that bootstrap never touches the user's </code>.gitignore<code>). Untracks the previously-committed runtime seeds </code>hooks/logs/skill-improve.log<code> and </code>hooks/state/.last-janitor<code>; structural seeds </code>dismissed-lessons.json<code> and </code>edit-frequency.json<code> remain tracked. Also enables GitHub Pages at </code>https://fromjariuswithsparq.github.io/assert-iq-agent-pack/<code> with </code>README.assert-iq.html<code> as the landing page, and refreshes stale current-version banners across the README family. |
+| **1.2.0** | **Token economy: ~15–20% lighter always-on stack.** Shared rules (Core principles, Maturity awareness, Governance, Output standards) consolidated into </code>.github/instructions/qi-foundation.instructions.md<code>; </code>.github/copilot-instructions.md<code>, </code>CLAUDE.md<code>, and </code>AGENTS.md<code> rewritten as thin pointers (Copilot path: 6,617 → 5,128 chars; Claude path: 9,630 → 7,977 chars per turn). Workspace-topology mechanics (fetch fallback chain, UNGRADED contract) moved out of the always-on </code>qi-foundation.instructions.md<code> into a new lazy-loaded reference doc </code>.assert-iq/workspace-topology.md<code> that only gets pulled when </code>workspace.role != monorepo<code> — monorepo users (the default) no longer carry split-repo prose on every prompt. Two heaviest skill descriptions trimmed: </code>code-review<code> (1,147 → 520 chars), </code>eval-optimizer<code> (1,023 → 584 chars), </code>generate-hotspot-map<code> (435 → 292 chars); skill bodies untouched. Net always-on savings: roughly **670 tokens/turn (Copilot)** and **715 tokens/turn (Claude)** plus **~300 tokens** off the skill-routing block — zero behavior change, every rule that loaded before still loads, just from a new home. The seven cross-repo skills (</code>risk-assess-pr<code>, </code>check-merge<code>, </code>release-confidence<code>, </code>code-review<code>, </code>check-test-coverage<code>, </code>generate-traceability-matrix<code>, </code>analyze-escaped-defect<code>) plus </code>generate-hotspot-map<code> now point to </code>.assert-iq/workspace-topology.md<code> for the full contract. |
+| **1.3.0–1.4.x** | Internal releases. Upgrade engine foundation, workspace topology refinement, trial-mode uninstall, base-cache tagging. |
+| **1.5.0** | **Dreaming — offline memory consolidation.** Replaces the retired Hindsight Hooks feature. New </code>/dream<code> skill (phases: Orient → Gather → Consolidate → Prune & Index) with on-demand + optional cron invoke. Three-tier memory: Rules tier (</code>.github/instructions/*<code>; immutable) / Long-term (</code>.assert-iq/memory/MEMORY.md<code> index ≤200 lines + </code>topics/<code>) / Short-term (session logs + transcripts). Waking loop (session recorder + dual gate: 24h AND 5 sessions). Memory store is git-ignored in committed mode; pristine seed pruned on uninstall (dreamt content preserved). |
+| **1.5.1–1.5.4** | Incremental fixes: base-cache tag backfill (v1.2.0–v1.4.0), trial-mode surface discovery, hook-wiring cleanup, MEMORY.md git-ignore. |
+| **1.5.5** | **Dreaming fires in VS Code Copilot.** Pack now wires both harnesses (Copilot + Claude) to </code>.claude/settings.json<code>. Hook fallback pack-root fixed (off-by-one: 3 levels → 4 levels). Fragile </code>dreaming.enabled<code> check fixed. |
+| **1.5.6** | **Uninstall after upgrade no longer leaves files behind.** Upgrade backup mechanism removed. Dropped </code>.pyc<code> build artifact. Memory store intentionally preserved on uninstall when it holds real consolidated content. |
+| **1.5.7** | **Documentation integrity.** Added high-level "Why Dreaming & token savings" section to </code>dreaming-readme.html<code> with worked token-economics model. Fixed stale hook references. **Credibility checkpoint:** signals and docs fully reconciled. |
+| **1.6.0** | **Oracle Layer — defensible quality verification via rubric-based grading.** New </code>/define-quality-rubric<code> skill (interview-driven rubric authorship), </code>/grade-with-rubric<code> skill (independent artifact grading in isolated context), </code>.claude/agents/grader.md<code> (grader agent with Anthropic outcomes wiring), </code>.assert-iq/oracles/<code> registry (schemas, rubric templates, verdict lineage), oracle integration in </code>/check-merge<code> and </code>/release-confidence<code> (Outcome layer, maturity-gated weighting), new </code>qi-oracle.instructions.md<code> governance rules. Oracle positioning: rubric authorship (not generation) is the defensible differentiator. Grader has zero access to generator reasoning. Rubrics are immutable, versioned, evidence-driven. **29 skills total** (was 27). |</p><p>Tag releases. Keep a CHANGELOG in </code>.assert-iq/CHANGELOG.md<code>.</p><p>---</p><h2>Calibration & Reproducibility (v1.7.0+)</h2></p><h3>The Moat: Your Client-Specific Verdict Accuracy</h3></p><p>Assert.IQ v1.7.0 introduces **Decision Confidence Calibration** — a longitudinal
+measurement system that reveals how accurate YOUR verdicts are over time, against
+real escapes in production.</p><p>#### What Gets Recorded</p><p>Every PR risk assessment and release confidence judgment is recorded immutably:
+- Verdict band (green/amber/red) + numeric confidence (0.0–1.0)
+- Layer scores (Change, Protection, Trust, Outcome each with STRONG/WEAK state)
+- Assumptions baked into the verdict
+- SHA256 hash of memory used (enables reproducibility from any date)
+- When an escape is discovered, it's linked back to the original verdict</p><p>#### Why This Matters</p><p>1. **For vendors:** After 60 days, you have escape correlation data that competitors can't replicate.
+   You can show regulated clients: "Our verdicts had 94% precision on green-band PRs in your environment."
+2. **For regulated clients:** Verdicts are auditable end-to-end. SOX audits can ask "Why did we ship PR #4521?"
+   and get: memory state snapshot → reproducible assessment → linked escape (if any).
+3. **For teams:** Brier score trending reveals if your memory is drifting (old patterns becoming stale).
+   Regression tests prevent dreams from degrading accuracy.</p><p>#### Using Calibration Metrics</p><p>Run on-demand:
+</code>`<code>bash
+python3 .assert-iq/analysis/calibration.py --window-days 90 --output report.json
+</code>`<code></p><p>Generates:
+- **Brier Score** — mean squared error between predicted confidence and actual outcome
+- **Confusion Matrix** — TP/FP per verdict band
+- **Per-Layer Fidelity** — which layers are predictive vs. noisy
+- **Drift Alerts** — Brier score degradation over rolling windows</p><p>#### Reproducibility Contract</p><p>For regulated clients, the reproducibility chain is:
+1. Restore memory to date X: </code>tar xzf .snapshots/mem-20260801T100000Z.tar.gz -C .assert-iq<code>
+2. Re-run assessment: </code>/risk-assess-pr --pr-id 4521 --memory-version sha256:abc...<code>
+3. Get same verdict: Same band, score, and layer states</p><p>This satisfies audit requirements for SOX, ISO 27001, FedRAMP.</p><p>#### Configuration</p><p>Enable/disable in </code>.assert-iq/config.yaml<code>:
+</code>`<code>yaml
+verdicts:
+  enabled: true
+  track_in_git: false  # Set to true for regulated clients (must commit to git)
+  retention_days: 730</p><p>calibration:
+  enabled: true
+  window_days: 90
+  drift_alarm_threshold: 0.15</p><p>regression_testing:
+  block_dream_on_regression: false  # Set to true at higher maturity tiers
+  max_verdict_divergence_pct: 5
+</code>``</p><p>---</p><h2>Ownership</h2></p><p>| Role | Responsibility |
+|---|---|
+| Pack technical owner/QI Sponsor | Jarius Hayes |
+| Assert.IQ commercial owner | Intelligence Studio leadership |
+| Pilot account leads | Embedded QE pod leads |
+| Governance review | QI sponsor + Sparq InfoSec |
+| Versioning and release | Jarius Hayes |</p><p>---</p><h2>Where to learn more</h2></p><p>- Quality Intelligence Kit (Sparq internal) — the operating model behind every skill in this pack
+- QI Diagnostic Guide — how to set the right maturity tier (See Jarius)
+- QI Facilitator Guide and Playbook — how to talk about this pack with clients without making it the headline (Sparq internal)
+- Assert.IQ and the Quality Intelligence Vision — positioning between the operating model and the commercial offering (See Jarius)
+</p>
+</body>
+</html>

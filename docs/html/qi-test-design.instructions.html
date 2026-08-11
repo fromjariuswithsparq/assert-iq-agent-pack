@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Test design instructions</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; }
+        h1, h2, h3 { color: #2c3e50; border-bottom: 1px solid #e1e4e8; padding-bottom: 0.3em; }
+        h1 { border-bottom: 2px solid #0366d6; }
+        code { background: #f6f8fa; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+        pre { background: #f6f8fa; padding: 12px; border-radius: 6px; overflow-x: auto; }
+        .meta { color: #666; font-size: 0.9em; margin-bottom: 20px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f6f8fa; }
+        .search-highlight { background: #fff8cc; }
+        a { color: #0366d6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>Test design instructions</h1>
+    <div class="meta">Generated: 2026-08-11 16:35:24 UTC</div>
+<p>---
+applyTo: "tests/**, **/*.test.*, **/*.spec.*, **/*Test.*"
+description: "Assert.IQ test generation and design rules."
+---</p><h1>Test design instructions</h1></p><p>**When this applies:** generating, modifying, or reviewing automated tests —
+any file matching <code>*Test.*</code>, <code>*.test.*</code>, <code>*.spec.*</code>, or living under
+<code>tests/**</code> (Copilot loads via <code>applyTo</code>; Claude Code: apply whenever the
+user is working with automated test code).</p><p>When generating, modifying, or reviewing tests, follow these rules.</p><h2>Required header on every generated test</h2></p><p>Every generated test must begin with according to the project's idiomatic comment style, including the following metadata:</p><p>``<code>
+/// <qi-trace work-item: <ADO_ID or JIRA_KEY> />
+/// <qi-trace acceptance-criteria: <AC reference> />
+/// <qi-layer protection-strength />
+/// <qi-generated-by assert-iq />
+/// <qi-review-required true />
+/// <qi-risk-tier <low|medium|high> />
+</code>`<code></p><h2>Framework conformance</h2></p><p>Read </code>.assert-iq/config.yaml` to determine the active test framework. Do not
+introduce a different framework. Supported frameworks include but are not limited
+to: Playwright, Cypress, Selenium (Java/C#/Python), RestAssured, Postman/Newman,
+JUnit, TestNG, NUnit, xUnit, pytest, Jest, Vitest, Mocha.</p><h2>Test design heuristics</h2></p><p>1. Start from acceptance criteria, not from implementation.
+2. Cover the happy path first, then negative paths, then edge cases.
+3. Each test must be independently executable and idempotent.
+4. Use the Page Object Model (UI) or Service Object pattern (API) where the
+   project already does so. Do not invent new patterns.
+5. Avoid hard waits. Prefer explicit waits or test-framework idioms.
+6. Test data must be deterministic or generated through the project's existing
+   data factory.</p><h2>What you must not do</h2></p><p>- Do not generate tests that touch production endpoints.
+- Do not embed credentials, tokens, or PII in test data.
+- Do not silently skip or quarantine tests. Surface flakes and ask.
+</p>
+</body>
+</html>

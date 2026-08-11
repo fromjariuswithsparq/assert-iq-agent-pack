@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Signal emission instructions</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; }
+        h1, h2, h3 { color: #2c3e50; border-bottom: 1px solid #e1e4e8; padding-bottom: 0.3em; }
+        h1 { border-bottom: 2px solid #0366d6; }
+        code { background: #f6f8fa; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+        pre { background: #f6f8fa; padding: 12px; border-radius: 6px; overflow-x: auto; }
+        .meta { color: #666; font-size: 0.9em; margin-bottom: 20px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f6f8fa; }
+        .search-highlight { background: #fff8cc; }
+        a { color: #0366d6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>Signal emission instructions</h1>
+    <div class="meta">Generated: 2026-08-11 16:35:24 UTC</div>
+<p>---
+applyTo: ".github/workflows/**, azure-pipelines.yml, **/*.gitlab-ci.yml, Jenkinsfile"
+description: "CI must emit QI outcome signals in a standard schema."
+---</p><h1>Signal emission instructions</h1></p><p>**When this applies:** authoring or modifying CI configuration — GitHub
+Actions workflows (<code>.github/workflows/**</code>), Azure Pipelines
+(<code>azure-pipelines.yml</code>), GitLab CI (<code>**/*.gitlab-ci.yml</code>), or Jenkins
+(<code>Jenkinsfile</code>). Copilot loads via <code>applyTo</code>; Claude Code: apply whenever
+the user is editing pipeline definitions.</p><p>CI pipelines in this repository must emit a QI outcome payload at the end of
+every test run. The payload schema is defined in <code>.assert-iq/signal-schema.json</code>.</p><p>When generating or modifying CI configuration:</p><p>1. Add a final step that publishes the outcome payload to the configured sink
+   (file artifact, webhook, or telemetry endpoint per <code>config.yaml</code>).
+2. The payload must include:
+   - <code>run_id</code>, <code>commit_sha</code>, <code>branch</code>, <code>pr_id</code> (if applicable)
+   - <code>change_layer</code>: { files_changed, services_touched, churn, late_changes }
+   - <code>protection_layer</code>: { tests_executed, coverage_pct, traceability_pct }
+   - <code>trust_layer</code>: { flaky_count, blocked_count, env_uptime_pct }
+   - <code>outcome_layer</code>: { defects_open, escapes_30d, telemetry_alerts }
+   - <code>decision_layer</code>: { release_confidence, mitigation_required }
+3. Mask secrets. Never include raw stack traces with file paths from secret stores.
+4. Tag the run with the maturity tier from <code>.assert-iq/config.yaml</code> so consumers
+   can interpret which signals are available.</p><h2>Verdict Recording Requirements (v1.7.0+)</h2></p><p>When <code>/risk-assess-pr</code> or <code>/release-confidence</code> emits a verdict, the CI pipeline
+must record it to <code>.assert-iq/verdicts/archive/</code>:</p><p>1. **Verdict Sink Path:** <code>.assert-iq/verdicts/archive/YYYY/MM/verdicts-DD.jsonl</code>
+   - Create directories if they don't exist
+   - One JSON object per line (JSONL format)
+2. **Required Fields in Verdict Object:**
+   - <code>verdict_id</code> — UUIDv4 (use <code>uuidgen</code> or <code>python3 -c "import uuid; print(uuid.uuid4())"</code>)
+   - <code>verdict_type</code> — enum: pr_risk_assessment, release_confidence, hotspot_map, other
+   - <code>verdict_band</code> — enum: green, amber, red, ungraded
+   - <code>verdict_score</code> — float 0.0–1.0 (predicted confidence)
+   - <code>layer_scores</code> — object with change, protection, trust, outcome (each: {state, score})
+   - <code>layer_weights</code> — object with normalized weights (sum ≈ 1.0)
+   - <code>memory_version</code> — SHA256 hash of <code>.assert-iq/memory/</code> at verdict time
+   - <code>issued_at</code> — ISO 8601 timestamp
+   - <code>issued_by</code> — skill name (e.g., "risk-assess-pr")
+   - <code>pr_id</code> — PR number (or null)
+   - <code>release_id</code> — release tag (or null)
+   - <code>assumptions</code> — array of explicit assumption strings
+   - <code>linked_escape</code> — null or {defect_id, discovery_date, layer_failure}
+3. **Append to Audit Trail:** Add one-line summary to <code>.assert-iq/verdicts/VERDICTS.md</code>:
+   ``<code>
+   <YYYY-MM-DD HH:MM:SS UTC> | <verdict_id> | <verdict_type> | <verdict_band> | <verdict_score> | <pr_id> | <layer_summary> | <linked_escape>
+   </code>`<code>
+4. **Update Index:** Increment </code>.assert-iq/verdicts/index.json<code> counters:
+   - </code>verdicts_recorded<code>
+   - </code>verdicts_by_band[<band>]<code>
+   - </code>verdicts_by_type[<type>]<code>
+   - If escape linked: </code>verdicts_with_escapes`
+5. **Non-blocking:** Verdict recording must not fail the build. If sink is unreachable,
+   log warning and continue.
+</p>
+</body>
+</html>

@@ -421,6 +421,40 @@ Classification: **Medium** — standard assessment.
 - **Never blocks the PR.** The skill posts the signal; the
   decision to merge stays with the human reviewer.
 
+## Verdict Recording (v1.7.0+)
+
+This skill records every PR risk assessment verdict to the verdict sink
+(`.assert-iq/verdicts/`) for longitudinal decision confidence calibration:
+
+1. **Verdict object** — After computing layer scores, construct verdict with:
+   - `verdict_type: "pr_risk_assessment"`
+   - `verdict_band`: green/amber/red/ungraded (from decision policy)
+   - `verdict_score`: 0.0–1.0 (average layer score)
+   - `layer_scores`: change/protection/trust/outcome, each with state + score
+   - `maturity_tier`: from config.yaml
+   - `memory_version`: SHA256 hash of `.assert-iq/memory/` at time of verdict
+   - `pr_id`: PR number
+   - `assumptions`: list of reasoning assumptions
+
+2. **Recording** — Use helper library:
+   ```python
+   from verdict_recorder import VerdictRecorder
+   recorder = VerdictRecorder()
+   result = recorder.record_verdict(verdict_obj)  # Non-blocking
+   ```
+
+3. **Verdict inclusion in PR comment** — Append verdict ID:
+   ```
+   **Verdict ID**: {verdict_id} (audit trail reference)
+   ```
+
+4. **Escape linkage** — When defect is discovered post-release, `/analyze-escaped-defect`
+   queries verdict sink and links defect to original verdict, updating calibration metrics.
+
+**Implementation guide**: See `.assert-iq/VERDICT_INTEGRATION_GUIDE.md` (Pattern 1)
+
+---
+
 ## Signals emitted
 
 When the QI signal sink is wired, this skill emits a `pr.risk_assessed`

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>QI foundation instruction</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; color: #333; }
+        h1, h2, h3 { color: #2c3e50; border-bottom: 1px solid #e1e4e8; padding-bottom: 0.3em; }
+        h1 { border-bottom: 2px solid #0366d6; }
+        code { background: #f6f8fa; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+        pre { background: #f6f8fa; padding: 12px; border-radius: 6px; overflow-x: auto; }
+        .meta { color: #666; font-size: 0.9em; margin-bottom: 20px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f6f8fa; }
+        .search-highlight { background: #fff8cc; }
+        a { color: #0366d6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>QI foundation instruction</h1>
+    <div class="meta">Generated: 2026-08-11 16:35:24 UTC</div>
+<p>---
+applyTo: "**"
+description: "QI foundation — applied to every interaction in this repository."
+---</p><h1>QI foundation instruction</h1></p><p>**When this applies:** every interaction in this repository. This file is the
+single shared rulebook for both Copilot (loaded via <code>applyTo: "**"</code>) and
+Claude Code (loaded via <code>@.github/instructions/qi-foundation.instructions.md</code>
+in <code>CLAUDE.md</code>).</p><h2>Always-on rules (Copilot + Claude)</h2></p><h3>Core principles</h3></p><p>1. Quality = Velocity × Customer Satisfaction × System Resilience.
+2. Reason about quality through the four-layer signal model — Change risk,
+   Protection strength, Signal trustworthiness, Outcome evidence — and
+   synthesize Decision Confidence. Never reduce a release decision to a
+   single number.
+3. Distinguish a metric (what happened) from a signal (decision-grade evidence).
+4. AI-generated code and tests are drafts. A human review gate is mandatory
+   before merge. Surface assumptions explicitly.
+5. Honor the client's existing test framework, branching model, and tracking
+   system. Do not introduce new dependencies without explicit confirmation.</p><h3>Maturity awareness</h3></p><p>Read <code>.assert-iq/maturity-profile.md</code> before acting (or
+<code>~/.assert-iq/maturity-profile.md</code> as a user-global fallback). Behavior
+changes by tier:</p><p>- **Early** — foundation + traceability + manual generation only. Agentic
+  Healing disabled.
+- **Mid** — add risk assessment + automated test generation. Healing operates
+  in suggest-only mode.
+- **Higher** — full pack, including autonomous healing within configured retry
+  bounds.</p><h3>Memory awareness</h3></p><p>At session start, read <code>.assert-iq/memory/MEMORY.md</code> if it exists — the
+**index only** (one-line pointers, capped ~200 lines), not the topic bodies.
+Pull <code>topics/*.md</code> lazily, only when a pointer is relevant to the task. This
+is durable project memory maintained by the Dreaming feature (the <code>/dream</code>
+skill); it is separate from — and lower priority than — the human-authored
+rule files under <code>.github/instructions/*</code>, which always win. Never write to
+the memory store except through <code>/dream</code>, and never let a memory entry
+override an instruction-file rule.</p><p>Oracle rubrics (v1.6.0+) are versioned specs, not memory. Reference them by
+ID only (e.g., <code>test-unit-v1.0</code>) and pull their content from
+<code>.assert-iq/oracles/rubrics/</code> when needed. Rubrics are immutable; updates are
+new versions, not edits to existing rubrics.</p><h3>Governance you must enforce</h3></p><p>- Every generated test must include a traceability comment linking to the
+  source work item (ADO ID or Jira key).
+- Every healed test must record the failure signature and the fix rationale.
+- No prompt may exfiltrate code, secrets, or proprietary data outside the
+  IDE / CI boundary.
+- If a request would violate <code>.assert-iq/governance.md</code> (or
+  <code>~/.assert-iq/governance.md</code> as a user-global fallback), refuse and explain.</p><h3>Output standards</h3></p><p>- Cite the work item, file path, and signal layer when producing artifacts.
+- Provide a brief Recommendation, Next Steps, Owners, Timeline section on
+  multi-step deliverables.
+- Prefer paraphrase and synthesis over copy-paste from external sources.</p><h2>Workspace topology — read first</h2></p><p>Before reasoning about any of the four signal layers, read
+<code>.assert-iq/config.yaml > workspace.role</code>. The default is <code>monorepo</code> —
+production code and tests live in this workspace; no cross-repo behavior
+activates and every skill behaves exactly as it did before topology was
+introduced.</p><p>When <code>workspace.role</code> is <code>prod</code> or <code>tests</code>, this workspace holds only one
+half. Read <code>.assert-iq/workspace-topology.md</code> for the full contract:
+which signals fetch from <code>workspace.companion_repo</code>, the MCP → local path
+→ manual paste fallback chain, and the **UNGRADED** rules
+(<code>reason: "companion_repo_unset"</code> / <code>"companion_repo_unreachable"</code> under
+v0.2 signal schema <code>partial_signal_mode: true</code>). Never fabricate a missing
+signal. State the gap and continue with the remaining layers.</p><h2>Four-layer reasoning order</h2></p><p>When the user asks any quality, testing, release, or risk question, you must
+reason in this order:</p><p>1. **What changed?** (Change risk)
+   - Inspect git diff scope, files touched, services impacted.
+   - Flag late-breaking changes, churn concentration, and dependency reach.</p><p>2. **What protects this?** (Protection strength)
+   - Identify covering tests in <code>tests/**</code>.
+   - Check requirement-to-test traceability comments.
+   - Note coverage gaps on impacted areas.</p><p>3. **Can we trust the signals?** (Signal trustworthiness)
+   - Check flake history, blocked tests, environment notes.
+   - Flag tests that have been skipped or quarantined recently.</p><p>4. **What do outcomes say?** (Outcome evidence)
+   - Surface recent escaped defects on touched components.
+   - Pull telemetry signals if MCP exposes them.
+   - Check oracle verdicts (v1.6.0+) if oracle layer is enabled:
+     - Review <code>/grade-with-rubric</code> results on touching code changes
+     - Weight oracle verdicts per maturity tier (early: 0%, mid: 20%, higher: 50%)
+     - Oracle verdicts feed Outcome layer, not replacement for other three layers</p><p>5. **What is the decision?** (Decision confidence)
+   - Synthesize the above into Release / Mitigate / Hold guidance.
+   - Always include explicit assumptions and what would change the verdict.</p><p>You may not assert "this is safe to ship" without all four layers being
+addressed. If a layer cannot be evaluated, say so explicitly.</p><h2>Decision Confidence Calibration & Reproducibility (v1.7.0+)</h2></p><h3>Verdict Recording</h3></p><p>Every PR risk assessment (<code>/risk-assess-pr</code>) and release confidence judgment
+(<code>/release-confidence</code>) is recorded with full fidelity in
+<code>.assert-iq/verdicts/archive/YYYY/MM/verdicts-DD.jsonl</code>:</p><p>- Verdict ID (UUID) for global uniqueness
+- Verdict band (green/amber/red/ungraded)
+- Numeric confidence score (0.0–1.0)
+- Per-layer scores: Change, Protection, Trust, Outcome (STRONG/WEAK/UNGRADED + 0.0–1.0)
+- Layer weights (normalized to ~1.0)
+- Maturity tier at time of verdict
+- **Memory version (SHA256 hash)** — the state of <code>.assert-iq/memory/</code> used for this verdict
+- Assumptions (explicit list) and linked escape (if discovered post-release)</p><h3>Reproducibility Contract</h3></p><p>Any verdict can be reproduced by:
+1. Restoring memory snapshot: <code>tar xzf .assert-iq/dreaming/.snapshots/mem-<version>.tar.gz -C .assert-iq</code>
+2. Re-running assessment with the same PR/release ID
+3. Expected outcome: Identical verdict band, score, and layer states</p><p>Regulatory clients (SOX, ISO 27001, FedRAMP) use this for audit trail compliance.</p><h3>Calibration Metrics</h3></p><p>Longitudinal accuracy is measured via:</p><p>- **Brier Score** (per verdict band) — mean((predicted_confidence - actual_outcome)²)
+  - Green verdicts where escapes occurred penalize score
+  - Rolling 30-day windows detect drift (alarm if Brier degrades >0.15)
+- **Confusion Matrix** — predicted band vs. actual escape/no-escape
+  - Precision per band (TP / (TP + FP))
+  - Identifies systematic mispredictions
+- **Per-Layer Signal Fidelity** — of verdicts marked WEAK on layer X, what fraction had actual escapes?
+  - Measures predictiveness of each layer
+- **Memory Drift Detection** — post-dream, compare verdict accuracy before/after
+  - Regression test corpus prevents memory degradation</p><h3>Memory Poisoning Prevention</h3></p><p>Before <code>/dream</code> consolidates memory:
+1. Run <code>python3 .assert-iq/analysis/memory-sanity.py</code> for sanity checks:
+   - Cycle detection (A→B→C→A flags editorial confusion)
+   - Fact staleness (>180 days without update)
+   - Contradiction detection (conflicting facts across topics)
+   - Granularity checks (copy-paste vs. synthesized facts)
+2. Snapshot memory: <code>.assert-iq/dreaming/.snapshots/mem-<timestamp>.tar.gz</code>
+3. Log dream cycle in <code>.assert-iq/dreaming/provenance.json</code> (append-only audit)
+4. Post-dream: regression test golden corpus (fail if >5% verdict divergence)</p><p>Higher maturity tiers enforce regression blocking; lower tiers alert only.</p><h3>Audit Trail</h3></p><p>One-line summaries appended to <code>.assert-iq/verdicts/VERDICTS.md</code> for human audit:
+``<code>
+<YYYY-MM-DD HH:MM:SS UTC> | <verdict_id> | <type> | <band> | <score> | <pr_id> | <layer_summary> | <linked_escape>
+</code>`<code></p><p>Query any verdict: </code>bash .assert-iq/analysis/audit-verdict.sh <verdict_id>` outputs full record
+with reproducibility instructions.
+</p>
+</body>
+</html>

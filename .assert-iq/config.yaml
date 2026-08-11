@@ -1524,3 +1524,74 @@ mcp:
     # - name: "<server-name>"
     #   enabled: false
     #   endpoint: "<MCP server URL>"
+
+
+# =============================================================================
+# VERDICT RECORDING + CALIBRATION  (v1.7.0+)
+# =============================================================================
+# Every PR risk assessment and release confidence verdict is recorded with
+# full layer scores, assumptions, and memory version for longitudinal calibration
+# and reproducibility. Escape discovery is linked back to original verdicts to
+# measure prediction accuracy over time.
+# =============================================================================
+verdicts:
+  enabled: true                          # master switch
+  track_in_git: false                    # set true for regulated clients (SOX, ISO 27001)
+  record_path: ".assert-iq/verdicts"     # where to store verdicts
+  retention_days: 730                    # keep 2 years of verdict history
+
+
+# =============================================================================
+# MEMORY PROVENANCE & VERSIONING  (v1.7.0+)
+# =============================================================================
+# Before /dream modifies memory, a snapshot is taken. Every verdict records
+# which memory version was in use, enabling reproducibility and poisoning detection.
+# =============================================================================
+dreaming_provenance:
+  enabled: true                          # master switch
+  snapshot_retention: 10                 # keep last N memory snapshots
+  snapshot_path: ".assert-iq/dreaming/.snapshots"
+
+
+# =============================================================================
+# REGRESSION TESTING (GOLDEN CORPUS)  (v1.7.0+)
+# =============================================================================
+# After each /dream, re-evaluate a fixed corpus of representative PRs to ensure
+# memory changes don't degrade verdict accuracy. Regressions block auto-fire dreams.
+# =============================================================================
+regression_testing:
+  enabled: false                         # user enables + populates golden-corpus.jsonl
+  golden_corpus_path: ".assert-iq/tests/_qi/regression/golden-corpus.jsonl"
+  block_dream_on_regression: false       # set true at higher tier (fail-safe mode)
+  max_verdict_divergence_pct: 5          # fail if >5% of corpus verdicts change
+
+
+# =============================================================================
+# CALIBRATION ANALYSIS  (v1.7.0+)
+# =============================================================================
+# Longitudinal measurement of decision confidence accuracy via Brier score,
+# confusion matrix, per-layer signal fidelity, and drift detection.
+# =============================================================================
+calibration:
+  enabled: true                          # master switch
+  window_days: 90                        # calibration time window (days)
+  drift_alarm_threshold: 0.15            # Brier score delta to trigger alert
+  min_verdicts_for_stats: 10             # suppress stats if <N verdicts (high noise)
+
+
+# =============================================================================
+# MEMORY POISONING DETECTION  (v1.7.0+)
+# =============================================================================
+# Sanity checks on memory store for corruption and drift:
+# - Cycle detection (topics A→B→C→A)
+# - Fact staleness (>180 days without update)
+# - Contradiction detection (conflicting facts across topics)
+# - Semantic drift (topics diverging from original intent)
+# - Fact granularity (copy-paste vs. synthesis)
+# =============================================================================
+memory_sanity:
+  enabled: true                          # master switch
+  cycle_detection: true
+  staleness_threshold_days: 180
+  semantic_drift_detection: true         # requires anthropic SDK (optional)
+  max_issues_to_report: 20
