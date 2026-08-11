@@ -1,7 +1,7 @@
 ---
 name: analyze-escaped-defect
 mode: agent
-description: "Post-incident analysis — which signal layer should have caught it, and how do we prevent next time."
+description: "Post-incident analysis — which signal layer should have caught it, link to original verdict, and prevent next time."
 ---
 
 <!-- markdownlint-disable MD033 -->
@@ -334,6 +334,80 @@ selection on payment-service changes" is a systemic framing.
 - **Blameless framing applies to every link**. Reframe any link that
   drifts toward individual blame into a systemic statement (process,
   tooling, signal, convention).
+
+### Verdict Linkage (v1.7.0+)
+
+**REQUIRED: Link escape to original verdict for calibration.** When escape is discovered on a PR
+that was previously assessed by `/risk-assess-pr` or a release assessed by `/release-confidence`:
+
+```python
+# 1. LOAD RECORDER
+try:
+    import importlib.util
+    from pathlib import Path
+    spec = importlib.util.spec_from_file_location(
+        "verdict_recorder", 
+        Path(".assert-iq/analysis/verdict-recorder.py")
+    )
+    verdict_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(verdict_module)
+except Exception as e:
+    verdict_module = None
+
+# 2. QUERY VERDICT SINK FOR ORIGINAL ASSESSMENT
+if verdict_module:
+    import json
+    from pathlib import Path
+    
+    verdicts_dir = Path(".assert-iq/verdicts/archive")
+    matching_verdicts = []
+    
+    # Search for verdicts matching the introducing PR or release
+    for jsonl_file in verdicts_dir.rglob("verdicts-*.jsonl"):
+        with open(jsonl_file, 'r') as f:
+            for line in f:
+                verdict = json.loads(line)
+                # Match on pr_id (for PR escapes) or release_id (for release escapes)
+                if verdict.get("pr_id") == str(introducing_pr_id):
+                    matching_verdicts.append(verdict)
+    
+    # 3. LINK ESCAPE TO ORIGINAL VERDICT
+    if matching_verdicts:
+        original_verdict = max(matching_verdicts, key=lambda v: v.get("issued_at"))
+        
+        # Determine which layer failed
+        layer_scores = original_verdict.get("layer_scores", {})
+        failed_layer = None
+        for layer_name, layer_info in layer_scores.items():
+            if isinstance(layer_info, dict) and layer_info.get("score", 1.0) < 0.5:
+                failed_layer = layer_name
+                break
+        
+        # Record linkage by appending to audit trail
+        print(f"🔗 Linked escape {defect_id} to verdict {original_verdict.get('verdict_id')}")
+        print(f"   Original verdict band: {original_verdict.get('verdict_band')}")
+        print(f"   Layer that failed: {failed_layer or 'multiple'}")
+        print(f"   → This escape will be used to calibrate future verdicts")
+        
+        return {
+            "linked": True,
+            "verdict_id": original_verdict.get("verdict_id"),
+            "original_band": original_verdict.get("verdict_band"),
+            "failed_layer": failed_layer
+        }
+    else:
+        print(f"⚠️ No original verdict found for PR {introducing_pr_id}")
+        print(f"   Escape will be analyzed, but calibration linkage skipped")
+        return {"linked": False}
+```
+
+**Why this matters**: Linking escapes to original verdicts enables:
+- **Calibration accuracy** — measure if verdict was right or wrong
+- **Per-layer fidelity** — which layers are strongest, which need work
+- **Brier score trending** — longitudinal prediction accuracy
+- **Drift detection** — alert if verdict quality degrades over time
+
+**Implementation guide**: See `.assert-iq/VERDICT_INTEGRATION_GUIDE.md` (Pattern 3)
 
 ### Self-update discipline (Anti-Patterns appendix)
 

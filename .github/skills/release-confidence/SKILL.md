@@ -477,38 +477,88 @@ unable-to-assess flags), `red_flags_triggered`, `mitigations_count`,
 `blockers_count`, `risks_accepted`, `partial_signal_mode`,
 `compliance_lock`, and `tracker_ref` (release work-item or tag).
 
-## Verdict Recording (v1.7.0+)
+## ⚠️ REQUIRED: Verdict Recording (v1.7.0+)
 
-This skill records every release confidence verdict to the verdict sink
-(`.assert-iq/verdicts/`) for longitudinal decision confidence calibration:
+**THIS STEP IS MANDATORY.** Every release confidence verdict MUST be recorded to the verdict sink
+for longitudinal decision confidence calibration. This is not optional.
 
-1. **Verdict object** — After computing layer scores, construct verdict with:
-   - `verdict_type: "release_confidence"`
-   - `verdict_band`: green/amber/red/ungraded (from GO / GO-WITH-MITIGATION / HOLD)
-   - `verdict_score`: 0.0–1.0 (average layer score with mitigation adjustments)
-   - `layer_scores`: change/protection/trust/outcome, each with state + score
-   - `maturity_tier`: from config.yaml
-   - `memory_version`: SHA256 hash of `.assert-iq/memory/` at time of verdict
-   - `release_id`: release tag/branch/build ID
-   - `assumptions`: list of reasoning assumptions
+### Execution Flow (Step 7 of 7 — After Step 6 decision synthesis, before outputting report)
 
-2. **Recording** — Use helper library:
-   ```python
-   from verdict_recorder import VerdictRecorder
-   recorder = VerdictRecorder()
-   result = recorder.record_verdict(verdict_obj)  # Non-blocking
-   ```
+After synthesizing all four layers (Change / Protection / Trust / Outcome) and computing
+final decision confidence:
 
-3. **Verdict inclusion in report** — Include verdict ID in markdown report:
-   ```markdown
-   **Verdict ID**: {verdict_id} (audit trail reference)
-   ```
+```python
+# 1. LOAD RECORDER (failure here is non-blocking; continue anyway)
+try:
+    import importlib.util
+    from pathlib import Path
+    spec = importlib.util.spec_from_file_location(
+        "verdict_recorder", 
+        Path(".assert-iq/analysis/verdict-recorder.py")
+    )
+    verdict_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(verdict_module)
+except Exception as e:
+    print(f"⚠️ Warning: Could not load verdict recorder: {e}")
+    verdict_module = None
 
-4. **Calibration metrics** — Optional: include Brier score and fidelity data:
-   ```markdown
-   **Calibration (30-day rolling window)**:
-   - Brier Score: 0.12 (green-band accuracy)
-   - Layer Fidelity: Change=0.89, Protection=0.76, Trust=0.92, Outcome=0.68
-   ```
+# 2. BUILD VERDICT OBJECT
+if verdict_module:
+    # Map verdict band: GO → green, GO-WITH-MITIGATION → amber, HOLD → red
+    band_map = {"GO": "green", "GO-WITH-MITIGATION": "amber", "HOLD": "red"}
+    
+    verdict = {
+        "verdict_type": "release_confidence",
+        "verdict_band": band_map.get(final_verdict, "red"),
+        "verdict_score": avg_layer_confidence,  # 0.0-1.0
+        "layer_scores": {
+            "change": {"state": change_state, "score": change_score},
+            "protection": {"state": protection_state, "score": protection_score},
+            "trust": {"state": trust_state, "score": trust_score},
+            "outcome": {"state": outcome_state, "score": outcome_score}
+        },
+        "layer_weights": {"change": 0.25, "protection": 0.25, "trust": 0.25, "outcome": 0.25},
+        "maturity_tier": config.get("maturity", {}).get("tier", "early"),
+        "memory_version": verdict_module.compute_memory_hash(),
+        "issued_by": "release-confidence",
+        "pr_id": None,
+        "release_id": str(release_id),
+        "assumptions": [
+            f"Change: {change_assumption}",
+            f"Protection: {protection_assumption}",
+            f"Trust: {trust_assumption}",
+            f"Outcome: {outcome_assumption}",
+            f"Decision policy: {decision_policy}"
+        ],
+        "linked_escape": None  # Populated later if escape discovered
+    }
+    
+    # 3. RECORD VERDICT (REQUIRED but non-blocking)
+    try:
+        recorder = verdict_module.VerdictRecorder()
+        result = recorder.record_verdict(verdict)
+        if result['success']:
+            verdict_id = result['verdict_id']
+            print(f"✅ Verdict recorded: {verdict_id}")
+        else:
+            verdict_id = "<recording-failed>"
+            print(f"⚠️ Verdict recording warning: {result['message']}")
+    except Exception as e:
+        verdict_id = "<error>"
+        print(f"⚠️ Warning: Verdict recording failed (non-blocking): {e}")
+    
+    # 4. ADD VERDICT ID TO REPORT OUTPUT
+    # Include in both Markdown and HTML:
+    # **Verdict ID**: {verdict_id} (audit trail reference for calibration)
+```
 
-**Implementation guide**: See `.assert-iq/VERDICT_INTEGRATION_GUIDE.md` (Pattern 2)
+### Key Implementation Rules
+
+✅ **Always emit verdicts** — Before posting release report, always attempt to record verdict  
+✅ **Non-blocking** — Verdict recording failures NEVER block skill execution  
+✅ **Include verdict ID** — Append verdict ID to both Markdown and HTML reports  
+✅ **Error handling** — Wrap in try-except; log warnings, continue  
+✅ **Assumptions explicit** — List reasoning for each layer + decision policy  
+✅ **Band mapping** — GO→green, GO-WITH-MITIGATION→amber, HOLD→red  
+
+**Full implementation guide**: See `.assert-iq/VERDICT_INTEGRATION_GUIDE.md` (Pattern 2)

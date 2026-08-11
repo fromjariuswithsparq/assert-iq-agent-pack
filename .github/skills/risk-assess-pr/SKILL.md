@@ -421,37 +421,91 @@ Classification: **Medium** — standard assessment.
 - **Never blocks the PR.** The skill posts the signal; the
   decision to merge stays with the human reviewer.
 
-## Verdict Recording (v1.7.0+)
+## ⚠️ REQUIRED: Verdict Recording (v1.7.0+)
 
-This skill records every PR risk assessment verdict to the verdict sink
-(`.assert-iq/verdicts/`) for longitudinal decision confidence calibration:
+**THIS STEP IS MANDATORY.** Every PR risk assessment verdict MUST be recorded to the verdict sink
+(`.assert-iq/verdicts/`) for longitudinal decision confidence calibration. This is not optional.
 
-1. **Verdict object** — After computing layer scores, construct verdict with:
-   - `verdict_type: "pr_risk_assessment"`
-   - `verdict_band`: green/amber/red/ungraded (from decision policy)
-   - `verdict_score`: 0.0–1.0 (average layer score)
-   - `layer_scores`: change/protection/trust/outcome, each with state + score
-   - `maturity_tier`: from config.yaml
-   - `memory_version`: SHA256 hash of `.assert-iq/memory/` at time of verdict
-   - `pr_id`: PR number
-   - `assumptions`: list of reasoning assumptions
+### Execution Flow (Step 7 of 7 — After final verdict, before outputting PR comment)
 
-2. **Recording** — Use helper library:
-   ```python
-   from verdict_recorder import VerdictRecorder
-   recorder = VerdictRecorder()
-   result = recorder.record_verdict(verdict_obj)  # Non-blocking
-   ```
+```python
+# AFTER all four layers computed (steps 1-6), immediately before posting PR comment:
 
-3. **Verdict inclusion in PR comment** — Append verdict ID:
-   ```
-   **Verdict ID**: {verdict_id} (audit trail reference)
-   ```
+import importlib.util
+from pathlib import Path
 
-4. **Escape linkage** — When defect is discovered post-release, `/analyze-escaped-defect`
-   queries verdict sink and links defect to original verdict, updating calibration metrics.
+# 1. LOAD RECORDER (failure here is non-blocking; continue anyway)
+try:
+    spec = importlib.util.spec_from_file_location(
+        "verdict_recorder", 
+        Path(".assert-iq/analysis/verdict-recorder.py")
+    )
+    verdict_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(verdict_module)
+except Exception as e:
+    print(f"⚠️ Warning: Could not load verdict recorder: {e}")
+    verdict_module = None
 
-**Implementation guide**: See `.assert-iq/VERDICT_INTEGRATION_GUIDE.md` (Pattern 1)
+# 2. BUILD VERDICT OBJECT
+if verdict_module:
+    verdict = {
+        "verdict_type": "pr_risk_assessment",
+        "verdict_band": final_band,  # green/amber/red/ungraded from decision policy
+        "verdict_score": avg_layer_score,  # 0.0-1.0
+        "layer_scores": {
+            "change": {"state": change_state, "score": change_score},
+            "protection": {"state": protection_state, "score": protection_score},
+            "trust": {"state": trust_state, "score": trust_score},
+            "outcome": {"state": outcome_state, "score": outcome_score}
+        },
+        "layer_weights": {"change": 0.25, "protection": 0.25, "trust": 0.25, "outcome": 0.25},
+        "maturity_tier": config.get("maturity", {}).get("tier", "early"),
+        "memory_version": verdict_module.compute_memory_hash(),
+        "issued_by": "risk-assess-pr",
+        "pr_id": str(pr_id),
+        "release_id": None,
+        "assumptions": [
+            f"Change risk: {change_assumption}",
+            f"Protection: {protection_assumption}",
+            f"Trust: {trust_assumption}",
+            f"Outcome: {outcome_assumption}"
+        ],
+        "linked_escape": None
+    }
+    
+    # 3. RECORD VERDICT (REQUIRED but non-blocking)
+    try:
+        recorder = verdict_module.VerdictRecorder()
+        result = recorder.record_verdict(verdict)
+        if result['success']:
+            verdict_id = result['verdict_id']
+            print(f"✅ Verdict recorded: {verdict_id}")
+        else:
+            verdict_id = "<recording-failed>"
+            print(f"⚠️ Verdict recording warning: {result['message']}")
+    except Exception as e:
+        verdict_id = "<error>"
+        print(f"⚠️ Warning: Verdict recording failed (non-blocking): {e}")
+    
+    # 4. ADD VERDICT ID TO PR COMMENT OUTPUT
+    # Include in final PR comment:
+    # **Verdict ID**: {verdict_id} (audit trail reference for calibration)
+```
+
+### Key Implementation Rules
+
+✅ **Always emit verdicts** — Before posting PR comment, always attempt to record verdict  
+✅ **Non-blocking** — Verdict recording failures NEVER block skill execution  
+✅ **Include verdict ID** — Append verdict ID to PR comment for audit trail  
+✅ **Error handling** — Wrap in try-except; log warnings, continue  
+✅ **Assumptions explicit** — List reasoning for each layer in verdict object  
+
+### Escape Linkage (Post-Release)
+
+When defect is discovered post-release, `/analyze-escaped-defect` queries verdict sink
+and links defect to this original verdict, updating calibration metrics (Brier score, confusion matrix).
+
+**Full implementation guide**: See `.assert-iq/VERDICT_INTEGRATION_GUIDE.md` (Pattern 1)
 
 ---
 
