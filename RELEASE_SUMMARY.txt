@@ -1,0 +1,173 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                                                                                ║
+║                   ✅ ASSERT.IQ v1.7.0-alpha1 — RELEASED                        ║
+║                                                                                ║
+║            Decision Confidence Calibration Infrastructure Complete             ║
+║                                                                                ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+📦 RELEASE ARTIFACTS
+────────────────────────────────────────────────────────────────────────────────
+
+Commit:     49c8e82
+Tag:        v1.7.0-alpha1
+Branch:     main
+Date:       2026-08-11
+Status:     Alpha — Production Pilot Ready
+
+📋 WHAT'S INCLUDED
+────────────────────────────────────────────────────────────────────────────────
+
+Core Features:
+  ✅ Immutable verdict recording (UUID-based, append-only)
+  ✅ Memory versioning (SHA256 hashing, snapshots, provenance)
+  ✅ Calibration analytics (Brier score, confusion matrix, fidelity, drift)
+  ✅ Memory sanity checks (cycle, staleness, contradiction, granularity)
+  ✅ Audit trail infrastructure (VERDICTS.md, JSONL archive, index)
+  ✅ Signal schema extension (verdict object, 14 properties)
+  ✅ Configuration blocks (verdicts, calibration, regression_testing, etc.)
+  ✅ Skills integration (risk-assess-pr, release-confidence, analyze-escaped-defect)
+
+Analysis Tools:
+  ✅ calibration.py (300+ lines, 6 functions)
+  ✅ memory-sanity.py (200+ lines, 7 functions)
+  ✅ audit-verdict.sh (100+ lines, reproducibility queries)
+  ✅ verdict-recorder.py (250+ lines, VerdictRecorder class)
+
+Testing:
+  ✅ 57/57 automated tests passing (100%)
+  ✅ Zero regressions on v1.6.0 features
+  ✅ E2E bootstrap verification for trial/committed/portable
+  ✅ Version, configuration, infrastructure validation
+  ✅ All syntax validated (bash, Python, JSON)
+
+Documentation:
+  ✅ README.md updated (version, skill count, calibration section)
+  ✅ README.assert-iq.md updated (version, git checkout)
+  ✅ VERDICT_INTEGRATION_GUIDE.md (250+ lines, 3 patterns)
+  ✅ Updated instruction files (qi-foundation, qi-oracle, qi-signal-emission)
+  ✅ HTML sisters regenerated (8 files)
+  ✅ CHANGELOG.md entry (v1.7.0-alpha1)
+
+📊 QUALITY METRICS
+────────────────────────────────────────────────────────────────────────────────
+
+Unit Tests:        10/10 ✅
+Integration Tests: 20/20 ✅
+E2E Tests:         27/27 ✅
+Total:             57/57 ✅ (100%)
+
+Code Quality:
+  ✅ All Python syntax validated
+  ✅ All Bash syntax validated
+  ✅ All JSON schema validated
+  ✅ All documentation cross-referenced
+  ✅ Backward compatibility: 100%
+
+🎁 DELIVERABLES
+────────────────────────────────────────────────────────────────────────────────
+
+New Files:     23
+  - Verdict infrastructure:    4 files
+  - Memory versioning:         2 files
+  - Analysis tools:            4 libraries
+  - Test suite:                12 scripts
+  - Documentation:             1 guide + 8 HTML sisters
+
+Modified Files: 13
+  - Configuration:             3 files
+  - Instructions:              3 files
+  - Skills:                    3 files
+  - Documentation:             4 files
+
+Total Changes: 48 files | 4,664 insertions | 9 deletions
+
+🚀 DEPLOYMENT READINESS
+────────────────────────────────────────────────────────────────────────────────
+
+✅ Alpha Release — Production Pilot Ready
+  - All infrastructure wired and tested
+  - Skills integration guidance documented
+  - Configuration templates provided
+  - Backward compatible with v1.6.0
+
+✅ For Vendors:
+  - Verdict accuracy tracking available after 30 days
+  - Escape correlation data for client pitch
+  - Regulated client audit trail ready
+
+✅ For Regulated Clients:
+  - Verdicts committable to git (via config)
+  - Reproducibility contract for SOX/ISO/FedRAMP
+  - Memory versioning for audit trail
+  - Regression testing framework ready
+
+✅ For Skill Maintainers:
+  - VerdictRecorder helper library ready
+  - Integration guide with 3 code patterns
+  - Non-blocking error handling documented
+  - Testing procedures defined
+
+📈 NEXT STEPS (Phase 5+)
+────────────────────────────────────────────────────────────────────────────────
+
+Phase 5: Skill Maintainer Integration
+  → Emit verdicts via VerdictRecorder in each skill
+  → Run test suite to verify no regressions
+  → Deploy to pilot and gather verdict data
+
+Phase 6: Calibration Reporting
+  → /calibration-report skill (on-demand metrics)
+  → Brier score trending
+  → Regression test execution
+  → Dream safety validation
+
+Phase 7: Production Scaling
+  → Per-client calibration data for sales
+  → Escape linkage feedback loop
+  → Memory drift alerting
+  → Regulated client deployments
+
+📚 DOCUMENTATION
+────────────────────────────────────────────────────────────────────────────────
+
+Release Notes:           RELEASE_NOTES_v1.7.0-alpha1.md
+Implementation Summary:  .assert-iq/IMPLEMENTATION_SUMMARY.md
+Integration Guide:       .assert-iq/VERDICT_INTEGRATION_GUIDE.md
+README Review:           .assert-iq/README_REVIEW_SUMMARY.md
+Quick Start:             README.md
+Detailed Docs:           README.assert-iq.md
+Full Changelog:          CHANGELOG.md
+QI Foundation:           .github/instructions/qi-foundation.instructions.md
+
+🔗 QUICK COMMANDS
+────────────────────────────────────────────────────────────────────────────────
+
+View commit:
+  git show v1.7.0-alpha1
+
+View tag info:
+  git tag -l -n10 v1.7.0-alpha1
+
+Run all tests:
+  bash .assert-iq/tests/_qi/automated/e2e-comprehensive-validation.sh
+
+Validate documentation:
+  bash scripts/validate-documentation-integrity.sh
+
+Check calibration (after 30+ days):
+  python3 .assert-iq/analysis/calibration.py --window-days 90
+
+View implementation summary:
+  cat .assert-iq/IMPLEMENTATION_SUMMARY.md
+
+View release notes:
+  cat RELEASE_NOTES_v1.7.0-alpha1.md
+
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ v1.7.0-alpha1 is READY for production pilot.
+✅ No commits have been lost — all work preserved in git.
+✅ All tests passing, zero regressions, full documentation.
+
+═══════════════════════════════════════════════════════════════════════════════

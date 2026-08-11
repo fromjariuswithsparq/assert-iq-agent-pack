@@ -2,6 +2,14 @@
 """
 Verdict Recorder Library
 Provides utilities for skills to record verdicts to the verdict sink.
+
+Usage in skills:
+    from verdict_recorder import VerdictRecorder, compute_memory_hash, get_layer_state
+    
+    recorder = VerdictRecorder()
+    memory_version = compute_memory_hash()
+    verdict = {...}
+    result = recorder.record_verdict(verdict)
 """
 
 import json
@@ -9,6 +17,92 @@ import os
 from pathlib import Path
 from datetime import datetime
 import uuid
+import hashlib
+import yaml
+
+
+def compute_memory_hash(memory_path=".assert-iq/memory"):
+    """
+    Compute SHA256 hash of memory directory for reproducibility.
+    
+    Args:
+        memory_path (str): Path to memory directory
+    
+    Returns:
+        str: SHA256 hash prefixed with "sha256:"
+    """
+    try:
+        sha256 = hashlib.sha256()
+        memory_dir = Path(memory_path)
+        
+        if not memory_dir.exists():
+            return "sha256:uninitialized"
+        
+        for file in sorted(memory_dir.rglob("*")):
+            if file.is_file():
+                try:
+                    with open(file, 'rb') as f:
+                        sha256.update(f.read())
+                except (IOError, OSError):
+                    pass  # Skip unreadable files
+        
+        return f"sha256:{sha256.hexdigest()}"
+    except Exception as e:
+        return f"sha256:error-{str(e)[:20]}"
+
+
+def get_layer_state(score, threshold=0.7):
+    """
+    Determine layer state (strong/weak) from numeric score.
+    
+    Args:
+        score (float): Layer score 0.0-1.0
+        threshold (float): Score above which state is "strong"
+    
+    Returns:
+        str: "strong" or "weak"
+    """
+    if score is None:
+        return "ungraded"
+    return "strong" if score >= threshold else "weak"
+
+
+def load_config(config_path=".assert-iq/config.yaml"):
+    """
+    Load Assert.IQ config.yaml safely.
+    
+    Args:
+        config_path (str): Path to config.yaml
+    
+    Returns:
+        dict: Config dict, or empty dict if file doesn't exist
+    """
+    try:
+        if not Path(config_path).exists():
+            return {}
+        
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f) or {}
+        return config
+    except Exception as e:
+        print(f"⚠️ Warning: Could not load config: {e}")
+        return {}
+
+
+def are_verdicts_enabled(config=None):
+    """
+    Check if verdict recording is enabled in config.
+    
+    Args:
+        config (dict): Config dict. If None, loads from file.
+    
+    Returns:
+        bool: True if verdicts.enabled is true
+    """
+    if config is None:
+        config = load_config()
+    return config.get("verdicts", {}).get("enabled", False)
+
 
 class VerdictRecorder:
     def __init__(self, workspace_root="."):
