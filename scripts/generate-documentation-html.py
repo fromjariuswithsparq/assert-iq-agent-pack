@@ -111,6 +111,9 @@ class DocumentationGenerator:
     
     def generate_index(self):
         """Generate an HTML index of all documentation."""
+        # Read canonical version from the VERSION file so the index never drifts.
+        version_file = self.workspace_root / "VERSION"
+        version = version_file.read_text().strip() if version_file.exists() else ""
         index_html = """<!DOCTYPE html>
 <html>
 <head>
@@ -129,7 +132,7 @@ class DocumentationGenerator:
     </style>
 </head>
 <body>
-    <h1>Assert.IQ v1.7.0 Documentation</h1>
+    <h1>Assert.IQ """ + version + """ Documentation</h1>
     <p>Searchable, styled HTML versions of Assert.IQ documentation for easier navigation.</p>
     <ul class="doc-list">
 """
@@ -140,7 +143,8 @@ class DocumentationGenerator:
                 continue
             
             html_filename = source_file.stem + ".html"
-            relative_path = Path("docs/html") / html_filename
+            # index.html lives inside docs/html/, so links are relative to it.
+            relative_path = html_filename
             
             # Extract title
             with open(source_file, 'r') as f:

@@ -321,6 +321,13 @@
       <a href="#maturity">Maturity awareness</a>
     </nav>
 
+    <div class="nav-group">Capabilities (v2.0)</div>
+    <nav>
+      <a href="#multi-agent">Multi-agent orchestration</a>
+      <a href="#oracle">Oracle &amp; verification</a>
+      <a href="#business-impact">Business impact dashboards</a>
+    </nav>
+
     <div class="nav-group">Operate</div>
     <nav>
       <a href="#governance">Governance &amp; guardrails</a>
@@ -342,6 +349,7 @@
       <a href="vscode-readme.html">VS Code / Copilot</a>
       <a href="claude-readme.html">Claude Code</a>
       <a href="MCP.html">MCP servers</a>
+      <a href="oracles-readme.html">Oracle quick start</a>
       <a href="dreaming-readme.html">Dreaming</a>
       <a href="README.assert-iq.md">Markdown source</a>
     </nav>
@@ -366,7 +374,7 @@
     <p>The pack operationalizes Sparq's Quality Intelligence framework:</p>
     <ul>
       <li>The four-layer signal model (Change → Protection → Trust → Outcome → Decision Confidence) is loaded as Copilot's reasoning lens on every interaction.</li>
-      <li>26 skills cover the QE lifecycle: planning, development, review, execution, decision, and post-incident learning — plus setup skills that place and tailor the pack.</li>
+      <li>30 skills cover the QE lifecycle: planning, development, review, execution, decision, post-incident learning, and business impact measurement — plus setup skills that place and tailor the pack.</li>
       <li>A QI Advisor chat mode provides maturity-aware coaching.</li>
       <li>MCP wiring connects to ADO or Jira and to GitHub for first-class bidirectional context.</li>
     </ul>
@@ -439,7 +447,7 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
     </div>
 
     <h4>Portable mode — skills user-globally, minimal workspace footprint</h4>
-    <p>If you'd rather not put the full pack into your workspace (not even in trial mode), use <code>--preset=portable</code>. Skills install to <code>~/.agents/skills/</code> (VS Code Copilot Chat) and <code>~/.claude/skills/</code> (Claude Code) so every workspace you open has the 26 QI skills available. Workspace footprint shrinks to just the Assert-IQ chat agent files (<code>.github/agents/</code>, <code>.claude/agents/</code>) and the install manifest — no instructions, dreaming, settings, MCP config, or <code>CLAUDE.md</code> are written into the repo.</p>
+    <p>If you'd rather not put the full pack into your workspace (not even in trial mode), use <code>--preset=portable</code>. Skills install to <code>~/.agents/skills/</code> (VS Code Copilot Chat) and <code>~/.claude/skills/</code> (Claude Code) so every workspace you open has the 30 QI skills available. Workspace footprint shrinks to just the Assert-IQ chat agent files (<code>.github/agents/</code>, <code>.claude/agents/</code>) and the install manifest — no instructions, dreaming, settings, MCP config, or <code>CLAUDE.md</code> are written into the repo.</p>
 <pre><code>bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --preset=portable
 <span class="comment"># Reverse with: --uninstall --user</span></code></pre>
     <p>You can also opt in à la carte with <code>--skills-scope=user</code> (default is <code>workspace</code>; <code>both</code> puts skills in both places).</p>
@@ -456,7 +464,7 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
         <tr><td><code>.assert-iq/governance.md</code></td><td>Compliance posture — varies by client / regulatory regime.</td></tr>
         <tr><td><code>.assert-iq/maturity-profile.md</code></td><td>Tier rationale — team-specific.</td></tr>
         <tr><td><code>.github/copilot-instructions.md</code> + <code>instructions/</code></td><td>Copilot reads from workspace; <code>applyTo</code> globs scope to repo files.</td></tr>
-        <tr><td><code>.github/skills/</code></td><td>All 26 QI skills — Copilot reads from this workspace path.</td></tr>
+        <tr><td><code>.github/skills/</code></td><td>All 30 QI skills — Copilot reads from this workspace path.</td></tr>
         <tr><td><code>.github/agents/</code></td><td><code>Assert-IQ</code> + <code>Assert-IQ-PLAN</code> custom chat modes.</td></tr>
         <tr><td><code>.claude/agents/</code></td><td>Claude Code subagent counterparts.</td></tr>
         <tr><td><code>.claude/skills</code></td><td>Symlink to <code>../.github/skills</code> (copy fallback on Windows).</td></tr>
@@ -657,6 +665,7 @@ Dreaming       .assert-iq/dreaming/ + .assert-iq/memory/  Markdown memory
     <table>
       <thead><tr><th>Skill</th><th>Purpose</th></tr></thead>
       <tbody>
+        <tr><td><code>/dream</code></td><td>Dreaming — offline memory consolidation. Resolve contradictions, prune stale entries, dedup the memory store.</td></tr>
         <tr><td><code>/analyze-escaped-defect</code></td><td>Post-incident — which signal layer should have caught it.</td></tr>
         <tr><td><code>/generate-bug-report</code></td><td>Convert a failure into a tracker-ready defect.</td></tr>
       </tbody>
@@ -668,6 +677,7 @@ Dreaming       .assert-iq/dreaming/ + .assert-iq/memory/  Markdown memory
       <tbody>
         <tr><td><code>/generate-traceability-matrix</code></td><td>Build a req↔code↔test matrix from <code>@qi-trace</code> headers.</td></tr>
         <tr><td><code>/generate-hotspot-map</code></td><td>Audit code volatility, structural complexity, and defect density for risk prioritization.</td></tr>
+        <tr><td><code>/eval-optimizer</code></td><td>Evaluate and automatically optimize any AI instruction artifact (skill, system prompt, custom instructions).</td></tr>
       </tbody>
     </table>
 
@@ -677,6 +687,39 @@ Dreaming       .assert-iq/dreaming/ + .assert-iq/memory/  Markdown memory
       <tbody>
         <tr><td><code>/assert-iq-bootstrap</code></td><td>Place the pack into a target repo — trial / committed / preset / graduate / uninstall.</td></tr>
         <tr><td><code>/assert-iq-tailor</code></td><td>Tailor a freshly-installed pack to this codebase — config.yaml, governance, instructions, MCP, gated by review.</td></tr>
+      </tbody>
+    </table>
+
+    <h3 id="oracle"><span class="phase-pill phase-decide">Oracle &amp; Verification</span></h3>
+    <table>
+      <thead><tr><th>Skill</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>/define-quality-rubric</code></td><td>Author versioned quality rubrics (acceptance contracts) via guided interview.</td></tr>
+        <tr><td><code>/grade-with-rubric</code></td><td>Grade artifacts independently against a rubric in isolated grader context.</td></tr>
+      </tbody>
+    </table>
+
+    <h3 id="business-impact"><span class="phase-pill phase-decide">Business Impact &amp; Instrumentation <span class="accent">(v2.0)</span></span></h3>
+    <table>
+      <thead><tr><th>Skill</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>/measure-qi-impact</code></td><td>Convert QI verdicts + baseline metrics into VP-ready quarterly HTML dashboards — escape reduction %, triage hours reclaimed, cycle-time acceleration, and total economic ROI in dollars.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="multi-agent">Multi-agent orchestration <span class="accent">(v2.0)</span></h2>
+    <p>When you invoke a quality or release decision skill, the lead agent (<code>Assert-IQ</code> or <code>Assert-IQ-PLAN</code>) delegates to <strong>8 isolated specialist agents</strong> that run in a parallel batch, then a serial chain. Each returns structured JSON; the lead synthesizes findings into one narrative + decision, preserving the audit trail in <code>.assert-iq/agent-runs/</code>.</p>
+    <table>
+      <thead><tr><th>Execution</th><th>Specialist</th><th>Responsibility</th></tr></thead>
+      <tbody>
+        <tr><td rowspan="4"><strong>Parallel batch</strong></td><td><code>risk-scorer</code></td><td>PR risk assessment (change + protection layers).</td></tr>
+        <tr><td><code>coverage-analyst</code></td><td>Test protection gap analysis.</td></tr>
+        <tr><td><code>flake-adjudicator</code></td><td>Test failure root-cause classification.</td></tr>
+        <tr><td><code>hotspot-analyzer</code></td><td>Fragile module identification (churn + complexity + escapes).</td></tr>
+        <tr><td rowspan="4"><strong>Serial chain</strong></td><td><code>oracle-grader</code></td><td>Rubric-based quality scoring.</td></tr>
+        <tr><td><code>calibration-specialist</code></td><td>Verdict accuracy measurement (Brier score, layer fidelity, drift).</td></tr>
+        <tr><td><code>memory-curator</code></td><td>Memory store health checks (cycles, staleness, contradictions).</td></tr>
+        <tr><td><code>traceability-auditor</code></td><td>AC↔code↔test linkage validation.</td></tr>
       </tbody>
     </table>
 
@@ -792,6 +835,10 @@ Dreaming       .assert-iq/dreaming/ + .assert-iq/memory/  Markdown memory
         <tr><td><strong>1.1.0</strong></td><td><strong>Hindsight Hooks: scope-aware install + double-fire dedup.</strong> New <code>--hooks=user</code> / <code>-Hooks user</code> install mode lets power users install hooks once at <code>~/.agents/hooks/</code> and fire across every workspace; per-workspace install path unchanged and remains the default. New <code>si_dedup_or_exit</code> / <code>Invoke-SiDedupOrExit</code> helpers suppress duplicate fires of the same <code>(session_id, event)</code> pair within <code>SKILL_IMPROVE_DEDUP_WINDOW_SECONDS</code> (default 5; 0 disables) via atomic marker claims under <code>hooks/state/.dedup-&lt;sha256&gt;</code>; wired into SessionStart and Stop only. Hook scripts resolve <code>SKILL_IMPROVE_ROOT</code> from the environment so workspace and user installs route deterministically. Janitor prunes stale markers older than 1 hour. New <code>e2e-hooks.sh</code> suite — <strong>15 cases</strong> covering layouts, routing, telemetry, dedup, no-op switches, and user uninstall.</td></tr>
         <tr><td><strong>1.1.1</strong></td><td><strong>Patch.</strong> Hides Hindsight Hooks runtime artifacts from git so workspaces don't see hook state files appear as untracked changes. Per-directory <code>.gitignore</code> files now ship inside <code>hooks/state/</code>, <code>hooks/logs/</code>, and <code>hooks/sessions/</code>; <code>copy_tree()</code> already copies dotfiles, so the rules propagate verbatim into every workspace install — no mutation of the workspace <code>.gitignore</code> required. Also enables GitHub Pages at <a href="https://fromjariuswithsparq.github.io/assert-iq-agent-pack/">fromjariuswithsparq.github.io/assert-iq-agent-pack</a> with this overview as the landing page, and refreshes stale current-version banners across the README family.</td></tr>
         <tr><td><strong>1.2.0</strong></td><td><strong>Token economy: ~15–20% lighter always-on stack.</strong> Shared rules (Core principles, Maturity awareness, Governance, Output standards) consolidated into <code>.github/instructions/qi-foundation.instructions.md</code>; <code>.github/copilot-instructions.md</code>, <code>CLAUDE.md</code>, and <code>AGENTS.md</code> rewritten as thin pointers (Copilot path: 6,617 → 5,128 chars; Claude path: 9,630 → 7,977 chars per turn). Workspace-topology mechanics (fetch fallback chain, UNGRADED contract) moved out of the always-on <code>qi-foundation.instructions.md</code> into a new lazy-loaded reference doc <code>.assert-iq/workspace-topology.md</code> that only gets pulled when <code>workspace.role != monorepo</code> — monorepo users (the default) no longer carry split-repo prose on every prompt. Two heaviest skill descriptions trimmed: <code>code-review</code> (1,147 → 520 chars), <code>eval-optimizer</code> (1,023 → 584 chars), <code>generate-hotspot-map</code> (435 → 292 chars); skill bodies untouched. Net always-on savings: roughly <strong>670 tokens/turn (Copilot)</strong> and <strong>715 tokens/turn (Claude)</strong> plus <strong>~300 tokens</strong> off the skill-routing block — zero behavior change, every rule that loaded before still loads, just from a new home. The seven cross-repo skills (<code>risk-assess-pr</code>, <code>check-merge</code>, <code>release-confidence</code>, <code>code-review</code>, <code>check-test-coverage</code>, <code>generate-traceability-matrix</code>, <code>analyze-escaped-defect</code>) plus <code>generate-hotspot-map</code> now point to <code>.assert-iq/workspace-topology.md</code> for the full contract.</td></tr>
+        <tr><td><strong>1.5.0</strong></td><td><strong>Dreaming — offline memory consolidation.</strong> New <code>/dream</code> skill (Orient → Gather → Consolidate → Prune &amp; Index) with on-demand + optional cron invoke. Three-tier memory: Rules tier (immutable instructions) / Long-term (<code>.assert-iq/memory/MEMORY.md</code> index ≤200 lines + <code>topics/</code>) / Short-term (session logs + transcripts). Waking loop (session recorder + dual gate: 24h AND 5 sessions). Memory store git-ignored in committed mode.</td></tr>
+        <tr><td><strong>1.6.0</strong></td><td><strong>Oracle Layer — defensible quality verification via rubric-based grading.</strong> New <code>/define-quality-rubric</code> skill (interview-driven rubric authorship), <code>/grade-with-rubric</code> skill (independent artifact grading in isolated context), <code>.claude/agents/grader.md</code>, <code>.assert-iq/oracles/</code> registry (schemas, rubric templates, verdict lineage), oracle integration in <code>/check-merge</code> and <code>/release-confidence</code> (Outcome layer, maturity-gated weighting), new <code>qi-oracle.instructions.md</code>. Rubric authorship (not generation) is the defensible differentiator; grader has zero access to generator reasoning; rubrics are immutable, versioned, evidence-driven. <strong>29 skills total</strong> (was 27).</td></tr>
+        <tr><td><strong>1.7.0</strong></td><td><strong>Decision Confidence Calibration — proving verdict accuracy over time.</strong> Every PR risk assessment and release confidence judgment is recorded as an immutable verdict (band, score, per-layer states, assumptions, memory hash) in <code>.assert-iq/verdicts/</code>. Escapes link back to their original verdict; over time the pack computes Brier score, confusion matrix, per-layer fidelity, and memory-drift alerts (<code>.assert-iq/analysis/calibration.py</code>). Memory versioning via SHA256 hashing gives a reproducibility contract. Memory sanity checks (cycle, staleness, contradiction, granularity) guard the <code>/dream</code> pass. Verdict recording is mandatory in <code>/risk-assess-pr</code>, <code>/release-confidence</code>, and <code>/analyze-escaped-defect</code>.</td></tr>
+        <tr><td><strong>2.0.0</strong></td><td><strong>Multi-agent orchestration + commercial instrumentation.</strong> Lead agents (<code>Assert-IQ</code>, <code>Assert-IQ-PLAN</code>) orchestrate <strong>8 isolated specialist agents</strong> under <code>.claude/agents/specialists/</code> — <code>risk-scorer</code>, <code>coverage-analyst</code>, <code>flake-adjudicator</code>, <code>hotspot-analyzer</code> (parallel batch) then <code>oracle-grader</code>, <code>calibration-specialist</code>, <code>memory-curator</code>, <code>traceability-auditor</code> (serial chain). Each returns structured JSON; the lead synthesizes findings into one narrative + decision, audit trail in <code>.assert-iq/agent-runs/</code>. New <code>/measure-qi-impact</code> skill converts QI verdicts + baseline metrics into VP-ready quarterly HTML dashboards: escape reduction %, triage hours reclaimed, cycle-time acceleration, and total economic ROI in dollars. Configured via <code>.assert-iq/config.yaml</code> → <code>business_metrics</code>. <strong>30 skills total</strong> (was 29). Strict superset of 1.7.0 — zero breaking changes.</td></tr>
       </tbody>
     </table>
     <p>Tag releases. Keep a CHANGELOG in <code>.assert-iq/CHANGELOG.md</code>.</p>

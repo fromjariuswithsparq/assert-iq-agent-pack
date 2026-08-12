@@ -22,7 +22,7 @@
 </head>
 <body>
     <h1>Signal emission instructions</h1>
-    <div class="meta">Generated: 2026-08-11 19:27:12 UTC</div>
+    <div class="meta">Generated: 2026-08-11 19:53:45 UTC</div>
 <p>---
 applyTo: ".github/workflows/**, azure-pipelines.yml, **/*.gitlab-ci.yml, Jenkinsfile"
 description: "CI must emit QI outcome signals in a standard schema."
@@ -42,7 +42,7 @@ every test run. The payload schema is defined in <code>.assert-iq/signal-schema.
    - <code>decision_layer</code>: { release_confidence, mitigation_required }
 3. Mask secrets. Never include raw stack traces with file paths from secret stores.
 4. Tag the run with the maturity tier from <code>.assert-iq/config.yaml</code> so consumers
-   can interpret which signals are available.</p><h2>Verdict Recording Requirements (v2.0.0+)</h2></p><p>When <code>/risk-assess-pr</code> or <code>/release-confidence</code> emits a verdict, the CI pipeline
+   can interpret which signals are available.</p><h2>Verdict Recording Requirements (v1.7.0+)</h2></p><p>When <code>/risk-assess-pr</code> or <code>/release-confidence</code> emits a verdict, the CI pipeline
 must record it to <code>.assert-iq/verdicts/archive/</code>:</p><p>1. **Verdict Sink Path:** <code>.assert-iq/verdicts/archive/YYYY/MM/verdicts-DD.jsonl</code>
    - Create directories if they don't exist
    - One JSON object per line (JSONL format)

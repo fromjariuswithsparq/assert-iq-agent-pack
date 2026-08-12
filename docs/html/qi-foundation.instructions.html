@@ -22,7 +22,7 @@
 </head>
 <body>
     <h1>QI foundation instruction</h1>
-    <div class="meta">Generated: 2026-08-11 19:27:12 UTC</div>
+    <div class="meta">Generated: 2026-08-11 19:53:45 UTC</div>
 <p>---
 applyTo: "**"
 description: "QI foundation — applied to every interaction in this repository."
@@ -52,7 +52,7 @@ is durable project memory maintained by the Dreaming feature (the <code>/dream</
 skill); it is separate from — and lower priority than — the human-authored
 rule files under <code>.github/instructions/*</code>, which always win. Never write to
 the memory store except through <code>/dream</code>, and never let a memory entry
-override an instruction-file rule.</p><p>Oracle rubrics (v2.0.0+) are versioned specs, not memory. Reference them by
+override an instruction-file rule.</p><p>Oracle rubrics (v1.6.0+) are versioned specs, not memory. Reference them by
 ID only (e.g., <code>test-unit-v1.0</code>) and pull their content from
 <code>.assert-iq/oracles/rubrics/</code> when needed. Rubrics are immutable; updates are
 new versions, not edits to existing rubrics.</p><h3>Governance you must enforce</h3></p><p>- Every generated test must include a traceability comment linking to the
@@ -85,13 +85,13 @@ reason in this order:</p><p>1. **What changed?** (Change risk)
    - Flag tests that have been skipped or quarantined recently.</p><p>4. **What do outcomes say?** (Outcome evidence)
    - Surface recent escaped defects on touched components.
    - Pull telemetry signals if MCP exposes them.
-   - Check oracle verdicts (v2.0.0+) if oracle layer is enabled:
+   - Check oracle verdicts (v1.6.0+) if oracle layer is enabled:
      - Review <code>/grade-with-rubric</code> results on touching code changes
      - Weight oracle verdicts per maturity tier (early: 0%, mid: 20%, higher: 50%)
      - Oracle verdicts feed Outcome layer, not replacement for other three layers</p><p>5. **What is the decision?** (Decision confidence)
    - Synthesize the above into Release / Mitigate / Hold guidance.
    - Always include explicit assumptions and what would change the verdict.</p><p>You may not assert "this is safe to ship" without all four layers being
-addressed. If a layer cannot be evaluated, say so explicitly.</p><h2>Decision Confidence Calibration & Reproducibility (v2.0.0+)</h2></p><h3>Verdict Recording</h3></p><p>Every PR risk assessment (<code>/risk-assess-pr</code>) and release confidence judgment
+addressed. If a layer cannot be evaluated, say so explicitly.</p><h2>Decision Confidence Calibration & Reproducibility (v1.7.0+)</h2></p><h3>Verdict Recording</h3></p><p>Every PR risk assessment (<code>/risk-assess-pr</code>) and release confidence judgment
 (<code>/release-confidence</code>) is recorded with full fidelity in
 <code>.assert-iq/verdicts/archive/YYYY/MM/verdicts-DD.jsonl</code>:</p><p>- Verdict ID (UUID) for global uniqueness
 - Verdict band (green/amber/red/ungraded)

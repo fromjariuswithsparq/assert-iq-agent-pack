@@ -445,13 +445,23 @@
   <div class="features">
     <div class="feature">
       <div class="feature-icon" aria-hidden="true">⚡</div>
-      <h4>26 Skills</h4>
-      <p>Test generation, code review, risk assessment, hotspot mapping, traceability matrices, release confidence, escaped-defect analysis, exploratory charters, and more.</p>
+      <h4>30 Skills</h4>
+      <p>Test generation, code review, risk assessment, hotspot mapping, traceability matrices, release confidence, escaped-defect analysis, exploratory charters, oracle-based grading, business metrics dashboards, and more.</p>
     </div>
     <div class="feature">
       <div class="feature-icon" aria-hidden="true">🤖</div>
-      <h4>Two Agents</h4>
-      <p><code>Assert-IQ</code> for full execution and <code>Assert-IQ-PLAN</code> for plan-first workflows, with a built-in handoff button between them.</p>
+      <h4>Multi-Agent Orchestration <span class="accent">(v2.0)</span></h4>
+      <p>Two lead agents (<code>Assert-IQ</code> for execution, <code>Assert-IQ-PLAN</code> for plan-first) orchestrate <strong>8 isolated specialist agents</strong> — risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer, oracle-grader, calibration-specialist, memory-curator, traceability-auditor — in parallel then serially.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon" aria-hidden="true">💰</div>
+      <h4>Business Impact Dashboards <span class="accent">(v2.0)</span></h4>
+      <p>The <code>/measure-qi-impact</code> skill converts QI verdicts into <strong>VP-ready HTML dashboards</strong> — escape reduction %, triage hours reclaimed, cycle-time acceleration, and total economic ROI in dollars.</p>
+    </div>
+    <div class="feature">
+      <div class="feature-icon" aria-hidden="true">🔮</div>
+      <h4>Oracle Layer</h4>
+      <p>Rubric-based grading (<code>/define-quality-rubric</code>, <code>/grade-with-rubric</code>) — define what "good" looks like first, then grade artifacts independently. Immutable, versioned specs feed the Outcome layer.</p>
     </div>
     <div class="feature">
       <div class="feature-icon" aria-hidden="true">📊</div>
@@ -470,8 +480,8 @@
     </div>
     <div class="feature">
       <div class="feature-icon" aria-hidden="true">🎯</div>
-      <h4>Operating Model</h4>
-      <p>QI is the operating model. Assert.IQ is how teams act on it — from day one, in the tools they already use.</p>
+      <h4>Decision Confidence Calibration</h4>
+      <p>Every verdict is recorded with a memory hash for reproducibility. Brier score, confusion matrix, and per-layer fidelity prove verdict accuracy against real production escapes over time.</p>
     </div>
   </div>
 </section>
@@ -533,7 +543,7 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
 
       <div class="callout" style="margin-top:16px;">
         <strong>Don't want trial mode? Want skills in every workspace?</strong>
-        <p style="margin:6px 0 8px 0;">Use <code>--preset=portable</code>. Skills install user-globally to <code>~/.agents/skills/</code> (VS Code Copilot Chat) and <code>~/.claude/skills/</code> (Claude Code), so every repo you open has the 26 QI skills available. Workspace footprint is minimal — only the Assert-IQ chat agent files (<code>.github/agents/</code>, <code>.claude/agents/</code>) and the manifest land in the repo; no instructions, hooks, settings, or MCP config.</p>
+        <p style="margin:6px 0 8px 0;">Use <code>--preset=portable</code>. Skills install user-globally to <code>~/.agents/skills/</code> (VS Code Copilot Chat) and <code>~/.claude/skills/</code> (Claude Code), so every repo you open has the 30 QI skills available. Workspace footprint is minimal — only the Assert-IQ chat agent files (<code>.github/agents/</code>, <code>.claude/agents/</code>) and the manifest land in the repo; no instructions, hooks, settings, or MCP config.</p>
 <pre><code>bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --preset=portable</code></pre>
         <p style="font-size:0.88em;margin:6px 0 0 0;">Reverse with <code>bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --uninstall --user</code>.</p>
       </div>
@@ -562,7 +572,7 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
         <tbody>
           <tr><td><code>--preset=pod</code> (default)</td><td><strong>Workspace</strong> (<code>.github/instructions/</code>)</td><td><strong>Workspace</strong> (<code>.github/skills/</code>)</td><td>Full (12 config surfaces)</td><td>The entire team adopting Assert.IQ simultaneously in a shared repository.</td></tr>
           <tr><td><code>--preset=solo</code></td><td><strong>User-global</strong> (OS config dir)</td><td><strong>Workspace</strong></td><td>High (Skills &amp; config)</td><td>A single developer who wants core QI rules active everywhere, but skills isolated dynamically.</td></tr>
-          <tr><td><code>--preset=portable</code></td><td><em>(Not installed)</em></td><td><strong>User-global</strong> (<code>~/.agents/skills/</code>)</td><td>Minimal (Manifest &amp; agents only)</td><td>A developer who wants the 26 QI skills available in <em>any</em> repository without writing configs into the codebase.</td></tr>
+          <tr><td><code>--preset=portable</code></td><td><em>(Not installed)</em></td><td><strong>User-global</strong> (<code>~/.agents/skills/</code>)</td><td>Minimal (Manifest &amp; agents only)</td><td>A developer who wants the 30 QI skills available in <em>any</em> repository without writing configs into the codebase.</td></tr>
         </tbody>
       </table>
 
@@ -583,7 +593,7 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
 <pre><code>/assert-iq-tailor</code></pre>
       <p>It scans your workspace once, shows you what it detected, then customizes every configurable surface <strong>in the right order</strong> — gated by your review:</p>
       <ul style="font-size:0.92em;color:var(--text-dim);padding-left:20px;">
-        <li><strong><code>.assert-iq/config.yaml</code></strong> — the keystone. Tracker, VCS, test frameworks &amp; run commands, traceability marker, sensitive paths. Every skill reads from here, so filling it once flows into all 26.</li>
+        <li><strong><code>.assert-iq/config.yaml</code></strong> — the keystone. Tracker, VCS, test frameworks &amp; run commands, traceability marker, sensitive paths. Every skill reads from here, so filling it once flows into all 30.</li>
         <li><strong><code>.assert-iq/governance.md</code></strong> &amp; <strong><code>maturity-profile.md</code></strong> — compliance posture (ask-only, never inferred) and your Early / Mid / Higher tier.</li>
         <li><strong>The five instruction files</strong> — traceability marker, CI signal-emission, and test-design examples aligned to your stack.</li>
         <li><strong><code>.vscode/mcp.json</code></strong> — keeps the MCP servers your stack needs, comments out the rest. Secrets stay as <code>${input:…}</code> prompts.</li>
@@ -623,11 +633,12 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
   <h2 id="what-s-inside">What's <span class="accent">inside</span></h2>
   <pre class="tree"><span class="dir">.github/</span>
   <span class="file">copilot-instructions.md</span>     <span class="comment">← always-on QI reasoning rules</span>
-  <span class="dir">instructions/</span>               <span class="comment">← scoped rule sheets (tests, C#/XAML, CI…)</span>
-  <span class="dir">skills/</span>                     <span class="comment">← 26 QI skills, one subfolder each</span>
-  <span class="dir">agents/</span>                     <span class="comment">← Assert-IQ &amp; Assert-IQ-PLAN agents</span>
+  <span class="dir">instructions/</span>               <span class="comment">← 6 scoped rule sheets (tests, C#/XAML, CI, oracle…)</span>
+  <span class="dir">skills/</span>                     <span class="comment">← 30 QI skills, one subfolder each</span>
+  <span class="dir">agents/</span>                     <span class="comment">← Assert-IQ &amp; Assert-IQ-PLAN lead agents</span>
 <span class="dir">.claude/</span>
-  <span class="dir">agents/</span>                     <span class="comment">← Claude Code subagent counterparts</span>
+  <span class="dir">agents/</span>                     <span class="comment">← lead + grader subagents</span>
+    <span class="dir">specialists/</span>             <span class="comment">← 8 v2.0 orchestration specialists (JSON-only)</span>
   <span class="dir">skills</span> → ../.github/skills    <span class="comment">← symlink (copy on Windows w/o Dev Mode)</span>
 <span class="dir">.vscode/</span>
   <span class="file">mcp.json</span>                    <span class="comment">← 20 MCP server definitions</span>
@@ -635,6 +646,8 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
 <span class="dir">.assert-iq/</span>                   <span class="comment">← per-repo config (created by bootstrap)</span>
   <span class="dir">memory/</span>                     <span class="comment">← Dreaming memory store (MEMORY.md, topics/, logs/)</span>
   <span class="dir">dreaming/</span>                   <span class="comment">← recorder, gate, optional cron dreamer</span>
+  <span class="dir">agent-runs/</span>                 <span class="comment">← v2.0 orchestration audit trail</span>
+  <span class="dir">business-metrics/</span>           <span class="comment">← v2.0 baseline + quarterly ROI dashboards</span>
 <span class="dir">scripts/</span>
   <span class="file">bootstrap.sh / .ps1</span>         <span class="comment">← workspace installer, cross-platform</span></pre>
 </section>
@@ -655,6 +668,52 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
 </section>
 
 <section>
+  <h2 id="multi-agent-orchestration-v2">Multi-Agent Orchestration & Commercial Instrumentation <span class="accent">(v2.0+)</span></h2>
+  
+  <p class="lead">Assert.IQ v2.0 introduces a <strong>multi-agent orchestration architecture</strong> that isolates specialist analysis in parallel, then synthesizes findings into executive-ready business metrics.</p>
+
+  <h3 id="eight-specialist-agents">Eight Specialist Agents</h3>
+  <p>When you invoke a quality or release decision skill, the lead agent now delegates to 8 isolated specialists running <strong>in parallel</strong>, then <strong>serially</strong>:</p>
+  
+  <p><strong>Parallel Batch (concurrent execution):</strong></p>
+  <ul>
+    <li><strong>risk-scorer</strong> — PR risk assessment (change + protection layers)</li>
+    <li><strong>coverage-analyst</strong> — Test protection gap analysis</li>
+    <li><strong>flake-adjudicator</strong> — Test failure root-cause classification</li>
+    <li><strong>hotspot-analyzer</strong> — Fragile module identification (churn + complexity + escapes)</li>
+  </ul>
+
+  <p><strong>Serial Specialists (after parallel completes):</strong></p>
+  <ul>
+    <li><strong>oracle-grader</strong> — Rubric-based quality scoring</li>
+    <li><strong>calibration-specialist</strong> — Verdict accuracy measurement (Brier score, layer fidelity, drift)</li>
+    <li><strong>memory-curator</strong> — Memory store health checks (cycles, staleness, contradictions)</li>
+    <li><strong>traceability-auditor</strong> — AC↔code↔test linkage validation</li>
+  </ul>
+
+  <p>Each specialist returns <strong>structured JSON</strong> with findings, recommendations, and evidence. The lead agent aggregates all outputs into a synthesized narrative + decision, preserving the audit trail in <code>.assert-iq/agent-runs/</code>.</p>
+
+  <h3 id="business-impact-dashboards">Business Impact Dashboards</h3>
+  <p>The new <strong><code>/measure-qi-impact</code></strong> skill converts QI verdicts + baseline metrics into <strong>VP-ready HTML dashboards</strong> showing quarterly economic ROI:</p>
+  
+  <ul>
+    <li><strong>Escape Reduction</strong> — Production incident count delta vs. baseline (% improvement + cost impact)</li>
+    <li><strong>Triage Hours Reclaimed</strong> — Post-incident investigation time saved (hours + engineer cost)</li>
+    <li><strong>Release Cycle Acceleration</strong> — Days saved PR→release (velocity improvement)</li>
+    <li><strong>Total Economic Value</strong> — Combined ROI in dollars (sum of prevented incidents + triage savings)</li>
+  </ul>
+
+  <p><strong>Example Impact (Q3 2026):</strong></p>
+  <pre><code>33% escape reduction (4 fewer incidents) → $200K cost avoidance
+55 engineer-hours reclaimed → $4,675 burden cost savings
+4 days cycle acceleration → velocity metrics improvement
+Total quarterly ROI: $204,675</code></pre>
+
+  <p>Enable in <code>.assert-iq/config.yaml</code> — set <code>business_metrics.enabled: true</code> and provide baseline metrics in <code>.assert-iq/business-metrics/baseline.json</code>. Regenerate quarterly or on-demand with <code>/measure-qi-impact</code>.</p>
+
+</section>
+
+<section>
   <h2 id="go-deeper">Go <span class="accent">deeper</span></h2>
   <p class="lead">The three steps above are the fast path. When you're ready for the full picture:</p>
   <p><a class="btn btn-primary" href="README.assert-iq.html">Full Documentation →</a></p>
@@ -663,6 +722,7 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
     <li>VS Code / Copilot — <a href="vscode-readme.html"><code>vscode-readme.html</code></a></li>
     <li>Claude Code — <a href="claude-readme.html"><code>claude-readme.html</code></a></li>
     <li>MCP servers — <a href="MCP.html"><code>MCP.html</code></a></li>
+    <li>Oracle quick start — <a href="oracles-readme.html"><code>oracles-readme.html</code></a></li>
     <li>Dreaming guide — <a href="dreaming-readme.html"><code>dreaming-readme.html</code></a></li>
   </ul>
 </section>

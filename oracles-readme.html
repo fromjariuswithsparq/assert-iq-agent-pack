@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Oracle Layer — Quick Start · Assert.IQ</title>
+<style>
+  :root { --bg:#18191a; --text:#f5f5f5; --text-dim:#aab0b8; --accent:#e25232; --accent-2:#1e8077; --border:#3a3b3c; --code-bg:#111213; }
+  * { box-sizing:border-box; }
+  body { margin:0 auto; max-width:920px; padding:40px 24px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,system-ui,sans-serif; background:var(--bg); color:var(--text); line-height:1.65; }
+  a { color:var(--accent-2); text-decoration:none; } a:hover { color:var(--accent); }
+  code { font-family:'JetBrains Mono','SF Mono',Menlo,monospace; background:var(--code-bg); color:#c8d3ff; padding:2px 6px; border-radius:4px; border:1px solid var(--border); font-size:0.88em; }
+  pre { background:var(--code-bg); border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:8px; padding:16px 20px; overflow-x:auto; font-size:0.86em; }
+  pre code { background:none; border:none; padding:0; }
+  h1 { font-size:2em; border-bottom:2px solid var(--accent); padding-bottom:12px; margin-top:8px; }
+  h2 { font-size:1.5em; margin-top:36px; border-bottom:1px solid var(--border); padding-bottom:6px; }
+  h3 { font-size:1.2em; margin-top:28px; color:#fff; }
+  p, li { color:var(--text-dim); }
+  hr { border:none; border-top:1px solid var(--border); margin:32px 0; }
+  .badge { display:inline-block; padding:4px 12px; background:rgba(226,82,50,0.12); border:1px solid rgba(226,82,50,0.4); border-radius:20px; font-size:0.85em; color:var(--accent); margin-bottom:16px; }
+  .backlink { margin-bottom:24px; display:block; }
+  footer { border-top:1px solid var(--border); padding-top:24px; margin-top:48px; text-align:center; font-size:0.9em; color:var(--text-dim); }
+</style>
+<!-- aiq-search:head:start -->
+<link rel="stylesheet" href="assets/search.css">
+<!-- aiq-search:head:end -->
+</head>
+<body>
+<!-- aiq-search:widget:start -->
+<div id="aiq-search" role="search">
+  <input id="aiq-search-input" type="search" autocomplete="off" spellcheck="false"
+         placeholder="Search docs (press / to focus)…" aria-label="Search documentation">
+  <div id="aiq-search-results" hidden role="listbox"></div>
+</div>
+<!-- aiq-search:widget:end -->
+<a class="backlink" href="README.assert-iq.html">← Full documentation</a>
+<div class="badge">v1.6.0+ · Oracle Layer</div>
+<h1 id="oracle-layer-quick-start-5-steps">Oracle Layer — Quick Start (5 Steps)</h1>
+<p><strong>Version:</strong> 1.6.0+ <strong>What this is:</strong> Independent quality verification via rubric-based grading. Author what "done" looks like → grade independently → make confident merge/release decisions.</p>
+<hr>
+<h2 id="5-step-workflow">5-Step Workflow</h2>
+<h3 id="1-author-a-rubric">1. Author a Rubric</h3>
+<p>Define quality criteria with <code>/define-quality-rubric</code>.</p>
+<pre><code>You: &quot;/define-quality-rubric&quot;
+
+Skill guides you through:
+  - Artifact type? (test, bug_report, plan, etc.)
+  - What&#x27;s painful now? (e.g., &quot;Our unit tests have weak assertions&quot;)
+  - Define dimensions (independently scoreable criteria)
+  - Name, criterion, weight, levels (PASS/CONDITIONAL/FAIL)
+  - Validate &amp; version (e.g., test-unit-v1.0)</code></pre>
+<p><strong>Output:</strong> <code>.assert-iq/oracles/rubrics/&lt;rubric_id&gt;.json</code> <strong>Committed:</strong> Yes (rubric is a spec, git-safe)</p>
+<p><strong>Example Dimension:</strong></p>
+<pre><code>Assertion Clarity
+  Criterion: &quot;Each assertion documents what is being verified&quot;
+  Weight: 1.0 (critical)
+  
+  PASS: &quot;All assertions have inline messages&quot;
+  CONDITIONAL: &quot;70%+ have messages&quot;
+  FAIL: &quot;Bare assertions with no context&quot;</code></pre>
+<hr>
+<h3 id="2-grade-an-artifact">2. Grade an Artifact</h3>
+<p>Evaluate code/tests/reports against the rubric using <code>/grade-with-rubric</code>.</p>
+<pre><code>You: &quot;/grade-with-rubric tests/unit/login.test.ts test-unit-v1.0&quot;
+
+Skill:
+  [1] Reads artifact (42 lines)
+  [2] Loads rubric (4 dimensions)
+  [3] Spawns isolated grader agent
+  [4] Grades each dimension independently
+  
+  Verdict: CONDITIONAL (0.92 / 1.0)
+  
+  ✓ PASS: independence, determinism
+  ⚠ CONDITIONAL: assertion clarity (line 25 bare assert)
+  
+  Saved to: .assert-iq/oracles/outcomes/login.test.ts/latest.json</code></pre>
+<p><strong>Modes:</strong></p>
+<ul><li><strong>Manual</strong> — Interactive feedback, one artifact</li><li><strong>Async (CI)</strong> — Grade in pipeline, post verdicts to PR</li><li><strong>Batch</strong> — Preview all tests against new rubric before adoption</li></ul>
+<hr>
+<h3 id="3-view-verdict">3. View Verdict</h3>
+<p>Verdict is stored locally in <code>.assert-iq/oracles/outcomes/</code>:</p>
+<pre><code>.assert-iq/oracles/outcomes/
+  └─ login.test.ts/
+     ├─ latest.json          # Most recent verdict
+     └─ history.jsonl        # Full lineage (append-only)</code></pre>
+<p><strong>Latest Verdict Structure:</strong></p>
+<pre><code>{
+  &quot;rubric_id&quot;: &quot;test-unit-v1.0&quot;,
+  &quot;artifact_id&quot;: &quot;tests/unit/login.test.ts&quot;,
+  &quot;verdict&quot;: &quot;CONDITIONAL&quot;,
+  &quot;score&quot;: 0.92,
+  &quot;dimensions&quot;: [
+    {
+      &quot;id&quot;: &quot;assertion_clarity&quot;,
+      &quot;name&quot;: &quot;Assertion clarity&quot;,
+      &quot;verdict&quot;: &quot;CONDITIONAL&quot;,
+      &quot;score&quot;: 0.67,
+      &quot;evidence&quot;: &quot;Lines 10–22 have messages. Line 25 is bare assert() → 67%&quot;
+    }
+  ],
+  &quot;summary&quot;: &quot;Test structure solid. Add message to line 25.&quot;,
+  &quot;recommended_action&quot;: &quot;Fix artifact&quot;
+}</code></pre>
+<hr>
+<h3 id="4-integrate-with-merge-release-gates-optional">4. Integrate with Merge/Release Gates (Optional)</h3>
+<p>Oracle verdicts feed into the <strong>Outcome layer</strong> of QI decisions:</p>
+<p><strong>In <code>/check-merge</code>:</strong></p>
+<ul><li>Looks for oracle verdicts on touched tests</li><li>FAIL verdicts → amber (discuss) or block (maturity-dependent)</li></ul>
+<p><strong>In <code>/release-confidence</code>:</strong></p>
+<ul><li>Aggregates oracle verdicts on test suite</li><li>Outcome layer score reflects grading results</li><li>Verdict: GO / GO-WITH-MITIGATION / HOLD</li></ul>
+<p><strong>Maturity Weighting:</strong></p>
+<pre><code>early:   0%   (oracle is advisory only; never blocks)
+mid:     20%  (oracle is co-informational)
+higher:  50%  (oracle is co-decisive; can block merge)</code></pre>
+<p>Configure in <code>.assert-iq/config.yaml &gt; oracle.maturity_gating</code>.</p>
+<hr>
+<h3 id="5-iterate">5. Iterate</h3>
+<p><strong>Artifact needs work?</strong></p>
+<ul><li>Fix the issue (e.g., add assert message on line 25)</li><li>Re-run <code>/grade-with-rubric</code> with same rubric</li><li>Compare history: artifact v1 → v2 shows progress</li></ul>
+<p><strong>Rubric needs refinement?</strong></p>
+<ul><li>Don't edit the existing rubric (immutable)</li><li>Create a new version (e.g., <code>test-unit-v1.1</code>)</li><li>Batch-grade with new version to see impact</li><li>Adopt v1.1 if better; keep v1.0 in git history</li></ul>
+<p><strong>Example progression:</strong></p>
+<pre><code>login.test.ts artifact v1 + test-unit-v1.0 = CONDITIONAL (0.92)
+  → Fix line 25
+login.test.ts artifact v2 + test-unit-v1.0 = PASS (1.0)
+  → But find new issue: missing test for error case
+login.test.ts artifact v2 + test-unit-v1.1 (new dimension: error-path coverage)
+  = CONDITIONAL (0.80)
+  → Add error test
+login.test.ts artifact v3 + test-unit-v1.1 = PASS (1.0)</code></pre>
+<hr>
+<h2 id="key-concepts">Key Concepts</h2>
+<p><strong>Rubric authorship ≠ test generation</strong></p>
+<ul><li>Rubrics are pre-authored specs (dimensions, levels, passing criteria)</li><li>Grading is independent (grader has no access to generator reasoning)</li><li>This isolation is the defensible differentiator</li></ul>
+<p><strong>Immutable rubrics, versioned evolution</strong></p>
+<ul><li>Once created, a rubric (e.g., <code>test-unit-v1.0</code>) never changes</li><li>Refinements become new versions (v1.1, v2.0)</li><li>Full lineage preserved in git</li></ul>
+<p><strong>Evidence-driven verdicts</strong></p>
+<ul><li>Every verdict cites specific evidence (line numbers, patterns)</li><li>Why this level? What would change it?</li><li>Never subjective or fabricated</li></ul>
+<p><strong>Maturity-gated</strong></p>
+<ul><li>Early: rubric authoring + advisory grading</li><li>Mid: optional CI grading, optional gates</li><li>Higher: auto-grade in CI, can block merges</li></ul>
+<hr>
+<h2 id="config-activation-customization">Config: Activation & Customization</h2>
+<p><strong>Enable oracle layer:</strong></p>
+<pre><code>oracle:
+  enabled: true
+  grader:
+    model: &quot;claude-3-5-sonnet&quot;
+    timeout_seconds: 60
+  defaults_by_artifact_type:
+    test: &quot;test-unit-v1.0&quot;
+    test_integration: &quot;test-integration-v1.0&quot;
+    bug_report: &quot;bug-report-v1.0&quot;
+    plan: &quot;plan-v1.0&quot;
+  verdict_sink: &quot;local&quot;  # or &quot;github&quot;, &quot;ado&quot;, &quot;jira&quot;, &quot;none&quot;
+  maturity_gating:
+    early:   { oracle_weight: 0.0, mode: &quot;advisory_only&quot; }
+    mid:     { oracle_weight: 0.2, mode: &quot;optional_gate&quot; }
+    higher:  { oracle_weight: 0.5, mode: &quot;can_block_merge&quot; }</code></pre>
+<hr>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<p><strong>Q: Verdicts aren't being saved</strong> A: Check <code>.assert-iq/oracles/outcomes/</code> exists. If not, run <code>/assert-iq-bootstrap</code> to scaffold.</p>
+<p><strong>Q: Can't remember the rubric ID</strong> A: List available rubrics: <code>ls .assert-iq/oracles/rubrics/</code></p>
+<p><strong>Q: Want to change a rubric that's already in use</strong> A: Don't edit it. Create a new version (v1.1, v2.0). Old version stays in history.</p>
+<p><strong>Q: Oracle verdict FAIL but I disagree</strong> A: Refine the rubric (new version) or file a GitHub issue (oracle grader may need tuning).</p>
+<p><strong>Q: How do I post verdicts to my tracker?</strong> A: Set <code>.assert-iq/config.yaml &gt; oracle.verdict_sink: &quot;github&quot;</code> (or ado, jira). Then re-grade.</p>
+<hr>
+<h2 id="further-reading">Further Reading</h2>
+<ul><li><strong>Full guide:</strong> <code>oracles-readme.html</code></li><li><strong>Rubric authoring:</strong> <code>/define-quality-rubric</code> skill</li><li><strong>Grading:</strong> <code>/grade-with-rubric</code> skill</li><li><strong>Grader agent:</strong> <code>.claude/agents/grader.md</code></li><li><strong>Registry:</strong> <code>.assert-iq/oracles/README.md</code></li><li><strong>Config:</strong> <code>.assert-iq/config.yaml &gt; oracle:</code></li><li><strong>Governance:</strong> <code>.github/instructions/qi-oracle.instructions.md</code></li></ul>
+<footer>
+  <div>Assert.IQ Agent Pack · Oracle Layer Quick Start · Sparq Intelligence Studio</div>
+  <p style="margin-top:8px;font-size:0.85em;">Source: <a href="ORACLE_QUICK_START.md">ORACLE_QUICK_START.md</a> · Back to <a href="README.assert-iq.html">Full documentation</a></p>
+</footer>
+<!-- aiq-search:scripts:start -->
+<script src="assets/search-index.js"></script>
+<script src="assets/search.js"></script>
+<!-- aiq-search:scripts:end -->
+</body>
+</html>

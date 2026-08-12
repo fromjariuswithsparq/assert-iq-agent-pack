@@ -5,6 +5,26 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] — 2026-08-11
+
+### Fixed
+- **Critical Dreaming hook wiring regression.** Commit 1d16050 on 2026-08-08 broke `.vscode/settings.json` `chat.hookFilesLocations`, routing to `.claude/settings.json`. VS Code Copilot's hook loader silently failed when parsing Claude-specific `permissions` key. Dreaming logging stopped from 2026-08-08 through 2026-08-11 (4-day gap). Root cause: file format incompatibility. Solution: restored correct wiring to `./.assert-iq/dreaming/session-events.json` (clean `{hooks:{...}}` format); .claude/settings.json explicitly set to false to prevent parsing errors. Dreaming recording resumed 2026-08-11; all E2E tests pass.
+- **Documentation integrity audit (v2.0 accuracy).** Comprehensive audit of README.html, README.assert-iq.html, and supporting pages revealed stale v1.7.0 references, missing v2.0 features (Multi-Agent Orchestration, Oracle Layer, Business Impact Dashboards, Decision Confidence Calibration), and incorrect skill counts (26/27/29 vs. actual 30). All skill registry tables, sidebar nav, feature cards, and version history updated to reflect v2.0.0 release. Generated new oracles-readme.html quick-start guide. Search index rebuilt: 86 → 103 entries with Oracle coverage (26 hits).
+
+### Added
+- **Memory consolidation pass** via `/dream now`. Consolidated this session's major work (v2.0 release, bug fixes, documentation overhaul) into long-term memory store (`.assert-iq/memory/`). Created 2 new topic files: `v2-0-features.md`, `dreaming-critical-bug.md`. Updated architecture.md and dreaming-and-upgrade.md with v2.0 context and Dreaming incident details. Memory index updated with 18 consolidated pointers, 28 lines (well under 200-line cap).
+
+### Verified
+- ✅ All E2E Dreaming tests pass (7/7): recorder, gate logic, time-gating, kill-switch, write-sandbox
+- ✅ Hook wiring validated: session-events.json reading, .claude/settings.json parsing error prevented
+- ✅ Session recording active: 3 sessions captured in 2026-08-12.md (UTC log)
+- ✅ Memory protection: 4-layer safeguard confirmed (gitignore, bootstrap, upgrade, uninstall)
+- ✅ No version conflicts in documentation
+
+### Documentation
+- Added memory protection guide: 4-layer safeguard, best practices for protecting custom files
+- Created topics/memory-protection-guide.md with detailed protection mechanisms and scenarios
+
 ## [1.7.0-alpha1] — 2026-08-11
 
 ### Added (Phase 1: Verdict Infrastructure + Memory Versioning)
