@@ -1,7 +1,7 @@
 ---
 name: assert-iq-tailor
 mode: agent
-description: "Tailor a freshly-installed Assert.IQ pack to THIS codebase — discover the stack once, then customize config.yaml, governance.md, maturity-profile.md, the five instruction files, the skills, and mcp.json in dependency order, gated by human review. WHEN: customize the pack, tailor Assert.IQ, configure config.yaml for my repo, fill in the placeholders, set up governance, just installed the pack what next, onboard the pack to my codebase."
+description: "Tailor a freshly-installed Assert.IQ pack to THIS codebase — discover the stack once, then customize config.yaml, governance.md, maturity-profile.md, the six instruction files, the skills, and mcp.json in dependency order, gated by human review. WHEN: customize the pack, tailor Assert.IQ, configure config.yaml for my repo, fill in the placeholders, set up governance, just installed the pack what next, onboard the pack to my codebase."
 ---
 
 <!-- markdownlint-disable MD033 -->
@@ -123,6 +123,16 @@ value, the evidence, and the proposed config key it will set. Then:
      PCI-DSS apply?").
    - Maturity tier confirmation + a 2–5 sentence rationale, and the
      Effective / Re-evaluation dates.
+   - `governance.escalation_owner` (who gets paged on a policy violation
+     or failed heal) and, if a regime applies, `governance.compliance`.
+   - Whether verdicts must be tracked in git (`verdicts.track_in_git`) —
+     yes for regulated clients (SOX/ISO 27001/FedRAMP), no otherwise.
+   - Real `business_metrics` figures — `escape_incident_cost`,
+     `engineer_burden_rate`, and the actual pre-QI baseline (escape
+     rate, triage hours, cycle time) for `.assert-iq/business-metrics/baseline.json`.
+     If the team has no data yet, mark **needs input** and leave the
+     shipped placeholder with a `TODO(tailor):` rather than inventing
+     numbers.
 2. Confirm the proposed marker style and test commands.
 3. Get explicit go-ahead before writing anything. This is the mandatory
    human-review gate.
@@ -146,6 +156,27 @@ or human-only value is required.
 - `pr.risk_thresholds.sensitive_paths` — add the detected sensitive
   dirs to the shipped defaults.
 - `workspace.role` + `companion_repo` when split-repo was detected.
+- `governance.escalation_owner` (and `governance.compliance` when a
+  regime applies) — mirror the Phase 2 answers; never leave the
+  shipped placeholder on a reviewed repo.
+- `oracle.grader.model` / `oracle.verdict_sink` / `defaults_by_artifact_type`
+  — confirm the rubric IDs referenced actually exist under
+  `.assert-iq/oracles/rubrics/`; `maturity_gating` already mirrors
+  `maturity.tier` by default and rarely needs a manual edit.
+- `verdicts.track_in_git` — set per the Phase 2 compliance answer.
+- `business_metrics.escape_incident_cost` / `engineer_burden_rate` —
+  fill with the real figures from Phase 2, and tailor
+  `.assert-iq/business-metrics/baseline.json` (`escape_rate_per_quarter`,
+  `triage_hours_per_quarter`, `cycle_time_days_pr_to_release`) with the
+  team's actual pre-QI numbers. Never leave the shipped sample data in
+  place silently — either replace it or flag it `TODO(tailor):` with a
+  note that ROI reporting will be inaccurate until it's real.
+- `dreaming_provenance`, `regression_testing`, `calibration`,
+  `memory_sanity` — these ship with sane defaults and rarely need
+  edits; only touch them if the user has an explicit opinion (e.g.
+  enabling `regression_testing` once they've populated a golden
+  corpus, or raising `calibration.min_verdicts_for_stats` for a
+  high-volume team).
 
 Do not remove the explanatory comments — they help the next maintainer.
 
@@ -163,7 +194,7 @@ Snapshot each, then:
   check the indicators the user confirmed. Keep the two tier values in
   lockstep — a mismatch is a defect.
 
-## Phase 5 — Tailor the five instruction files
+## Phase 5 — Tailor the six instruction files
 
 Snapshot each, then tailor to the detected stack:
 
@@ -175,6 +206,10 @@ Snapshot each, then tailor to the detected stack:
 - `qi-test-design.instructions.md` / `qi-manual-test-design.instructions.md`
   — adjust framework-specific examples only where they conflict with
   the detected framework. Do not over-edit; these are mostly universal.
+- `qi-oracle.instructions.md` — confirm the maturity-tier gating table
+  matches `oracle.maturity_gating` in `config.yaml`; leave the rubric
+  immutability/versioning rules untouched — those are universal, not
+  per-client.
 - `qi-foundation.instructions.md` — leave as-is unless the user wants a
   client-specific note; it is the shared rulebook.
 
@@ -183,7 +218,12 @@ Snapshot each, then tailor to the detected stack:
 Default behavior — a **config-driven gap-check**, not a rewrite:
 
 1. For each skill in `.github/skills/` that was installed with the pack, read its HOW-TO-CUSTOMIZE    block
-   and identify the `config.yaml` keys it depends on.
+   and identify the `config.yaml` keys it depends on. This includes the
+   newer skill families, not just the original generation/review set:
+   Oracle (`define-quality-rubric`, `grade-with-rubric` → `oracle.*`),
+   Business Impact (`measure-qi-impact` → `business_metrics.*` +
+   `.assert-iq/business-metrics/baseline.json`), and Memory
+   (`dream` → `dreaming.*`, `dreaming_provenance.*`, `memory_sanity.*`).
 2. Report any keys that are still unset or still `<PLACEHOLDER>` after
    Phase 3 — these are the only places a skill won't behave correctly.
 3. Offer to fill the remaining keys (preferred) rather than editing the

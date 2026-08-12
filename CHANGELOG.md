@@ -5,6 +5,11 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.2] — 2026-08-12
+
+### Fixed
+- **`/assert-iq-tailor` skill gaps.** The tailor skill predated the Oracle layer, Decision Confidence Calibration, and Business Metrics config sections (v1.6.0–v2.0), so a fresh tailoring pass would silently skip `oracle.*`, `verdicts.*`, `dreaming_provenance.*`, `regression_testing.*`, `calibration.*`, `memory_sanity.*`, `business_metrics.*`, and `governance.escalation_owner`/`compliance` — leaving real placeholders and shipped sample ROI data in place with no signal to the user. Phase 2 (Align) now asks for these judgement-call values; Phase 3 (config.yaml) now has explicit tailoring bullets for each; Phase 5 corrected "five" → "six" instruction files and added `qi-oracle.instructions.md`; Phase 6 now explicitly names the newer skill families (Oracle, Business Impact, Memory) in its gap-check loop.
+
 ## [2.0.1] — 2026-08-11
 
 ### Fixed
