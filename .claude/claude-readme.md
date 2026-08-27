@@ -13,6 +13,8 @@ session-event settings.
 |---|---|
 | `agents/assert-iq.md` | The **default Assert.IQ subagent** — Quality Intelligence front door with full tools. Routes to the right skill and executes. Invoke with `@assert-iq`. |
 | `agents/assert-iq-plan.md` | The **planning sibling** of `assert-iq`. Read-only — researches, writes a plan, and waits for your approval before handing off. Invoke with `@assert-iq-plan` when the task is large or risky. |
+| `agents/grader.md` | The **Oracle-layer grader** — evaluates an artifact against a pre-authored rubric in an isolated context, with no access to how the artifact was produced. |
+| `agents/specialists/` | Eight single-purpose analysts (risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer, oracle-grader, calibration-specialist, memory-curator, traceability-auditor). The lead delegates to them and each returns JSON only. **These files are also the source of truth for Copilot** — `.github/agents/specialists/` is generated from them by `scripts/sync-agents.sh`, so edit them here and re-run the sync. |
 | `skills/` | Step-by-step playbooks Claude can run when you ask. This is a **symlink** to `.github/skills/`, so Copilot and Claude share the exact same set. Examples: `/generate-bug-report`, `/code-review`. On **Windows without Developer Mode**, the installer falls back to copying the folder — in that case, re-run `install.ps1` after editing any skill. See [README.assert-iq.md → Platform notes](../README.assert-iq.md#platform-notes-claudeskills-symlink) for the full matrix. |
 | `settings.json` | Claude Code's settings file. The pack installer fills in the session-events (`hooks`) section here — the Dreaming waking-loop scripts that fire at session start/end to record activity and nudge `/dream`. |
 
@@ -26,12 +28,19 @@ The instructions ("house rules") that Copilot reads from
 
 1. **Install Claude Code** if you haven't yet — see the
    [Claude Code docs](https://docs.claude.com/claude-code).
-2. **Pick an install path.** The pack ships two paths and you only ever
+2. **Check your environment.** `bash scripts/check-environment.sh`
+   (macOS/Linux/WSL) or `pwsh -File scripts/check-environment.ps1`
+   (Windows). It names every requirement and the fix for anything
+   missing. Requirements table:
+   [README → Environment requirements](../README.md#environment-requirements).
+3. **Pick an install path.** The pack ships two paths and you only ever
    need one of them:
    - **Path A — try it on the pack repo itself.** From the cloned pack
-     root, run `./install.sh` (macOS/Linux) or `pwsh ./install.ps1`
-     (Windows). Then open the **pack folder** itself in Claude Code.
-     Your team's codebase is never touched.
+     root, run `bash install.sh` (macOS/Linux/WSL) or
+     `pwsh -File install.ps1` (Windows — **not** Git Bash; Windows
+     PowerShell 5.1 also works via `powershell -File install.ps1`).
+     Then open the **pack folder** itself in Claude Code. Your team's
+     codebase is never touched.
    - **Path B — install it into your codebase.** This is the real
      deployment path. Run the bootstrap script from a terminal
      pointed at your target repo — no editor required, nothing to
@@ -43,7 +52,8 @@ The instructions ("house rules") that Copilot reads from
      cd ~/code/my-app
      # 3. Run the bootstrap script from the clone
      bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
-     # Windows: pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
+     # Windows (PowerShell, NOT Git Bash):
+     # pwsh -File $HOME/assert-iq-agent-pack/scripts/bootstrap.ps1 -Mode trial
      ```
      `--mode=trial` keeps the pack invisible to your team via
      `.git/info/exclude`; `--mode=committed` checks it in. Either way,
@@ -55,7 +65,7 @@ The instructions ("house rules") that Copilot reads from
      user-globally to `~/.agents/skills/`)? You can also run
      `/assert-iq-bootstrap` from chat — same outcome.
    Both installers are safe to re-run.
-3. **Start chatting.** Type `/` to see available skills, or `@assert-iq`
+4. **Start chatting.** Type `/` to see available skills, or `@assert-iq`
    to use the default Assert.IQ subagent. For plan-first behavior on a
    larger task, use `@assert-iq-plan` instead.
 

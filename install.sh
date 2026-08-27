@@ -26,7 +26,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 HOOKS_TEMPLATE_LEGACY="$ROOT/hooks/hooks.json"
 EVENTS_TEMPLATE="$ROOT/.assert-iq/dreaming/session-events.template.json"
+CLAUDE_HOOKS_TEMPLATE="$ROOT/.assert-iq/dreaming/claude-hooks.posix.template.json"
 EVENTS_SRC="$ROOT/.assert-iq/dreaming/session-events.json"
+CLAUDE_HOOKS_SRC="$ROOT/.assert-iq/dreaming/.claude-hooks.rendered.json"
 MEMORY_DIR="$ROOT/.assert-iq/memory"
 SETTINGS_DST="$ROOT/.claude/settings.json"
 SKILLS_SRC_REL="../.github/skills"
@@ -79,6 +81,10 @@ case "${1:-}" in
       rm -f "$EVENTS_SRC"
       say "[ok] removed $EVENTS_SRC"
     fi
+    if [[ -f "$CLAUDE_HOOKS_SRC" ]]; then
+      rm -f "$CLAUDE_HOOKS_SRC"
+      say "[ok] removed $CLAUDE_HOOKS_SRC"
+    fi
     # 3a. Remove any leftover rendered file from the retired hooks feature.
     if [[ -f "$HOOKS_TEMPLATE_LEGACY" ]]; then
       rm -f "$HOOKS_TEMPLATE_LEGACY"
@@ -101,6 +107,50 @@ case "${1:-}" in
     ;;
 esac
 
+# ---- Windows: this installer produces Windows-BROKEN artifacts --------------
+# Not a speed complaint like bootstrap.sh -- the OUTPUT is wrong for Windows:
+#
+#   1. .claude/settings.json is rendered from claude-hooks.posix.template.json,
+#      so it declares shell="bash" and points at the .sh hook scripts. The
+#      Windows-native template (powershell + .ps1 scripts) is what Claude Code
+#      needs here.
+#   2. __PACK_ROOT__ is substituted with the MSYS path ("/c/Users/..."), which
+#      is meaningless to PowerShell. The Copilot session-events `windows`
+#      override then does `Test-Path '/c/Users/...'` -> false -> `exit 0`, so
+#      the Dreaming hooks silently no-op under VS Code on Windows. Verified.
+#
+# install.ps1 renders both correctly. Refuse and say so; --allow-msys (or
+# AIQ_ALLOW_MSYS=1, which the bash test suites set because they deliberately
+# exercise the POSIX path) overrides.
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    if [[ "${AIQ_ALLOW_MSYS:-0}" != "1" ]] && [[ " $* " != *" --allow-msys "* ]]; then
+      cat >&2 <<'MSYSEOF'
+ERROR: you are running the bash installer on Windows (Git Bash/MSYS).
+
+  It would write a Windows-broken config: .claude/settings.json would declare
+  shell="bash" with POSIX hook scripts, and the baked pack root would be an
+  MSYS path ("/c/Users/...") that PowerShell cannot resolve -- so the Dreaming
+  hooks would silently do nothing under both Claude Code and VS Code.
+
+  Use the PowerShell installer instead:
+
+      pwsh -File install.ps1
+
+  PowerShell 7+ is recommended. Windows PowerShell 5.1 is supported too --
+  swap 'pwsh' for 'powershell' in the commands above.
+  Check your environment first with:
+
+      pwsh -File scripts/check-environment.ps1
+
+  WSL is NOT affected -- inside WSL this is Linux and bash is the right path.
+  To override anyway: re-run with --allow-msys (or set AIQ_ALLOW_MSYS=1).
+MSYSEOF
+      exit 2
+    fi
+    ;;
+esac
+
 [[ -f "$EVENTS_TEMPLATE" ]] || fail "missing $EVENTS_TEMPLATE"
 [[ -f "$RENDER_LIB" ]] || fail "missing $RENDER_LIB"
 
@@ -111,6 +161,12 @@ mkdir -p "$ROOT/.claude/agents"
 
 # ---- 0. scaffold the Dreaming memory store -------------------------------
 mkdir -p "$MEMORY_DIR/topics" "$MEMORY_DIR/logs" "$MEMORY_DIR/.dream"
+
+# Verdict archive (v1.7.0+) and pre-dream memory snapshots. Both are
+# git-ignored runtime sinks, so a fresh clone has neither; without them the
+# first /risk-assess-pr or /dream has nowhere to write.
+mkdir -p "$ROOT/.assert-iq/verdicts/archive" "$ROOT/.assert-iq/dreaming/.snapshots" \
+         "$ROOT/.assert-iq/business-metrics/reports"
 [[ -f "$MEMORY_DIR/.dream/state.json" ]] || \
   printf '{\n  "last_dream_utc": null,\n  "sessions_since_dream": 0\n}\n' > "$MEMORY_DIR/.dream/state.json"
 # MEMORY.md is git-ignored (never ship maintainer memory); seed a clean index
@@ -153,34 +209,101 @@ render_events_template "$EVENTS_TEMPLATE" "$EVENTS_SRC" "$ROOT" \
 say "[ok] rendered .assert-iq/dreaming/session-events.json (pack root: $ROOT)"
 
 # ---- 2. sync session-events into settings --------------------------------
-if command -v jq >/dev/null 2>&1; then
-    if [[ -f "$SETTINGS_DST" ]]; then
-        # Merge: replace only the .hooks key, preserve everything else.
-        # Stage the merged JSON next to the destination so the final mv is
-        # atomic on the same filesystem, and gate it on jq's exit code so
-        # a failed merge can never truncate the user's settings.
-        tmp="$(mktemp "$SETTINGS_DST.XXXXXX")"
-        cleanup_tmp() { [[ -n "${tmp:-}" && -e "$tmp" ]] && rm -f "$tmp"; }
-        trap cleanup_tmp EXIT
-        if ! jq -s '.[0] as $existing | .[1] as $new | $existing + {hooks: $new.hooks}' \
-                "$SETTINGS_DST" "$EVENTS_SRC" > "$tmp"; then
-            fail "jq merge failed; $SETTINGS_DST left untouched"
+# IMPORTANT: .claude/settings.json is NOT a copy of session-events.json. The two
+# consumers use incompatible hook schemas:
+#
+#   VS Code Copilot : handlers sit directly in the event array and support
+#                     osx/linux/windows command overrides.
+#   Claude Code     : requires a matcher-group wrapper with a nested "hooks"
+#                     array, has no platform keys, and picks the interpreter via
+#                     a "shell" field.
+#
+# Copying the Copilot shape into .claude/settings.json yields a file Claude Code
+# silently ignores -- exactly how Dreaming came to be dead under Claude Code
+# while still working under VS Code on macOS. Render the Claude-shaped template.
+# Enforced by unit-hook-schema.py.
+render_events_template "$CLAUDE_HOOKS_TEMPLATE" "$CLAUDE_HOOKS_SRC" "$ROOT"   || fail "failed to render Claude hooks from $CLAUDE_HOOKS_TEMPLATE"
+
+# Resolve a working Python 3 for the JSON merge. `python3` is not a reliable
+# name (Windows ships a Store stub called python3 and python.org ships no
+# python3.exe at all), so probe by EXECUTING each candidate. Same contract as
+# .assert-iq/dreaming/scripts/lib/dream-utils.sh and the test lib.
+AIQ_PY=""
+for _cand in python3 python; do
+    command -v "$_cand" >/dev/null 2>&1 || continue
+    if "$_cand" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1; then
+        AIQ_PY="$_cand"; break
+    fi
+done
+if [[ -z "$AIQ_PY" ]] && command -v py >/dev/null 2>&1; then
+    py -3 -c 'import sys; sys.exit(0)' >/dev/null 2>&1 && AIQ_PY="py -3"
+fi
+
+merge_hooks_key() {
+    # Replace ONLY the .hooks key in $1 with the one from $2, preserving every
+    # other key. Stage next to the destination so the final mv is atomic on the
+    # same filesystem, and never overwrite on failure.
+    #
+    # Python first, jq second. This used to be jq-only, which made the installer
+    # NON-IDEMPOTENT on any machine without jq: the first run copied the file,
+    # and the second run hit "jq not installed and .claude/settings.json already
+    # exists" and aborted -- on stock macOS, which ships Python 3 but not jq,
+    # every re-run of the documented Path A failed.
+    local dst="$1" src="$2" tmp
+    tmp="$(mktemp "$dst.XXXXXX")" || return 1
+    if [[ -n "$AIQ_PY" ]]; then
+        if $AIQ_PY - "$dst" "$src" "$tmp" <<'PY'
+import json, sys
+dst, src, out = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(dst, encoding="utf-8") as f:
+    existing = json.load(f)
+with open(src, encoding="utf-8") as f:
+    new = json.load(f)
+if not isinstance(existing, dict):
+    raise SystemExit("existing settings.json is not a JSON object")
+existing["hooks"] = new.get("hooks")
+with open(out, "w", encoding="utf-8", newline="\n") as f:
+    json.dump(existing, f, indent=2)
+    f.write("\n")
+PY
+        then
+            [[ -s "$tmp" ]] || { rm -f "$tmp"; return 1; }
+            mv "$tmp" "$dst"
+            MERGE_TOOL="python"
+            return 0
         fi
-        [[ -s "$tmp" ]] || fail "jq merge produced empty output; $SETTINGS_DST left untouched"
-        mv "$tmp" "$SETTINGS_DST"
-        tmp=""
-        trap - EXIT
-    else
-        cp "$EVENTS_SRC" "$SETTINGS_DST"
+        rm -f "$tmp"
+        return 1
     fi
-    say "[ok] synced session events -> .claude/settings.json (hooks key)"
+    if command -v jq >/dev/null 2>&1; then
+        if jq -s '.[0] as $existing | .[1] as $new | $existing + {hooks: $new.hooks}' \
+                "$dst" "$src" > "$tmp" && [[ -s "$tmp" ]]; then
+            mv "$tmp" "$dst"
+            MERGE_TOOL="jq"
+            return 0
+        fi
+        rm -f "$tmp"
+        return 1
+    fi
+    rm -f "$tmp"
+    return 2   # no merge tool at all
+}
+
+if [[ -f "$SETTINGS_DST" ]]; then
+    MERGE_TOOL=""
+    # `|| merge_rc=$?` is required: this script runs under `set -e`, so calling
+    # the function bare would abort the whole install on a non-zero return
+    # before the case below could turn it into an actionable message.
+    merge_rc=0
+    merge_hooks_key "$SETTINGS_DST" "$CLAUDE_HOOKS_SRC" || merge_rc=$?
+    case "$merge_rc" in
+        0) say "[ok] merged hooks key -> .claude/settings.json (via $MERGE_TOOL; your other keys preserved)" ;;
+        2) fail "no JSON tool available (need Python 3 or jq) and .claude/settings.json already exists; merge the 'hooks' key from $CLAUDE_HOOKS_SRC manually" ;;
+        *) fail "merge failed; $SETTINGS_DST left untouched (source: $CLAUDE_HOOKS_SRC)" ;;
+    esac
 else
-    # No jq: only safe move is a fresh copy if no settings exist.
-    if [[ -f "$SETTINGS_DST" ]]; then
-        fail "jq not installed and .claude/settings.json already exists; install jq or merge manually"
-    fi
-    cp "$EVENTS_SRC" "$SETTINGS_DST"
-    say "[ok] copied session events -> .claude/settings.json (jq not present; merge skipped)"
+    cp "$CLAUDE_HOOKS_SRC" "$SETTINGS_DST"
+    say "[ok] wrote .claude/settings.json (hooks key)"
 fi
 
 # ---- 3. wire skills ------------------------------------------------------

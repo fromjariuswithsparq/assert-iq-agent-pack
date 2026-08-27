@@ -74,6 +74,8 @@
     <tbody>
       <tr><td><code>agents/assert-iq.md</code></td><td>The <strong>default Assert.IQ subagent</strong> — Quality Intelligence front door with full tools. Routes to the right skill and executes. Invoke with <code>@assert-iq</code>.</td></tr>
       <tr><td><code>agents/assert-iq-plan.md</code></td><td>The <strong>planning sibling</strong> of <code>assert-iq</code>. Read-only — researches, writes a plan, and waits for your approval before handing off. Invoke with <code>@assert-iq-plan</code> when the task is large or risky.</td></tr>
+      <tr><td><code>agents/grader.md</code></td><td>The <strong>Oracle-layer grader</strong> — evaluates an artifact against a pre-authored rubric in an isolated context, with no access to how the artifact was produced.</td></tr>
+      <tr><td><code>agents/specialists/</code></td><td>Eight single-purpose analysts (risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer, oracle-grader, calibration-specialist, memory-curator, traceability-auditor). The lead delegates to them and each returns JSON only. <strong>These files are also the source of truth for Copilot</strong> — <code>.github/agents/specialists/</code> is generated from them by <code>scripts/sync-agents.sh</code>, so edit them here and re-run the sync.</td></tr>
       <tr><td><code>skills/</code></td><td>Step-by-step playbooks Claude can run when you ask. This is a <strong>symlink</strong> to <code>.github/skills/</code>, so Copilot and Claude share the exact same set. Examples: <code>/generate-bug-report</code>, <code>/code-review</code>. On <strong>Windows without Developer Mode</strong>, the installer falls back to copying the folder — in that case, re-run <code>install.ps1</code> after editing any skill. See <a href="README.assert-iq.html">README.assert-iq.html</a> for the full matrix.</td></tr>
       <tr><td><code>settings.json</code></td><td>Claude Code's settings file. The pack installer fills in the session-events (<code>hooks</code>) section here — the Dreaming waking-loop scripts that fire at session start/end to record activity and nudge <code>/dream</code>.</td></tr>
     </tbody>
@@ -83,9 +85,10 @@
   <h2 id="how-to-start-using-it">How to start using it</h2>
   <ol>
     <li><strong>Install Claude Code</strong> if you haven't yet — see the <a href="https://docs.claude.com/claude-code">Claude Code docs</a>.</li>
+    <li><strong>Check your environment.</strong> <code>bash scripts/check-environment.sh</code> (macOS/Linux/WSL) or <code>pwsh -File scripts/check-environment.ps1</code> (Windows). It names every requirement and the fix for anything missing. Requirements table: <a href="README.html#environment-requirements">README → Environment requirements</a>.</li>
     <li><strong>Pick an install path.</strong> The pack ships two paths and you only ever need one of them:
       <ul>
-        <li><strong>Path A — try it on the pack repo itself.</strong> From the cloned pack root, run <code>./install.sh</code> (macOS/Linux) or <code>pwsh ./install.ps1</code> (Windows). Then open the <strong>pack folder</strong> itself in Claude Code. Your team's codebase is never touched.</li>
+        <li><strong>Path A — try it on the pack repo itself.</strong> From the cloned pack root, run <code>bash install.sh</code> (macOS/Linux/WSL) or <code>pwsh -File install.ps1</code> (Windows — <strong>not</strong> Git Bash; Windows PowerShell 5.1 also works via <code>powershell -File install.ps1</code>). Then open the <strong>pack folder</strong> itself in Claude Code. Your team's codebase is never touched.</li>
         <li><strong>Path B — install it into your codebase.</strong> This is the real deployment path. Run the bootstrap script from a terminal pointed at your target repo — no editor required, nothing to install in chat first:
 <pre><code><span style="color:#6b7280;"># 1. Clone the pack somewhere (one time, anywhere)</span>
 git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack ~/assert-iq-agent-pack
@@ -93,7 +96,8 @@ git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack ~/assert-i
 cd ~/code/my-app
 <span style="color:#6b7280;"># 3. Run the bootstrap script from the clone</span>
 bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
-<span style="color:#6b7280;"># Windows: pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</span></code></pre>
+<span style="color:#6b7280;"># Windows (PowerShell, NOT Git Bash):</span>
+<span style="color:#6b7280;"># pwsh -File $HOME/assert-iq-agent-pack/scripts/bootstrap.ps1 -Mode trial</span></code></pre>
         <code>--mode=trial</code> keeps the pack invisible to your team via <code>.git/info/exclude</code>; <code>--mode=committed</code> checks it in. The script is fully standalone and prompts interactively. <strong>Already have the pack loaded</strong> (cloned pack open in Claude Code, or skills installed user-globally to <code>~/.agents/skills/</code>)? You can also run <code>/assert-iq-bootstrap</code> from chat — same outcome.</li>
       </ul>
       Both installers are safe to re-run.

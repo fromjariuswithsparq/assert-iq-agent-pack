@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# Shared helpers: Python-interpreter resolution + JSON assertions.
+# Sourced by path relative to THIS file so it works from any cwd.
+_AIQ_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$_AIQ_LIB_DIR/lib/aiq-test-lib.sh"
 # Unit tests for verdict schema validation
 
 PASSED=0
@@ -7,7 +12,7 @@ FAILED=0
 SCHEMA_FILE=".assert-iq/signal-schema.json"
 
 test_schema_loads() {
-    if jq . "$SCHEMA_FILE" > /dev/null 2>&1; then
+    if aiq_json_valid "$SCHEMA_FILE"; then
         echo "✅ Test 1: Schema loads without JSON parse errors"
         ((PASSED++))
         return 0
@@ -19,7 +24,7 @@ test_schema_loads() {
 }
 
 test_verdict_object_exists() {
-    if jq -e '.properties.verdict' "$SCHEMA_FILE" > /dev/null 2>&1; then
+    if aiq_json_has "$SCHEMA_FILE" properties.verdict; then
         echo "✅ Test 2: Verdict object exists in schema"
         ((PASSED++))
         return 0
@@ -36,7 +41,7 @@ test_verdict_required_fields() {
     local all_present=true
     
     for field in "${required_fields[@]}"; do
-        if ! jq -e ".properties.verdict.properties.${field}" "$SCHEMA_FILE" > /dev/null 2>&1; then
+        if ! aiq_json_has "$SCHEMA_FILE" "properties.verdict.properties.${field}"; then
             echo "  Missing field: $field"
             all_present=false
         fi
@@ -54,7 +59,7 @@ test_verdict_required_fields() {
 }
 
 test_verdict_band_enum() {
-    if jq -e '.properties.verdict.properties.verdict_band | select(.enum | length > 0)' "$SCHEMA_FILE" > /dev/null 2>&1; then
+    if aiq_json_test "$SCHEMA_FILE" "len(d['properties']['verdict']['properties']['verdict_band'].get('enum', [])) > 0"; then
         echo "✅ Test 4: Verdict band has enum constraint"
         ((PASSED++))
         return 0
@@ -66,7 +71,7 @@ test_verdict_band_enum() {
 }
 
 test_verdict_score_range() {
-    if jq -e '.properties.verdict.properties.verdict_score | select(.minimum == 0.0 and .maximum == 1.0)' "$SCHEMA_FILE" > /dev/null 2>&1; then
+    if aiq_json_test "$SCHEMA_FILE" "d['properties']['verdict']['properties']['verdict_score'].get('minimum') == 0.0 and d['properties']['verdict']['properties']['verdict_score'].get('maximum') == 1.0"; then
         echo "✅ Test 5: Verdict score has 0.0-1.0 range constraint"
         ((PASSED++))
         return 0

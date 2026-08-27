@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# Shared helpers: Python-interpreter resolution + JSON assertions.
+# Sourced by path relative to THIS file so it works from any cwd.
+_AIQ_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$_AIQ_LIB_DIR/lib/aiq-test-lib.sh"
 # Integration: Dream cycle provenance tracking
 
 set -e
@@ -21,7 +26,7 @@ test_provenance_exists() {
 }
 
 test_provenance_valid_json() {
-    if jq . "$PROVENANCE_FILE" > /dev/null 2>&1; then
+    if aiq_json_valid "$PROVENANCE_FILE"; then
         echo "✅ Test 2: Provenance JSON is valid"
         ((PASSED++))
         return 0
@@ -33,7 +38,7 @@ test_provenance_valid_json() {
 }
 
 test_provenance_has_schema() {
-    if jq -e '.schema_version and .dream_cycles' "$PROVENANCE_FILE" > /dev/null 2>&1; then
+    if aiq_json_test "$PROVENANCE_FILE" "d.get('schema_version') is not None and d.get('dream_cycles') is not None"; then
         echo "✅ Test 3: Provenance has schema_version and dream_cycles"
         ((PASSED++))
         return 0

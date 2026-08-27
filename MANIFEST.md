@@ -32,12 +32,14 @@ is there — your file browser is filtering it.
 | 5 | `VERSION` | Canonical pack version (read by `scripts/bootstrap.{sh,ps1}` when stamping the install manifest). |
 | 5a | `.github/agents/Assert-IQ.agent.md` | Default front-door agent (Copilot) — full tools, routes to skills |
 | 5b | `.github/agents/Assert-IQ-PLAN.agent.md` | Read-only planning sibling (Copilot) — ends with Start Implementation handoff to Assert-IQ |
+| 5c | `.github/agents/specialists/*.agent.md` | **GENERATED — do not hand-edit.** 8 Copilot specialist agents rendered from `.claude/agents/specialists/*.md` by `scripts/sync-agents.{sh,ps1}`, with Claude→Copilot tool-name mapping. Freshness enforced by check P5 in `e2e-agent-parity.sh`. |
 | 6 | `.github/copilot-instructions.md` | Always-on QI guidance loaded by Copilot |
 | 7 | `.github/instructions/qi-foundation.instructions.md` | Instruction file (auto-loaded by Copilot via `applyTo` glob) |
 | 8 | `.github/instructions/qi-manual-test-design.instructions.md` | Instruction file (auto-loaded by Copilot via `applyTo` glob) |
 | 9 | `.github/instructions/qi-signal-emission.instructions.md` | Instruction file (auto-loaded by Copilot via `applyTo` glob) |
 | 10 | `.github/instructions/qi-test-design.instructions.md` | Instruction file (auto-loaded by Copilot via `applyTo` glob) |
 | 11 | `.github/instructions/qi-traceability.instructions.md` | Instruction file (auto-loaded by Copilot via `applyTo` glob) |
+| 11a | `.github/instructions/qi-oracle.instructions.md` | Instruction file — Oracle layer rubrics and verdict weighting (v1.6.0+) |
 | 12 | `.github/skills/agentic-heal/SKILL.md` | Skill: `/agentic-heal` |
 | 13 | `.github/skills/analyze-escaped-defect/SKILL.md` | Skill: `/analyze-escaped-defect` |
 | 14 | `.github/skills/analyze-flaky-test/SKILL.md` | Skill: `/analyze-flaky-test` |
@@ -79,11 +81,26 @@ is there — your file browser is filtering it.
 | 45 | `.claude/skills` | Symlink → `../.github/skills/` so Claude discovers the same skills as Copilot |
 | 46 | `install.sh` | Bash installer — renders `.assert-iq/dreaming/session-events.json` from its template (substitutes `__PACK_ROOT__` with the absolute pack path), syncs it into `.claude/settings.json`, scaffolds `.assert-iq/memory/`, creates skills symlink. Idempotent. |
 | 47 | `install.ps1` | PowerShell installer — parity with `install.sh`. Doubles backslashes in the substituted path so the rendered JSON remains valid. |
+| 47d | `scripts/sync-agents.sh` | Renders the Copilot specialist agents from the Claude sources (single source of truth). `--check` verifies freshness; `--print-map` emits the tool map. |
+| 47e | `scripts/sync-agents.ps1` | Windows-native twin of `sync-agents.sh`; produces byte-identical output. Tool-map agreement between the two is enforced by check P6 in `e2e-agent-parity.sh`. |
+| 47f | `.assert-iq/tests/_qi/automated/lib/aiq-test-lib.sh` | Shared test helpers: resolves a working Python 3 (`python3` → `python` → `py -3`, probing by execution) and provides the JSON assertions that replaced the former `jq` dependency. |
+| 47g | `.assert-iq/tests/_qi/automated/unit-doc-parity.py` | Enforces the HTML/MD parity rule: compares heading trees (text and depth) for all 7 markdown/HTML doc pairs. Deliberate differences are declared in `ACCEPTED` with a reason; a stale declaration also fails. Note `build-search-index.py` indexes h1–h3 only, so a section demoted to h4 in HTML silently drops out of the site search. |
+| 47h | `.assert-iq/tests/_qi/automated/unit-hook-schema.py` | Guards the two-harness hook contract: Copilot gets flat handlers with platform overrides, Claude Code gets matcher groups with a `shell` field and a native (non-nested) command body, both Claude templates cover the same events, and all four installers render the Claude-shaped template. |
+| 47i | `.assert-iq/tests/_qi/automated/unit-dreaming-gate.sh` | Pins `aiq_enabled()` semantics with NO interpreter on PATH: default-on, honours `dreaming.enabled: false`, ignores a NESTED `enabled: false` (the optional background dreamer), ignores other sections, honours the `AIQ_DREAMING_DISABLED` kill switch. |
+| 47j | `.assert-iq/tests/_qi/automated/unit-gitignore-hygiene.sh` | Fails on any negation pattern in a pack-shipped `.gitignore`. A deeper `.gitignore` outranks `.git/info/exclude`, so `!file` defeats a trial-mode install. |
+| 47k | `.assert-iq/tests/_qi/automated/unit-script-portability.py` | Guards the two encoding rules that make the pack work on Windows: every shipped `.ps1` is ASCII-only or BOM-marked (Windows PowerShell 5.1 reads a BOM-less file as cp1252 and can fail to *parse* it), and every tracked `.sh`/`.py` is LF in the index and pinned `eol=lf` by `.gitattributes` (bash rejects CRLF). |
+| 47p | `.assert-iq/tests/_qi/automated/unit-generated-docs-current.py` | Freshness gate for the GENERATED `docs/html/` set, mirroring check P5's role for the generated Copilot agents. Regenerates into a throwaway copy and diffs against the committed output, ignoring only the volatile `Generated:` stamp. Added because that doc set had been stale since before v2.0.0 ("Skills (22)" vs 30, `v2.0.0` vs `v2.0.2`, missing the specialist-agents row) with nothing to catch it. |
+| 47o | `.assert-iq/tests/_qi/automated/integration-doc-integrity.sh` | Runs `scripts/validate-documentation-integrity.sh` inside the regression gate, and fails if it emits fewer than 5 check lines — the validator used to exit 1 after its FIRST check (`set -e` + `((PASSED++))`) and nothing ran it, because `run-all.sh` only discovers tests in its own directory. |
+| 47n | `.assert-iq/tests/_qi/automated/e2e-hook-execution.py` | Behavioral hook coverage for BOTH harnesses on the current platform: extracts the command each one would run (Copilot's `osx`/`linux`/`windows` override; Claude Code's matcher-group body plus its declared `shell`), executes it, and asserts the observable state change. `CLAUDE_PLUGIN_ROOT` is left unset so the baked-in fallback path is what gets tested. Catches the two failure modes that every structural check missed: a shape the harness silently ignores, and a wrongly-rendered pack root that makes the handler `exit 0` having done nothing. |
+| 47m | `.assert-iq/tests/_qi/automated/unit-install-settings-merge.sh` | Pins the `.claude/settings.json` merge contract in `install.sh`: fresh install writes the matcher-group shape, re-runs merge (other keys survive), re-runs still work with `jq` unavailable, and with no JSON tool at all it fails loudly leaving the file byte-identical. The merge was jq-only, which made the installer work exactly once on stock macOS (Python 3 but no jq). |
+| 47l | `scripts/check-environment.sh` + `scripts/check-environment.ps1` | User-facing environment doctor, run before installing. Reports host/shell version, git, a working Python 3 (probing `python3` → `python` → `py -3` by execution), jq, symlink capability, shell line endings, and the shape of an existing `.claude/settings.json`. Exits non-zero only on blocking issues; warnings mark reduced functionality. |
+| 51a | `.assert-iq/dreaming/claude-hooks.posix.template.json` + `claude-hooks.windows.template.json` | **Committed sources** for `.claude/settings.json`. Claude Code hook schema (matcher groups, `shell` field, no platform keys) -- deliberately NOT the same shape as `session-events.template.json`, which is Copilot-shaped. |
 | 47a | `scripts/bootstrap.sh` | Cross-platform bootstrap (macOS/Linux) invoked by `/assert-iq-bootstrap`. Flag-driven, idempotent. Supports `--mode={trial,committed,ask}`, `--graduate`, interactive conflict resolver, manifest tracking. |
 | 47b | `scripts/bootstrap.ps1` | Cross-platform bootstrap (Windows) invoked by `/assert-iq-bootstrap`. PowerShell parity with `bootstrap.sh`: same flags (`-Mode`, `-Trial`, `-Committed`, `-Graduate`), same manifest format, same `.git/info/exclude` block. |
 | 48 | `.github/vscode-readme.md` | Plain-language guide to the Copilot-side of the pack |
 | 49 | `.claude/claude-readme.md` | Plain-language guide to the Claude-side of the pack |
 | 50 | `.gitignore` | Excludes the rendered `.assert-iq/dreaming/session-events.json`, the dream state lock, and `transcripts/` from version control (per-machine / raw artifacts). The `.assert-iq/memory/` store itself IS committed. |
+| 50a | `.gitattributes` | Line-ending policy. Pins `*.sh`/`*.py` to `eol=lf` and `*.ps1` to `eol=crlf` so a checkout is byte-correct regardless of the user's `core.autocrlf`. Without it, Git's Windows default rewrote every shell script to CRLF, which bash on Linux/WSL/macOS refuses (`$'\r': command not found`). Enforced by `unit-script-portability.py`. |
 | 51 | `.assert-iq/dreaming/session-events.template.json` | **Committed source-of-truth** for the Dreaming session-event wiring. Uses `${CLAUDE_PLUGIN_ROOT:-__PACK_ROOT__}` (bash) and `$env:CLAUDE_PLUGIN_ROOT ?? '__PACK_ROOT__'` (PowerShell) so the rendered output works in both Claude Code (env var wins) and VS Code Copilot (falls back to baked path). |
 | 52-59 | `.claude/agents/specialists/*.md` | **v2.0+** Eight specialist subagents (isolated, JSON-only output): risk-scorer, coverage-analyst, flake-adjudicator, oracle-grader, calibration-specialist, memory-curator, traceability-auditor, hotspot-analyzer. Lead agent orchestrates in parallel batch then serial chain. |
 | 60 | `.github/skills/measure-qi-impact/SKILL.md` | **v2.0+** Skill: `/measure-qi-impact` — Convert QI verdicts + baseline metrics into quarterly business impact dashboards. Generates escape reduction %, triage hours saved, cycle-time improvement, and total economic ROI for VP presentations. |
@@ -100,10 +117,11 @@ is there — your file browser is filtering it.
 ---
 
 **Pack root**: `assert-iq-agent-pack/`
-**Skill count**: 27 (in `.github/skills/`)
-**Instruction count**: 5 (in `.github/instructions/`)
-**Agents (Copilot)**: 2 (in `.github/agents/`) — `Assert-IQ` (default), `Assert-IQ-PLAN` (planner)
-**Subagents (Claude)**: 2 (in `.claude/agents/`) — `assert-iq`, `assert-iq-plan`
+**Skill count**: 30 (in `.github/skills/`)
+**Instruction count**: 6 (in `.github/instructions/`)
+**Agents (Copilot)**: 10 (in `.github/agents/`) — `Assert-IQ` (default, delegates via `agent/runSubagent`), `Assert-IQ-PLAN` (planner), plus 8 in `specialists/` **generated** from the Claude sources by `scripts/sync-agents.sh` (do not hand-edit).
+**Subagents (Claude)**: 11 (in `.claude/agents/`) — `assert-iq` (lead orchestrator), `assert-iq-plan` (planner), `grader` (Oracle-layer independent grader), plus 8 in `specialists/`: `risk-scorer`, `coverage-analyst`, `flake-adjudicator`, `oracle-grader`, `calibration-specialist`, `memory-curator`, `traceability-auditor`, `hotspot-analyzer`
+**Cross-harness parity**: `.claude/skills` is a symlink to `.github/skills`, so skills cannot drift. The specialist tier is generated by `scripts/sync-agents.sh` (+ `.ps1` twin), so it cannot drift either. The lead and planner agents stay hand-authored per harness on purpose — their prose is genuinely harness-specific (Copilot handoff buttons and MCP servers vs. Claude subagent invocation). All of this is enforced by `.assert-iq/tests/_qi/automated/e2e-agent-parity.sh` (P1-P6).
 **Dreaming session events**: SessionStart (dream gate), Stop (session recorder) — see `.assert-iq/dreaming/session-events.template.json`
 
 ## Notes for v2.0.0

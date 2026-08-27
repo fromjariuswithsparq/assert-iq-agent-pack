@@ -35,6 +35,9 @@ inside each file.
 - @.github/instructions/qi-signal-emission.instructions.md — apply when
   editing CI configuration (GitHub Actions, Azure Pipelines, GitLab CI,
   Jenkinsfile).
+- @.github/instructions/qi-oracle.instructions.md — apply when authoring or
+  applying Oracle-layer rubrics (`/define-quality-rubric`,
+  `/grade-with-rubric`) or interpreting oracle verdicts.
 
 ## Capabilities surface
 
@@ -45,8 +48,15 @@ inside each file.
   coverage-analyst, flake-adjudicator, oracle-grader, calibration-specialist,
   memory-curator, traceability-auditor, hotspot-analyzer) provide isolated,
   parallel analysis when lead agent orchestrates quality decisions.
+  **These 8 files are the single source of truth for both harnesses.** The
+  Copilot equivalents in `.github/agents/specialists/` are GENERATED from them
+  by `scripts/sync-agents.sh` (or `sync-agents.ps1` on Windows), which maps tool
+  names between the two schemas. After editing a specialist, re-run the sync —
+  checks P5/P6 in `.assert-iq/tests/_qi/automated/e2e-agent-parity.sh` fail if you
+  don't. The lead and planner agents are deliberately NOT generated: their prose
+  is harness-specific and hand-authored on both sides.
 - **Skills** — `.github/skills/` (canonical) is mirrored at `.claude/skills`
-  so Claude auto-discovers all 27 QI skills (code review, test generation,
+  so Claude auto-discovers all 30 QI skills (code review, test generation,
   bug reports, traceability matrix, release confidence, hotspot map, business
   metrics dashboard, etc.). **v2.0+**: Includes `/measure-qi-impact` for
   quarterly business ROI reporting.

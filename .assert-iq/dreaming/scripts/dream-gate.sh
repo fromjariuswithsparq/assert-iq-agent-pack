@@ -10,7 +10,11 @@ trap 'aiq_emit_continue' EXIT
 aiq_enabled || exit 0
 
 MINH="$(aiq_gate_min_hours)"; MINS="$(aiq_gate_min_sessions)"
-NUDGE="$(python3 - "$AIQ_DREAM_STATE" "$MINH" "$MINS" <<'PY' 2>/dev/null
+if ! aiq_resolve_python; then
+  aiq_breadcrumb "dream-gate: no working python3 (tried python3, python, py -3); gate skipped"
+  exit 0
+fi
+NUDGE="$($AIQ_PY - "$AIQ_DREAM_STATE" "$MINH" "$MINS" <<'PY' 2>/dev/null
 import json, sys
 from datetime import datetime, timezone, timedelta
 state_path, min_h, min_s = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
@@ -35,7 +39,7 @@ PY
 )"
 
 if [ -n "$NUDGE" ]; then
-  python3 -c "import json,sys; print(json.dumps({'continue':True,'systemMessage':sys.argv[1]}))" "$NUDGE"
+  $AIQ_PY -c "import json,sys; print(json.dumps({'continue':True,'systemMessage':sys.argv[1]}))" "$NUDGE"
   trap - EXIT
 fi
 exit 0

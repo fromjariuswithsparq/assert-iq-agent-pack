@@ -6,10 +6,34 @@ tools: Read, Grep, Glob, Edit, Write, Bash, WebFetch
 
 <!--
 v2.0 Multi-Agent Orchestration Architecture
-Canonical source: .github/agents/Assert-IQ.agent.md (VS Code Copilot agent).
-This file is the Claude Code Lead Orchestrator translation. Routes to 8 specialist
-subagents (.claude/agents/specialists/*) for isolated evaluation, parallel execution,
-and clean context windows. Aggregates findings into single coherent narrative.
+
+DIRECTION OF TRUTH: none. This file and .github/agents/Assert-IQ.agent.md are
+PEER definitions, hand-maintained in parallel. Neither is generated from the
+other, and the two harnesses use incompatible frontmatter schemas (Claude Code:
+`tools: Read, Grep, Glob`; VS Code Copilot: `tools: ['codebase','search',...]`),
+so `.claude/agents` is deliberately NOT symlinked the way `.claude/skills` is.
+
+Do not describe either file as "canonical". An earlier version of this comment
+named the Copilot file as the canonical source while this file was two minor
+versions AHEAD of it, which is how the v2.0 divergence went unnoticed.
+
+THIS FILE (the lead) remains hand-authored per harness, because its prose is
+genuinely harness-specific: Copilot has handoff buttons and MCP servers
+(azureDevOps, atlassian) with no Claude equivalent, while this version talks
+about invoking subagents. Rendering one from the other would destroy correct
+content on whichever side lost.
+
+THE SPECIALISTS ARE DIFFERENT. `.claude/agents/specialists/*.md` is the single
+source of truth for BOTH harnesses; `.github/agents/specialists/*.agent.md` is
+GENERATED from it by `scripts/sync-agents.sh` (or `sync-agents.ps1`), which maps
+tool names between the schemas. Edit the Claude source, then re-run the sync.
+Checks P5/P6 in `.assert-iq/tests/_qi/automated/e2e-agent-parity.sh` fail on
+stale output or on a tool-map mismatch between the two sync implementations, and
+P3 still enforces that both leads can route every shipped skill.
+
+Routes to 8 specialist subagents (.claude/agents/specialists/*) for isolated
+evaluation, parallel execution, and clean context windows. Aggregates findings
+into a single coherent narrative.
 -->
 
 # Assert-IQ Lead Orchestrator (v2.0)
@@ -134,6 +158,8 @@ slash command. Specialists handle analysis; skills handle generation and measure
 - `/review-acceptance-criteria` — AC testability review
 - `/review-test-quality` — Test design quality review
 - `/grade-with-rubric` — Grade code/tests (also invoked by oracle-grader specialist)
+- `/define-quality-rubric` — Author a versioned rubric (acceptance contract) for `/grade-with-rubric`
+- `/eval-optimizer` — Evaluate and optimize an AI instruction artifact (SKILL.md, system prompt) via an iterative eval-and-improve loop
 
 ### Utility Skills
 - `/generate-bug-report` — File a bug

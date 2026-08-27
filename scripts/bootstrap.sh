@@ -102,6 +102,7 @@ for arg in "$@"; do
     --user)             UNINSTALL_USER=1 ;;
     --yes|-y)           ASSUME_YES=1 ;;
     --dry-run)          DRY_RUN=1 ;;
+    --allow-msys)       ALLOW_MSYS=1 ;;
     --help|-h)
       sed -n '2,40p' "${BASH_SOURCE[0]}"
       exit 0
@@ -112,6 +113,39 @@ for arg in "$@"; do
       ;;
   esac
 done
+
+# ---- Windows: this is the wrong installer -----------------------------------
+# Git Bash works, but MSYS process creation costs ~50-100ms, and a full install
+# copies and hashes ~1000 files one child process at a time (dirname, mkdir, cp,
+# sha256sum per file). Measured on Windows 11: 9+ MINUTES for a single install,
+# with no output for most of it -- indistinguishable from a hang. bootstrap.ps1
+# does identical work in about a minute using native PowerShell calls.
+# Refuse by default and name the command to run instead; --allow-msys (or
+# AIQ_ALLOW_MSYS=1, which the e2e suite sets) proceeds anyway.
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    if [[ ${ALLOW_MSYS:-${AIQ_ALLOW_MSYS:-0}} -ne 1 ]]; then
+      cat >&2 <<'MSYSEOF'
+ERROR: you are running the bash installer on Windows (Git Bash/MSYS).
+
+  Use the PowerShell installer instead -- same result, ~1 minute instead of 9+:
+
+      pwsh -File scripts/bootstrap.ps1 --help
+      pwsh -File scripts/bootstrap.ps1 -Mode trial
+
+  PowerShell 7+ is recommended. Windows PowerShell 5.1 is supported too --
+  swap 'pwsh' for 'powershell' in the commands above.
+  Check your environment first with:
+
+      pwsh -File scripts/check-environment.ps1
+
+  WSL is NOT affected -- inside WSL this is Linux and bash is the right path.
+  To override anyway: re-run with --allow-msys (or set AIQ_ALLOW_MSYS=1).
+MSYSEOF
+      exit 2
+    fi
+    ;;
+esac
 
 # ---- Resolve user-global paths by OS ----------------------------------------
 case "$(uname -s)" in
@@ -964,7 +998,9 @@ uninstall_run() {
     echo "  - restore originals where the bootstrap modified your files (from .assert-iq.pre-install backups)"
     echo "  - remove any /assert-iq-tailor snapshots (.assert-iq.pre-tailor)"
     echo "  - strip the trial-mode block from .git/info/exclude (if any)"
-    echo "  - remove the rendered .assert-iq/dreaming/session-events.json (the memory store is preserved)"
+    echo "  - remove the rendered .assert-iq/dreaming/session-events.json"
+    echo "  - remove .assert-iq/memory/ ONLY if it holds no consolidated facts;"
+    echo "    a topics/*.md or a real MEMORY.md entry keeps the whole store"
     if [[ $UNINSTALL_USER -eq 1 ]]; then
       echo "  - also remove user-scope copies in ~/.assert-iq, ~/.claude, ~/Library or ~/.config prompts dir"
     fi
@@ -1194,20 +1230,52 @@ uninstall_run() {
     [[ -e "$HOME/.agents/.assert-iq/dreaming/session-events.json" ]] && remove_path "$HOME/.agents/.assert-iq/dreaming/session-events.json"
   fi
 
-  # The memory store is the user's data — preserved when it holds real dream
-  # content, but a pristine never-dreamed seed is just install scaffolding, so
-  # remove it for a clean uninstall.
+  # Preserve the store only when it holds actual consolidated KNOWLEDGE: a
+  # topics/*.md file, or real content in the MEMORY.md index.
+  #
+  # This used to ALSO preserve on (a) any file under logs/ and (b) MEMORY.md
+  # not saying "Last consolidated: never". Both are metadata, not knowledge:
+  # logs/ is the waking-loop trail that /dream CONSUMES, and the consolidation
+  # stamp records only that a dream ran, not that it found anything. Those two
+  # conditions were unreachable while the session hooks were broken; once the
+  # hooks started firing, every install -> chat -> uninstall left a memory
+  # store behind whose index read "_(no entries yet)_" under every heading and
+  # whose topics/ was empty. Nothing of the user's was in it.
+  memory_has_knowledge() {
+    local mem="$1"
+    [[ -n "$(find "$mem/topics" -name '*.md' ! -name '.gitkeep' -print -quit 2>/dev/null)" ]] && return 0
+    [[ -f "$mem/MEMORY.md" ]] || return 1
+    # Anything left after stripping the seed scaffolding -- the HTML comment
+    # block, headings, the consolidation stamp, the "(no entries yet)"
+    # placeholders and blank lines -- is real content. Deliberately broad:
+    # a hand-written note counts just as much as a /dream pointer, because
+    # the cost of a false positive (an orphan directory) is far lower than
+    # the cost of a false negative (deleting someone's notes).
+    local body
+    body="$(sed '/<!--/,/-->/d' "$mem/MEMORY.md" 2>/dev/null \
+            | grep -v '^[[:space:]]*$' \
+            | grep -v '^[[:space:]]*#' \
+            | grep -v '^_Last consolidated:' \
+            | grep -v '^_(no entries yet)_')"
+    [[ -n "$body" ]] && return 0
+    return 1
+  }
+
   prune_seed_memory() {
     local mem="$1"
     [[ -d "$mem" ]] || return 0
-    if [[ -n "$(find "$mem/topics" -name '*.md' 2>/dev/null)" ]] \
-       || [[ -n "$(find "$mem/logs" -type f ! -name '.gitkeep' 2>/dev/null)" ]] \
-       || { [[ -f "$mem/MEMORY.md" ]] && ! grep -q 'Last consolidated: never' "$mem/MEMORY.md" 2>/dev/null; }; then
+    if memory_has_knowledge "$mem"; then
       echo "Preserved your Dreaming memory store (has consolidated content): $mem"
       return 0
     fi
+    # Say what is going, so discarding an un-consolidated trail is never silent.
+    local nlogs
+    nlogs="$(find "$mem/logs" -type f ! -name '.gitkeep' 2>/dev/null | wc -l | tr -d '[:space:]')"
+    if [[ "${nlogs:-0}" -gt 0 ]]; then
+      echo "Removing the Dreaming memory store: MEMORY.md and topics/ hold no consolidated facts (discarding ${nlogs} un-consolidated session log file(s)): $mem"
+    fi
     if [[ $DRY_RUN -eq 1 ]]; then
-      echo "${prefix}rm: $mem (pristine seed)"
+      echo "${prefix}rm: $mem (no consolidated content)"
     else
       rm -rf -- "$mem"
     fi
@@ -1215,6 +1283,41 @@ uninstall_run() {
   prune_seed_memory "$WORKSPACE/.assert-iq/memory"
   if [[ $UNINSTALL_USER -eq 1 ]]; then
     prune_seed_memory "$HOME/.agents/.assert-iq/memory"
+  fi
+
+  # Runtime sinks: the verdict archive (v1.7+), the business-impact report
+  # sink (v2.0+) and the pre-dream memory snapshots. These ship as empty
+  # directories created by seed_memory_store, so they never arrive via
+  # copy_tree and are absent from the manifest -- which is exactly why
+  # business-metrics/reports/ was left behind after every uninstall.
+  #
+  # Same policy as the memory store above: this is the user's own generated
+  # data, so preserve it when it holds real content -- the verdict archive in
+  # particular is a regulatory audit trail (SOX / ISO 27001 / FedRAMP) and
+  # must never be silently deleted -- but a never-written empty sink is just
+  # install scaffolding, and leaving it behind is litter.
+  prune_runtime_sink() {
+    local sink="$1" label="$2"
+    [[ -d "$sink" ]] || return 0
+    if [[ -n "$(find "$sink" -type f ! -name '.gitkeep' -print -quit 2>/dev/null)" ]]; then
+      echo "Preserved your $label (has content): $sink"
+      return 0
+    fi
+    if [[ $DRY_RUN -eq 1 ]]; then
+      echo "${prefix}rm: $sink (empty runtime sink)"
+    else
+      rm -rf -- "$sink"
+    fi
+  }
+  prune_runtime_sinks() {
+    local base="$1"
+    prune_runtime_sink "$base/verdicts/archive"         "verdict archive"
+    prune_runtime_sink "$base/business-metrics/reports" "business-impact reports"
+    prune_runtime_sink "$base/dreaming/.snapshots"      "pre-dream memory snapshots"
+  }
+  prune_runtime_sinks "$WORKSPACE/.assert-iq"
+  if [[ $UNINSTALL_USER -eq 1 ]]; then
+    prune_runtime_sinks "$HOME/.agents/.assert-iq"
   fi
 
   # Sweep orphaned /assert-iq-tailor snapshots. These `*.assert-iq.pre-tailor`
@@ -1242,6 +1345,7 @@ uninstall_run() {
       "$WORKSPACE/.assert-iq/dreaming"
       "$WORKSPACE/.assert-iq/oracles"
       "$WORKSPACE/.assert-iq/verdicts"
+      "$WORKSPACE/.assert-iq/business-metrics"
       "$WORKSPACE/.assert-iq/analysis"
       "$WORKSPACE/.assert-iq/tests/_qi/regression"
     )
@@ -1252,6 +1356,7 @@ uninstall_run() {
         "$HOME/.agents/.assert-iq/dreaming"
         "$HOME/.agents/.assert-iq/oracles"
         "$HOME/.agents/.assert-iq/verdicts"
+        "$HOME/.agents/.assert-iq/business-metrics"
         "$HOME/.agents/.assert-iq/analysis"
         "$USER_ASSERT_IQ"
       )
@@ -1263,6 +1368,7 @@ uninstall_run() {
     local -a empty_dirs=(
       "$WORKSPACE/.assert-iq/oracles"
       "$WORKSPACE/.assert-iq/verdicts"
+      "$WORKSPACE/.assert-iq/business-metrics"
       "$WORKSPACE/.assert-iq/analysis"
       "$WORKSPACE/.assert-iq/tests/_qi/regression"
       "$WORKSPACE/.assert-iq/dreaming"
@@ -1284,6 +1390,7 @@ uninstall_run() {
         "$(dirname "$USER_CLAUDE_MD")"
         "$HOME/.agents/.assert-iq/oracles"
         "$HOME/.agents/.assert-iq/verdicts"
+        "$HOME/.agents/.assert-iq/business-metrics"
         "$HOME/.agents/.assert-iq/analysis"
         "$USER_ASSERT_IQ"
       )
@@ -1704,6 +1811,35 @@ render_events_json() {
   echo "$tmp"
 }
 
+render_claude_hooks_json() {
+  # Renders the CLAUDE-shaped hook template with __PACK_ROOT__ -> $1. Echoes the
+  # path to a temp file; caller must rm it.
+  #
+  # This is deliberately NOT render_events_json. VS Code Copilot and Claude Code
+  # use incompatible hook schemas: Copilot puts handlers directly in the event
+  # array and supports osx/linux/windows overrides, while Claude Code requires a
+  # matcher-group wrapper with a nested "hooks" array, has no platform keys, and
+  # selects the interpreter with a "shell" field. Writing the Copilot shape into
+  # .claude/settings.json produces a file Claude Code silently ignores, which is
+  # how Dreaming came to be dead under Claude Code while still working under
+  # VS Code on macOS. Enforced by unit-hook-schema.py.
+  local pack_root="$1"
+  local template="$SOURCE/.assert-iq/dreaming/claude-hooks.posix.template.json"
+  [[ -f "$template" ]] || { echo ""; return; }
+  local lib="$SOURCE/.assert-iq/dreaming/scripts/lib/render-events.sh"
+  [[ -f "$lib" ]] || { echo ""; return; }
+  # shellcheck source=../.assert-iq/dreaming/scripts/lib/render-events.sh
+  source "$lib"
+  local tmp
+  tmp="$(mktemp)"
+  if ! render_events_template "$template" "$tmp" "$pack_root"; then
+    rm -f "$tmp"
+    echo ""
+    return
+  fi
+  echo "$tmp"
+}
+
 seed_memory_index() {
   # Write a clean MEMORY.md template ONLY if one is not already present, so
   # an upgrade never overwrites the user's dreamed index.
@@ -1745,6 +1881,14 @@ seed_memory_store() {
   # Args: memory_dir
   local mem="$1"
   mkdir -p "$mem/topics" "$mem/logs" "$mem/.dream"
+  # Verdict archive (v1.7.0+) and pre-dream memory snapshots are git-ignored
+  # runtime sinks that ship as empty dirs, so they never arrive via copy_tree.
+  # Derive the .assert-iq base from the memory dir so this is correct for both
+  # the workspace and user-base ($HOME/.agents/.assert-iq) call sites.
+  local aiq_base
+  aiq_base="$(dirname "$mem")"
+  mkdir -p "$aiq_base/verdicts/archive" "$aiq_base/dreaming/.snapshots" \
+           "$aiq_base/business-metrics/reports"
   [[ -f "$mem/.dream/state.json" ]] || \
     printf '{\n  "last_dream_utc": null,\n  "sessions_since_dream": 0\n}\n' > "$mem/.dream/state.json"
   [[ -f "$mem/topics/.gitkeep" ]] || : > "$mem/topics/.gitkeep"
@@ -1929,9 +2073,9 @@ process_claude_settings() {
   case "$CLAUDE_SETTINGS" in
     workspace)
       local rendered
-      rendered="$(render_events_json "$WORKSPACE")"
+      rendered="$(render_claude_hooks_json "$WORKSPACE")"
       if [[ -z "$rendered" ]]; then
-        record ".claude/settings.json" "missing-template" "$SOURCE/.assert-iq/dreaming/session-events.template.json"
+        record ".claude/settings.json" "missing-template" "$SOURCE/.assert-iq/dreaming/claude-hooks.posix.template.json"
         return
       fi
       local dst="$WORKSPACE/.claude/settings.json"

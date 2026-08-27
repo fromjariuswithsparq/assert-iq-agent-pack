@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# Shared helpers: Python-interpreter resolution + JSON assertions.
+# Sourced by path relative to THIS file so it works from any cwd.
+_AIQ_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$_AIQ_LIB_DIR/lib/aiq-test-lib.sh"
 # Integration: Configuration and governance validation
 
 set -e
@@ -58,7 +63,7 @@ test_governance_has_audit_section() {
 }
 
 test_signal_schema_has_verdict_object() {
-    if jq -e '.properties.verdict' "$SIGNAL_SCHEMA" > /dev/null 2>&1; then
+    if aiq_json_has "$SIGNAL_SCHEMA" properties.verdict; then
         echo "✅ Test 5: signal-schema.json has verdict object"
         ((PASSED++))
         return 0

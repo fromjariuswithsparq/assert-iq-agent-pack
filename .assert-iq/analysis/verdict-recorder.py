@@ -81,7 +81,7 @@ def load_config(config_path=".assert-iq/config.yaml"):
         if not Path(config_path).exists():
             return {}
         
-        with open(config_path, 'r') as f:
+        with open(config_path, 'r', encoding="utf-8-sig") as f:
             config = yaml.safe_load(f) or {}
         return config
     except Exception as e:
@@ -150,7 +150,7 @@ class VerdictRecorder:
             verdict_file = year_month_dir / f"verdicts-{now.day:02d}.jsonl"
             
             # Append verdict to JSONL file
-            with open(verdict_file, 'a') as f:
+            with open(verdict_file, 'a', encoding="utf-8", newline="\n") as f:
                 f.write(json.dumps(verdict_data) + '\n')
             
             # Update index.json
@@ -176,7 +176,7 @@ class VerdictRecorder:
         index_file = self.verdicts_dir / "index.json"
         
         if index_file.exists():
-            with open(index_file, 'r') as f:
+            with open(index_file, 'r', encoding="utf-8-sig") as f:
                 index = json.load(f)
         else:
             index = {
@@ -205,7 +205,7 @@ class VerdictRecorder:
         index['last_updated'] = datetime.utcnow().isoformat() + 'Z'
         
         # Write back
-        with open(index_file, 'w') as f:
+        with open(index_file, 'w', encoding="utf-8", newline="\n") as f:
             json.dump(index, f, indent=2)
     
     def _append_audit_trail(self, verdict_data):
@@ -229,7 +229,7 @@ class VerdictRecorder:
         
         line = f"{timestamp} | {verdict_id} | {v_type} | {band} | {score} | {pr_id} | {layer_summary} | {escape_str}\n"
         
-        with open(trail_file, 'a') as f:
+        with open(trail_file, 'a', encoding="utf-8", newline="\n") as f:
             f.write(line)
 
 

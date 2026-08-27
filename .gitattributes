@@ -1,0 +1,55 @@
+# Assert.IQ pack — line-ending policy.
+#
+# WHY THIS FILE EXISTS
+#
+# The pack shipped without a .gitattributes. On Windows, Git's default
+# core.autocrlf=true rewrites every text file to CRLF on checkout, so a Windows
+# clone produced shell scripts with CRLF line endings. Git Bash tolerates that,
+# which is why it went unnoticed — but bash on Linux/WSL and macOS does not:
+#
+#   $ bash install.sh
+#   install.sh: line 21: $'\r': command not found
+#   /usr/bin/env: 'bash\r': No such file or directory
+#
+# That breaks the documented "macOS / Linux / WSL" path for anyone whose
+# checkout came from a Windows machine (a shared drive, a zip, a WSL session
+# reading /mnt/c). Pinning the executable text formats here makes the checkout
+# byte-correct regardless of the user's core.autocrlf setting.
+#
+# Existing clones do not re-normalize on their own. To fix one in place:
+#   git add --renormalize . && git checkout -- .
+
+# Let git decide for anything not named below.
+* text=auto
+
+# Shell scripts MUST be LF: the shebang and every line are parsed by bash.
+*.sh            text eol=lf
+*.bash          text eol=lf
+
+# PowerShell is native to Windows; CRLF is its idiomatic form and both
+# Windows PowerShell 5.1 and PowerShell 7+ accept either.
+*.ps1           text eol=crlf
+*.psm1          text eol=crlf
+*.psd1          text eol=crlf
+*.cmd           text eol=crlf
+*.bat           text eol=crlf
+
+# Python is read by the interpreter, which accepts either, but the pack's
+# helpers are also sourced by shell one-liners. Keep them LF.
+*.py            text eol=lf
+
+# Data and docs: normalize in the repo, let the platform decide on checkout.
+*.json          text
+*.md            text
+*.yaml          text
+*.yml           text
+*.jsonl         text eol=lf
+
+# Never touch binaries.
+*.png           binary
+*.jpg           binary
+*.gif           binary
+*.ico           binary
+*.pdf           binary
+*.tar.gz        binary
+*.zip           binary

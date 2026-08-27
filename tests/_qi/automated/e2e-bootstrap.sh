@@ -56,7 +56,11 @@ cleanup_fixture() {
 run_boot() {
   local pair="$1"; shift
   local ws="${pair%:*}" home="${pair#*:}"
-  HOME="$home" bash "$PACK/scripts/bootstrap.sh" --workspace="$ws" "$@" </dev/null 2>&1
+  # AIQ_ALLOW_MSYS: bootstrap.sh refuses to run under Git Bash and redirects the
+  # user to bootstrap.ps1 (MSYS forks make it 9+ minutes per install). This
+  # suite deliberately exercises the bash path, so opt in. Expect a very long
+  # run if you do this on Windows -- e2e-bootstrap.ps1 is the Windows twin.
+  HOME="$home" AIQ_ALLOW_MSYS=1 bash "$PACK/scripts/bootstrap.sh" --workspace="$ws" "$@" </dev/null 2>&1
 }
 
 # Run install.sh from within a copy of the pack (since it operates on its
@@ -414,12 +418,12 @@ case_21_uninstall_restores_backup() {
 case_22_install_sh_install() {
   local pair; pair="$(mk_pack_copy)"
   local copy="${pair%:*}" home="${pair#*:}"
-  HOME="$home" bash "$copy/install.sh" >/dev/null 2>&1
+  HOME="$home" AIQ_ALLOW_MSYS=1 bash "$copy/install.sh" >/dev/null 2>&1
   # Symlink/dir created
   [[ -L "$copy/.claude/skills" || -d "$copy/.claude/skills" ]] || fail 22 ".claude/skills not created"
   assert_file_exists 22 "$copy/.claude/settings.json"
   # Re-run is idempotent
-  HOME="$home" bash "$copy/install.sh" >/dev/null 2>&1 || fail 22 "reinstall failed"
+  HOME="$home" AIQ_ALLOW_MSYS=1 bash "$copy/install.sh" >/dev/null 2>&1 || fail 22 "reinstall failed"
   cleanup_fixture "$pair"
 }
 
@@ -434,9 +438,9 @@ case_23_install_sh_preserves_user_keys() {
   "anotherKey": {"nested": true}
 }
 JSON
-  HOME="$home" bash "$copy/install.sh" >/dev/null 2>&1
+  HOME="$home" AIQ_ALLOW_MSYS=1 bash "$copy/install.sh" >/dev/null 2>&1
   assert_contains 23 "$copy/.claude/settings.json" "preserve-me"
-  HOME="$home" bash "$copy/install.sh" --uninstall >/dev/null 2>&1
+  HOME="$home" AIQ_ALLOW_MSYS=1 bash "$copy/install.sh" --uninstall >/dev/null 2>&1
   assert_contains 23 "$copy/.claude/settings.json" "preserve-me"
   # And the symlink should be gone
   [[ ! -L "$copy/.claude/skills" && ! -e "$copy/.claude/skills" ]] || fail 23 ".claude/skills not removed"
@@ -711,14 +715,114 @@ case_35_clean_slate_memory_seed() {
 
 case_36_uninstall_preserves_memory() {
   # Uninstall must never delete the user's Dreaming memory (their data).
+  #
+  # The trigger is CONSOLIDATED KNOWLEDGE, not activity. This case used to seed
+  # only a session log under logs/ and assert the store survived, which encoded
+  # the wrong rule: logs/ is the waking-loop trail that /dream CONSUMES, so its
+  # presence says a session happened, not that anything was learned. Once the
+  # session hooks actually started firing that made every install -> chat ->
+  # uninstall leave an empty memory store behind (case 42). A real topics/*.md
+  # is the signal, and the un-consolidated logs ride along with it.
   local pair; pair="$(mkfixture)"
   local ws="${pair%:*}"
   run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
   mkdir -p "$ws/.assert-iq/memory/logs/2026/08"
-  printf '# dreamt\n' > "$ws/.assert-iq/memory/logs/2026/08/2026-08-01.md"
+  printf -- '- session ended\n' > "$ws/.assert-iq/memory/logs/2026/08/2026-08-01.md"
+  printf '# Architecture\n\n- Payments run through Stripe, 2026-08-01\n' \
+    > "$ws/.assert-iq/memory/topics/architecture.md"
   run_boot "$pair" --uninstall --yes >/dev/null
   assert_file_exists 36 "$ws/.assert-iq/memory/MEMORY.md"
+  assert_file_exists 36 "$ws/.assert-iq/memory/topics/architecture.md"
   assert_file_exists 36 "$ws/.assert-iq/memory/logs/2026/08/2026-08-01.md"
+  cleanup_fixture "$pair"
+}
+
+case_42_uninstall_removes_unconsolidated_memory() {
+  # Reported from the field: after the session hooks were fixed, every uninstall
+  # left .assert-iq/memory/ behind. The store looked "used" -- a dated session
+  # log, and a "_Last consolidated:_" stamp from a /dream that ran -- but it
+  # held nothing: topics/ was empty and MEMORY.md read "_(no entries yet)_"
+  # under every heading. Preserving it left an orphan directory tree containing
+  # none of the user's knowledge.
+  #
+  # Activity is not knowledge. Assert the store goes when it holds no
+  # consolidated facts, even though a dream ran and logs exist; case 36 is the
+  # other side, where one real topics/*.md keeps the whole store.
+  # (Twin of case 43 in e2e-bootstrap.ps1.)
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
+  local mem="$ws/.assert-iq/memory"
+  mkdir -p "$mem/logs/2026/08"
+  printf '# Daily log 2026-08-27\n\n- 2026-08-27T00:33:00Z session abc ended\n' \
+    > "$mem/logs/2026/08/2026-08-27.md"
+  # A dream ran and found nothing: stamp present, index still all placeholders.
+  printf '{ "last_dream_utc": "2026-08-27T00:37:23Z", "sessions_since_dream": 1 }\n' \
+    > "$mem/.dream/state.json"
+  sed 's/Last consolidated: never/Last consolidated: 2026-08-27/' "$mem/MEMORY.md" > "$mem/MEMORY.md.tmp" \
+    && mv "$mem/MEMORY.md.tmp" "$mem/MEMORY.md"
+  local out
+  out="$(run_boot "$pair" --uninstall --yes)"
+  assert_dir_missing 42 "$mem"
+  local orphans
+  orphans="$(find "$ws" -mindepth 1 -not -path "$ws/.git" -not -path "$ws/.git/*" 2>/dev/null | sed "s|$ws/||" | paste -sd, -)"
+  if [[ -n "$orphans" ]]; then
+    fail 42 "uninstall left orphan path(s): $orphans"
+  fi
+  # Discarding an un-consolidated trail must be stated, never silent.
+  if ! printf '%s' "$out" | grep -q 'Removing the Dreaming memory store'; then
+    fail 42 "uninstall discarded the session logs without reporting it"
+  fi
+  cleanup_fixture "$pair"
+}
+
+case_40_uninstall_zero_orphans() {
+  # Regression: business-metrics/reports/ was left behind after every
+  # uninstall on BOTH platforms. It is created by seed_memory_store as an
+  # empty runtime sink, so it never enters the manifest, and it had never
+  # been added to the cleanup lists when v2.0 introduced it.
+  #
+  # Deliberately generic: assert the workspace is EMPTY apart from .git
+  # rather than naming the known offender, so the next runtime sink somebody
+  # adds gets caught here automatically instead of shipping as litter.
+  # (Twin of case 41 in e2e-bootstrap.ps1.)
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
+  assert_dir_exists 40 "$ws/.assert-iq/verdicts/archive"
+  assert_dir_exists 40 "$ws/.assert-iq/business-metrics/reports"
+  run_boot "$pair" --uninstall --yes >/dev/null
+  local orphans
+  orphans="$(find "$ws" -mindepth 1 -not -path "$ws/.git" -not -path "$ws/.git/*" 2>/dev/null | sed "s|$ws/||" | paste -sd, -)"
+  if [[ -n "$orphans" ]]; then
+    fail 40 "uninstall left orphan path(s): $orphans"
+  fi
+  cleanup_fixture "$pair"
+}
+
+case_41_uninstall_preserves_sink_content() {
+  # The other half of case 40, and the reason it cannot simply rm -rf the
+  # sinks: once they hold real content they are the user's data. The verdict
+  # archive is a regulatory audit trail (SOX / ISO 27001 / FedRAMP) whose
+  # whole purpose is reproducing a past release decision, so deleting it on
+  # uninstall would be worse than leaving an empty directory behind. Same
+  # policy the memory store already gets in case 36.
+  # (Twin of case 42 in e2e-bootstrap.ps1.)
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
+  mkdir -p "$ws/.assert-iq/verdicts/archive/2026/08"
+  printf '{"verdict_id":"probe","verdict_band":"green"}\n' \
+    > "$ws/.assert-iq/verdicts/archive/2026/08/verdicts-26.jsonl"
+  printf '<html>Q3</html>\n' > "$ws/.assert-iq/business-metrics/reports/2026-Q3.html"
+  local out
+  out="$(run_boot "$pair" --uninstall --yes)"
+  assert_file_exists 41 "$ws/.assert-iq/verdicts/archive/2026/08/verdicts-26.jsonl"
+  assert_file_exists 41 "$ws/.assert-iq/business-metrics/reports/2026-Q3.html"
+  # And it must say so, rather than preserving them silently.
+  if ! printf '%s' "$out" | grep -q 'Preserved your verdict archive'; then
+    fail 41 "uninstall preserved the verdict archive without reporting it"
+  fi
   cleanup_fixture "$pair"
 }
 
@@ -820,6 +924,17 @@ echo ""
 echo "Assert.IQ bootstrap E2E test driver"
 echo "Pack:    $PACK"
 echo "Pattern: ${PATTERN:-(none)}"
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    echo ""
+    echo "WARNING: running the BASH bootstrap suite under Git Bash/MSYS."
+    echo "  Each case runs one or more full installs, and one install costs 9+"
+    echo "  minutes here (MSYS fork cost x ~1000 files). Expect HOURS, not"
+    echo "  minutes, and no output between case lines."
+    echo "  On Windows use the twin instead:"
+    echo "      powershell -File tests\\_qi\\automated\\e2e-bootstrap.ps1"
+    ;;
+esac
 echo ""
 echo "Cases:"
 
@@ -862,6 +977,9 @@ run_case "36 uninstall preserves memory"             case_36_uninstall_preserves
 run_case "37 upgrade merge + conflict + orphan"      case_37_upgrade_merge_conflict_orphan
 run_case "38 upgrade base cache (tagless)"           case_38_upgrade_base_cache_tagless
 run_case "39 upgrade tag fallback (retroactive)"     case_39_upgrade_tag_fallback_retroactive
+run_case "40 uninstall leaves zero orphans"           case_40_uninstall_zero_orphans
+run_case "41 uninstall preserves sink content"        case_41_uninstall_preserves_sink_content
+run_case "42 uninstall removes un-consolidated memory" case_42_uninstall_removes_unconsolidated_memory
 
 echo ""
 echo "Summary: $(grn $CASES_PASS pass)  $(red $CASES_FAIL fail)  $(ylw $CASES_SKIP skip)"

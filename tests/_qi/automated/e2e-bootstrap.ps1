@@ -6,9 +6,22 @@ param(
     [switch]$Keep,
     [string]$Pattern = ""
 )
+# $AiqPwsh (the PowerShell host used to spawn child processes) comes from
+# aiq-e2e-lib.ps1, dot-sourced below.
 
 $PackDir = Resolve-Path (Join-Path $PSScriptRoot "../../..")
 . "$PSScriptRoot/aiq-e2e-lib.ps1"
+
+# Always report the host. Windows PowerShell 5.1 and PowerShell 7 are DIFFERENT
+# runtimes with different failure modes -- 5.1 is .NET Framework (no
+# ProcessStartInfo.ArgumentList) and turns native stderr into terminating errors
+# -- and both are supported hosts for this pack. A green run under 7 says
+# nothing about 5.1, and the trial-mode exclude bug proved that the hard way.
+# Run this suite under BOTH on Windows.
+Write-Host ""
+Write-Host ("Host: {0} {1} ({2})" -f `
+    $(if ($PSVersionTable.PSVersion.Major -ge 6) { 'PowerShell' } else { 'Windows PowerShell' }), `
+    $PSVersionTable.PSVersion, $PSVersionTable.PSEdition)
 
 Run-Case "01 pod committed install" $Pattern {
     $pair = Invoke-MkFixture
@@ -227,9 +240,9 @@ Run-Case "22 install.ps1 install + reinstall" $Pattern {
     $origHome = $env:HOME; $origProfile = $env:USERPROFILE
     $env:HOME = $homeDir; $env:USERPROFILE = $homeDir
     try {
-        & pwsh -NoProfile -File "$copy\install.ps1" *>&1 | Out-Null
+        & $AiqPwsh -NoProfile -File "$copy\install.ps1" *>&1 | Out-Null
         Assert-FileExists 22 "$copy\.claude\settings.json"
-        & pwsh -NoProfile -File "$copy\install.ps1" *>&1 | Out-Null
+        & $AiqPwsh -NoProfile -File "$copy\install.ps1" *>&1 | Out-Null
     } finally {
         $env:HOME = $origHome; $env:USERPROFILE = $origProfile
     }
@@ -244,9 +257,9 @@ Run-Case "23 install.ps1 preserves user keys" $Pattern {
     try {
         New-Item -ItemType Directory -Path "$copy\.claude" -Force | Out-Null
         Set-Content -Path "$copy\.claude\settings.json" -Value '{ "userKey": "preserve-me" }'
-        & pwsh -NoProfile -File "$copy\install.ps1" *>&1 | Out-Null
+        & $AiqPwsh -NoProfile -File "$copy\install.ps1" *>&1 | Out-Null
         Assert-Contains 23 "$copy\.claude\settings.json" "preserve-me"
-        & pwsh -NoProfile -File "$copy\install.ps1" -Uninstall *>&1 | Out-Null
+        & $AiqPwsh -NoProfile -File "$copy\install.ps1" -Uninstall *>&1 | Out-Null
         Assert-Contains 23 "$copy\.claude\settings.json" "preserve-me"
     } finally {
         $env:HOME = $origHome; $env:USERPROFILE = $origProfile
@@ -523,6 +536,288 @@ Run-Case "34 install state sidecars hidden from git" $Pattern {
         if ($porcelain -match '\.assert-iq[\\/]\.skip-worktree-paths') { Fail 34 "committed: .skip-worktree-paths leaked into git status" }
         if ($porcelain -match '\.assert-iq[\\/]\.merge-result-shas')   { Fail 34 "committed: .merge-result-shas leaked into git status" }
     } finally { Pop-Location }
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "35 clean-slate memory seed (no logs)" $Pattern {
+    # Fresh install must seed Dreaming memory clean: no bogus conflict, no pack
+    # dream data shipped, and session-events.json rendered (no placeholder left).
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
+    $out = Get-LastBootOutput
+    if ($out -match '(?i)conflict') { Fail 35 "fresh install reported a conflict" }
+    Assert-FileMissing 35 "$ws\.assert-iq\dreaming\session-events.json.assert-iq-new"
+    Assert-FileExists  35 "$ws\.assert-iq\memory\MEMORY.md"
+    Assert-Contains    35 "$ws\.assert-iq\memory\MEMORY.md" "Last consolidated: never"
+    if (Get-ChildItem -LiteralPath "$ws\.assert-iq\memory\logs" -Recurse -Filter '2*' -ErrorAction SilentlyContinue) {
+        Fail 35 "dream logs copied on install"
+    }
+    if (Get-ChildItem -LiteralPath "$ws\.assert-iq\memory\topics" -Recurse -Filter '*.md' -ErrorAction SilentlyContinue) {
+        Fail 35 "topic files copied on install"
+    }
+    Assert-Contains    35 "$ws\.assert-iq\memory\.dream\state.json" '"sessions_since_dream": 0'
+    Assert-FileExists  35 "$ws\.assert-iq\dreaming\session-events.json"
+    Assert-NotContains 35 "$ws\.assert-iq\dreaming\session-events.json" "__PACK_ROOT__"
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "36 uninstall preserves dreamed memory" $Pattern {
+    # Uninstall must never delete the user's dreamed memory -- that is their data.
+    #
+    # The trigger is CONSOLIDATED KNOWLEDGE, not activity. This case used to
+    # seed only a session log under logs/ and assert the store survived, which
+    # encoded the wrong rule: logs/ is the waking-loop trail that /dream
+    # CONSUMES, so its presence says a session happened, not that anything was
+    # learned. Once the session hooks actually started firing that made every
+    # install -> chat -> uninstall leave an empty memory store behind (case 43).
+    # A real topics/*.md is the signal, and the un-consolidated logs ride along
+    # with it -- they are context for the facts.
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
+    New-Item -ItemType Directory -Force -Path "$ws\.assert-iq\memory\logs\2026\08" | Out-Null
+    Set-Content -LiteralPath "$ws\.assert-iq\memory\logs\2026\08\2026-08-01.md" -Value "- session ended"
+    Set-Content -LiteralPath "$ws\.assert-iq\memory\topics\architecture.md" `
+                -Value "# Architecture`n`n- Payments run through Stripe, 2026-08-01"
+    Invoke-RunBoot $pair @("--uninstall", "--yes") | Out-Null
+    Assert-FileExists 36 "$ws\.assert-iq\memory\MEMORY.md"
+    Assert-FileExists 36 "$ws\.assert-iq\memory\topics\architecture.md"
+    Assert-FileExists 36 "$ws\.assert-iq\memory\logs\2026\08\2026-08-01.md"
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "37 upgrade merge + conflict + orphan" $Pattern {
+    # End-to-end -Upgrade: clean three-way merge (non-overlapping edits both
+    # survive), overlapping edit -> sidecar with the user's copy kept, a file
+    # removed upstream -> reported as an orphan but NOT deleted under -Yes,
+    # memory untouched, manifest version bumped.
+    $src = Invoke-MkSource -Tagged
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    try {
+        Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes", "--source=$src") | Out-Null
+
+        $skills = @(Get-SkillFiles $ws 3)
+        if ($skills.Count -lt 3) { Fail 37 "need 3 SKILL.md files, found $($skills.Count)"; return }
+        $target = $skills[0]; $conflict = $skills[1]; $orphan = $skills[2]
+
+        # User edits: non-overlapping (append) on target, overlapping (line 1) on conflict.
+        Add-UserEdit "$ws\$target" "<!-- USER-LOCAL-EDIT -->"
+        Set-FirstLine "$ws\$conflict" "# WS-EDIT L1"
+
+        # Advance the SOURCE working tree; the v-tag stays the install baseline.
+        $newver = "99.0.0"
+        Set-Content -LiteralPath "$src\VERSION" -Value $newver
+        Add-PackEdit "$src\$target" "<!-- PACK-UPDATE -->"
+        Set-FirstLine "$src\$conflict" "# PACK-EDIT L1"
+        Remove-Item -LiteralPath "$src\$orphan" -Force
+
+        Invoke-RunBoot $pair @("--upgrade", "--yes", "--source=$src") | Out-Null
+        $out = Get-LastBootOutput
+
+        Assert-Contains     37 "$ws\$target" "USER-LOCAL-EDIT"
+        Assert-Contains     37 "$ws\$target" "PACK-UPDATE"
+        Assert-FileMissing  37 "$ws\$target.assert-iq-new"
+        Assert-Contains     37 "$ws\$conflict" "WS-EDIT L1"
+        Assert-FileExists   37 "$ws\$conflict.assert-iq-new"
+        if ($out -notmatch 'orphan from a previous version') { Fail 37 "orphan not reported" }
+        Assert-FileExists   37 "$ws\$orphan"
+        Assert-Contains     37 "$ws\.assert-iq\memory\MEMORY.md" "Last consolidated: never"
+        if (Get-ChildItem -LiteralPath "$ws\.assert-iq\memory\logs" -Recurse -Filter '2*' -ErrorAction SilentlyContinue) {
+            Fail 37 "logs appeared on upgrade"
+        }
+        Assert-JsonField    37 "$ws\.assert-iq\.install-manifest.json" "version" $newver
+    } finally {
+        Remove-Item -LiteralPath $src -Recurse -Force -ErrorAction SilentlyContinue
+        Invoke-CleanupFixture $pair $Keep
+    }
+}
+
+Run-Case "38 upgrade base cache (tagless)" $Pattern {
+    # The install-time base cache must let an upgrade line-merge even when the
+    # source repo has NO version tag to reconstruct a baseline from.
+    $src = Invoke-MkSource            # deliberately untagged
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    try {
+        Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes", "--source=$src") | Out-Null
+        Assert-DirExists 38 "$ws\.assert-iq\.base"
+        $skills = @(Get-SkillFiles $ws 1)
+        if ($skills.Count -lt 1) { Fail 38 "no SKILL.md found"; return }
+        $target = $skills[0]
+        Add-UserEdit "$ws\$target" "<!-- USER-LOCAL-EDIT -->"
+        Set-Content -LiteralPath "$src\VERSION" -Value "99.0.0"
+        Add-PackEdit "$src\$target" "<!-- PACK-UPDATE -->"
+        Invoke-RunBoot $pair @("--upgrade", "--yes", "--source=$src") | Out-Null
+        Assert-Contains    38 "$ws\$target" "USER-LOCAL-EDIT"
+        Assert-Contains    38 "$ws\$target" "PACK-UPDATE"
+        Assert-FileMissing 38 "$ws\$target.assert-iq-new"
+    } finally {
+        Remove-Item -LiteralPath $src -Recurse -Force -ErrorAction SilentlyContinue
+        Invoke-CleanupFixture $pair $Keep
+    }
+}
+
+Run-Case "39 upgrade tag fallback (retroactive)" $Pattern {
+    # An older install with NO base cache must still line-merge by rebuilding the
+    # baseline from the pack's git tag for the recorded version, and re-seed the
+    # cache for next time.
+    $src = Invoke-MkSource -Tagged
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    try {
+        Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes", "--source=$src") | Out-Null
+        Remove-Item -LiteralPath "$ws\.assert-iq\.base" -Recurse -Force -ErrorAction SilentlyContinue
+        $skills = @(Get-SkillFiles $ws 1)
+        if ($skills.Count -lt 1) { Fail 39 "no SKILL.md found"; return }
+        $target = $skills[0]
+        Add-UserEdit "$ws\$target" "<!-- USER-LOCAL-EDIT -->"
+        Set-Content -LiteralPath "$src\VERSION" -Value "99.0.0"
+        Add-PackEdit "$src\$target" "<!-- PACK-UPDATE -->"
+        Invoke-RunBoot $pair @("--upgrade", "--yes", "--source=$src") | Out-Null
+        Assert-Contains    39 "$ws\$target" "USER-LOCAL-EDIT"
+        Assert-Contains    39 "$ws\$target" "PACK-UPDATE"
+        Assert-FileMissing 39 "$ws\$target.assert-iq-new"
+        Assert-DirExists   39 "$ws\.assert-iq\.base"
+    } finally {
+        Remove-Item -LiteralPath $src -Recurse -Force -ErrorAction SilentlyContinue
+        Invoke-CleanupFixture $pair $Keep
+    }
+}
+
+Run-Case "40 install.ps1 uninstall round-trip" $Pattern {
+    # install.ps1 -Uninstall was never covered: cases 22/23 only exercise
+    # install, reinstall and key preservation. Its documented contract is that it
+    # reverses the pack's own wiring while preserving (a) any OTHER keys the user
+    # has in .claude\settings.json and (b) the .assert-iq\memory\ store, which is
+    # the user's dreamed data.
+    $pair = Invoke-MkPackCopy
+    $copy = $pair.copy; $homeDir = $pair.home
+    $origHome = $env:HOME; $origProfile = $env:USERPROFILE
+    $env:HOME = $homeDir; $env:USERPROFILE = $homeDir
+    try {
+        & $AiqPwsh -NoProfile -File "$copy\install.ps1" *>&1 | Out-Null
+        Assert-FileExists 40 "$copy\.claude\settings.json"
+        Assert-FileExists 40 "$copy\.assert-iq\dreaming\session-events.json"
+
+        # A user key that uninstall must NOT take with it, plus dreamed memory.
+        $sp = Join-Path $copy '.claude\settings.json'
+        $j = Get-Content -Raw -LiteralPath $sp | ConvertFrom-Json
+        $j | Add-Member -NotePropertyName 'permissions' -NotePropertyValue ([pscustomobject]@{ allow = @('Bash(ls)') }) -Force
+        Set-Content -LiteralPath $sp -Value ($j | ConvertTo-Json -Depth 32)
+        New-Item -ItemType Directory -Force -Path "$copy\.assert-iq\memory\logs\2026\08" | Out-Null
+        Set-Content -LiteralPath "$copy\.assert-iq\memory\logs\2026\08\2026-08-01.md" -Value "# dreamt"
+
+        & $AiqPwsh -NoProfile -File "$copy\install.ps1" -Uninstall *>&1 | Out-Null
+
+        # Pack-owned wiring is gone.
+        Assert-FileMissing 40 "$copy\.assert-iq\dreaming\session-events.json"
+        if (Test-Path -LiteralPath "$copy\.claude\skills") { Fail 40 ".claude\skills survived uninstall" }
+        # The user's own settings key survived, and the hooks key did not.
+        if (Test-Path -LiteralPath $sp) {
+            $after = Get-Content -Raw -LiteralPath $sp | ConvertFrom-Json
+            if (-not $after.PSObject.Properties['permissions']) { Fail 40 "uninstall dropped the user's 'permissions' key" }
+            if ($after.PSObject.Properties['hooks'])            { Fail 40 "uninstall left the pack's 'hooks' key behind" }
+        }
+        # Dreamed memory is the user's data and must survive.
+        Assert-FileExists 40 "$copy\.assert-iq\memory\logs\2026\08\2026-08-01.md"
+    } finally {
+        $env:HOME = $origHome; $env:USERPROFILE = $origProfile
+    }
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "41 uninstall leaves zero orphans" $Pattern {
+    # Regression: business-metrics/reports/ and verdicts/archive/ were both
+    # left behind after every uninstall. They are created by the seed step as
+    # empty runtime sinks, so they never enter the manifest, and the cleanup
+    # lists in bootstrap.ps1 had never been updated for them -- the PowerShell
+    # lists had also drifted from bootstrap.sh's (missing verdicts, oracles,
+    # analysis and tests/_qi/regression).
+    #
+    # Deliberately generic: assert the workspace is EMPTY apart from .git
+    # rather than naming the two known offenders, so the next runtime sink
+    # somebody adds is caught here automatically instead of shipping as litter.
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
+    Assert-DirExists 41 "$ws\.assert-iq\verdicts\archive"
+    Assert-DirExists 41 "$ws\.assert-iq\business-metrics\reports"
+    Invoke-RunBoot $pair @("--uninstall", "--yes") | Out-Null
+    $orphans = @(Get-ChildItem -LiteralPath $ws -Recurse -Force -ErrorAction SilentlyContinue |
+                 Where-Object { $_.FullName -notmatch '\\\.git($|\\)' } |
+                 ForEach-Object { $_.FullName.Substring($ws.Length + 1) })
+    if ($orphans.Count -gt 0) {
+        Fail 41 ("uninstall left " + $orphans.Count + " orphan path(s): " + ($orphans -join ', '))
+    }
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "42 uninstall preserves runtime sink content" $Pattern {
+    # The other half of case 41, and the reason it cannot simply rm -rf the
+    # sinks: once they hold real content they are the user's data. The verdict
+    # archive is a regulatory audit trail (SOX / ISO 27001 / FedRAMP) whose
+    # whole purpose is reproducing a past release decision, so deleting it on
+    # uninstall would be worse than leaving an empty directory behind. Same
+    # policy the memory store already gets in case 36.
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
+    New-Item -ItemType Directory -Force -Path "$ws\.assert-iq\verdicts\archive\2026\08" | Out-Null
+    Set-Content -LiteralPath "$ws\.assert-iq\verdicts\archive\2026\08\verdicts-26.jsonl" `
+                -Value '{"verdict_id":"probe","verdict_band":"green"}'
+    Set-Content -LiteralPath "$ws\.assert-iq\business-metrics\reports\2026-Q3.html" `
+                -Value '<html>Q3</html>'
+    Invoke-RunBoot $pair @("--uninstall", "--yes") | Out-Null
+    Assert-FileExists 42 "$ws\.assert-iq\verdicts\archive\2026\08\verdicts-26.jsonl"
+    Assert-FileExists 42 "$ws\.assert-iq\business-metrics\reports\2026-Q3.html"
+    # And it must say so, rather than preserving them silently.
+    $out = Get-LastBootOutput
+    if ($out -notmatch 'Preserved your verdict archive') {
+        Fail 42 "uninstall preserved the verdict archive without reporting it"
+    }
+    Invoke-CleanupFixture $pair $Keep
+}
+
+Run-Case "43 uninstall removes un-consolidated memory" $Pattern {
+    # Reported from the field: after the session hooks were fixed, every
+    # uninstall left .assert-iq/memory/ behind. The store looked "used" -- a
+    # dated session log, and a "_Last consolidated:_" stamp from a /dream that
+    # ran -- but it held nothing: topics/ was empty and MEMORY.md read
+    # "_(no entries yet)_" under every heading. Preserving it left an orphan
+    # directory tree containing none of the user's knowledge.
+    #
+    # Activity is not knowledge. This asserts the store goes when it holds no
+    # consolidated facts, even though a dream ran and logs exist; case 36 is
+    # the other side, where one real topics/*.md keeps the whole store.
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
+    $mem = "$ws\.assert-iq\memory"
+    New-Item -ItemType Directory -Force -Path "$mem\logs\2026\08" | Out-Null
+    Set-Content -LiteralPath "$mem\logs\2026\08\2026-08-27.md" `
+                -Value "# Daily log 2026-08-27`n`n- 2026-08-27T00:33:00Z session abc ended"
+    # A dream ran and found nothing: stamp present, index still all placeholders.
+    Set-Content -LiteralPath "$mem\.dream\state.json" `
+                -Value '{ "last_dream_utc": "2026-08-27T00:37:23Z", "sessions_since_dream": 1 }'
+    $idx = Get-Content -Raw -LiteralPath "$mem\MEMORY.md"
+    Set-Content -LiteralPath "$mem\MEMORY.md" `
+                -Value ($idx -replace 'Last consolidated: never', 'Last consolidated: 2026-08-27')
+    Invoke-RunBoot $pair @("--uninstall", "--yes") | Out-Null
+    Assert-DirMissing 43 $mem
+    # And nothing else may be left either -- same bar as case 41.
+    $orphans = @(Get-ChildItem -LiteralPath $ws -Recurse -Force -ErrorAction SilentlyContinue |
+                 Where-Object { $_.FullName -notmatch [regex]::Escape('\.git\') -and
+                                $_.Name -ne '.git' } |
+                 ForEach-Object { $_.FullName.Substring($ws.Length + 1) })
+    if ($orphans.Count -gt 0) {
+        Fail 43 ("uninstall left " + $orphans.Count + " orphan path(s): " + ($orphans -join ', '))
+    }
+    # Discarding an un-consolidated trail must be stated, never silent.
+    if ((Get-LastBootOutput) -notmatch 'Removing the Dreaming memory store') {
+        Fail 43 "uninstall discarded the session logs without reporting it"
+    }
     Invoke-CleanupFixture $pair $Keep
 }
 

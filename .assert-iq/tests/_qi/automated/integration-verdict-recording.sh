@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# Shared helpers: Python-interpreter resolution + JSON assertions.
+# Sourced by path relative to THIS file so it works from any cwd.
+_AIQ_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$_AIQ_LIB_DIR/lib/aiq-test-lib.sh"
 # Integration: Verdict recording workflow
 
 set -e
@@ -41,7 +46,7 @@ cat > "$TEMP_VERDICT" << 'VERDICT'
 VERDICT
 
 test_verdict_json_valid() {
-    if jq . "$TEMP_VERDICT" > /dev/null 2>&1; then
+    if aiq_json_valid "$TEMP_VERDICT"; then
         echo "✅ Test 1: Test verdict JSON is valid"
         ((PASSED++))
         return 0
@@ -65,7 +70,7 @@ test_archive_writable() {
 }
 
 test_index_valid_json() {
-    if jq . "${VERDICTS_DIR}/index.json" > /dev/null 2>&1; then
+    if aiq_json_valid "${VERDICTS_DIR}/index.json"; then
         echo "✅ Test 3: Verdict index is valid JSON"
         ((PASSED++))
         return 0
@@ -89,9 +94,9 @@ test_verdicts_md_writable() {
 }
 
 test_verdict_record_format() {
-    VERDICT_ID=$(jq -r '.verdict_id' "$TEMP_VERDICT")
-    VERDICT_BAND=$(jq -r '.verdict_band' "$TEMP_VERDICT")
-    VERDICT_SCORE=$(jq -r '.verdict_score' "$TEMP_VERDICT")
+    VERDICT_ID=$(aiq_json_get "$TEMP_VERDICT" verdict_id)
+    VERDICT_BAND=$(aiq_json_get "$TEMP_VERDICT" verdict_band)
+    VERDICT_SCORE=$(aiq_json_get "$TEMP_VERDICT" verdict_score)
     
     if [ -n "$VERDICT_ID" ] && [ -n "$VERDICT_BAND" ] && [ -n "$VERDICT_SCORE" ]; then
         echo "✅ Test 5: Verdict record has all required fields"

@@ -27,7 +27,7 @@ def load_verdicts(archive_path: Path) -> List[Dict]:
     
     for jsonl_file in archive_path.rglob("verdicts-*.jsonl"):
         try:
-            with open(jsonl_file, "r") as f:
+            with open(jsonl_file, "r", encoding="utf-8-sig") as f:
                 for line in f:
                     if line.strip():
                         verdicts.append(json.loads(line))
@@ -42,8 +42,15 @@ def compute_brier_score(verdicts: List[Dict], window_days: Optional[int] = None)
     Compute Brier score per verdict band.
     
     Brier score = mean((predicted_confidence - actual_outcome)^2)
-    For verdicts without escapes: actual_outcome = 0.0
-    For verdicts with escapes: actual_outcome = 1.0 (defect escaped)
+
+    `verdict_score` is the predicted probability that the release is SOUND
+    (0.95 = highly confident nothing escapes). `actual_outcome` must encode
+    the same event, so:
+      For verdicts without escapes: actual_outcome = 1.0 (release held)
+      For verdicts with escapes:    actual_outcome = 0.0 (release did not hold)
+
+    Lower is better: a confident green verdict that held scores ~0.0, while a
+    confident green verdict that escaped is penalized heavily.
     """
     now = datetime.utcnow()
     cutoff = now - timedelta(days=window_days) if window_days else None
@@ -63,8 +70,10 @@ def compute_brier_score(verdicts: List[Dict], window_days: Optional[int] = None)
         band = verdict.get("verdict_band", "ungraded")
         score = verdict.get("verdict_score", 0.5)
         has_escape = verdict.get("linked_escape") is not None
-        actual_outcome = 1.0 if has_escape else 0.0
-        
+        # Same-polarity as verdict_score (P(release is sound)): an escape means
+        # the predicted event did NOT occur, so it drives actual_outcome to 0.0.
+        actual_outcome = 0.0 if has_escape else 1.0
+
         # Brier penalty
         brier_penalty = (score - actual_outcome) ** 2
         verdicts_by_band[band].append({
@@ -268,7 +277,7 @@ def main():
     
     # Output
     if args.output:
-        with open(args.output, "w") as f:
+        with open(args.output, "w", encoding="utf-8", newline="\n") as f:
             json.dump(report, f, indent=2)
         print(f"✅ Calibration report written to {args.output}")
     else:

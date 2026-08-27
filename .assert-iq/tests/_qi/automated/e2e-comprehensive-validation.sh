@@ -1,12 +1,24 @@
 #!/bin/bash
 # E2E: Comprehensive v1.7.0 feature validation
 
+# Shared helpers: resolves a usable Python 3 for the .py unit tests below.
+_AIQ_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$_AIQ_LIB_DIR/lib/aiq-test-lib.sh"
+
 PASSED=0
 FAILED=0
 
 test_all_unit_tests_pass() {
     if bash .assert-iq/tests/_qi/automated/unit-verdict-schema.sh > /dev/null 2>&1 && \
-       bash .assert-iq/tests/_qi/automated/unit-audit-verdict.sh > /dev/null 2>&1; then
+       bash .assert-iq/tests/_qi/automated/unit-audit-verdict.sh > /dev/null 2>&1 && \
+       bash .assert-iq/tests/_qi/automated/unit-test-dependencies.sh > /dev/null 2>&1 && \
+       bash .assert-iq/tests/_qi/automated/unit-agent-frontmatter.sh > /dev/null 2>&1 && \
+       bash .assert-iq/tests/_qi/automated/unit-gitignore-hygiene.sh > /dev/null 2>&1 && \
+       bash .assert-iq/tests/_qi/automated/unit-dreaming-gate.sh > /dev/null 2>&1 && \
+       aiq_py .assert-iq/tests/_qi/automated/unit-calibration-basic.py > /dev/null 2>&1 && \
+       aiq_py .assert-iq/tests/_qi/automated/unit-memory-sanity.py > /dev/null 2>&1 && \
+       aiq_py .assert-iq/tests/_qi/automated/unit-doc-parity.py > /dev/null 2>&1 && \
+       aiq_py .assert-iq/tests/_qi/automated/unit-hook-schema.py > /dev/null 2>&1; then
         echo "✅ E2E-20: All unit tests pass"
         ((PASSED++))
     else
@@ -109,6 +121,12 @@ test_specialist_orchestration() {
     fi
 }
 
+# NOT aggregated here, deliberately: e2e-agent-parity.sh. It is a strict
+# forcing function that currently FAILS on a real, unresolved product question
+# (the v2.0 specialist orchestrator exists only for Claude, not Copilot).
+# Folding it in would either turn this aggregator permanently red or invite
+# someone to loosen the parity check to keep this green. Run it on its own:
+#   bash .assert-iq/tests/_qi/automated/e2e-agent-parity.sh
 echo "=== E2E: Comprehensive Validation ==="
 test_all_unit_tests_pass
 test_all_integration_tests_pass

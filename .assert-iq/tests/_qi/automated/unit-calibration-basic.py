@@ -5,8 +5,16 @@ import sys
 import json
 from pathlib import Path
 
-# Add analysis module to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "analysis"))
+# Windows consoles default to cp1252, which cannot encode the ✅/❌ markers
+# below; force UTF-8 so a failing assertion reports the assertion rather than
+# a UnicodeEncodeError.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+# Add analysis module to path. This file lives at
+# .assert-iq/tests/_qi/automated/, so reaching .assert-iq/analysis/ needs four
+# parents (automated -> _qi -> tests -> .assert-iq), not three.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent / "analysis"))
 
 def test_brier_all_correct():
     """Test Brier score when all verdicts are correct (no escapes)."""

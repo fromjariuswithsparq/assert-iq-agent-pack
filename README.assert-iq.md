@@ -49,8 +49,9 @@ short installer that wires `.claude/settings.json` and the skills symlink.
 |---|---|---|---|
 | Always-on guidance | `.github/copilot-instructions.md` (Copilot-native) + mirrored body in `CLAUDE.md` | `.github/copilot-instructions.md` | `CLAUDE.md` |
 | Scoped instructions | `.github/instructions/*.instructions.md` | same (auto via `applyTo`) | same (via `@`-imports in `CLAUDE.md`; "When this applies" prose) |
-| Skills (22) | `.github/skills/*/SKILL.md` | `.github/skills/` directly | `.claude/skills/` (symlink → `.github/skills/`) |
+| Skills (30) | `.github/skills/*/SKILL.md` | `.github/skills/` directly | `.claude/skills/` (symlink → `.github/skills/`) |
 | Chat mode / subagent | `.github/agents/Assert-IQ.agent.md` + `.github/agents/Assert-IQ-PLAN.agent.md` (Copilot) + `.claude/agents/assert-iq.md` + `.claude/agents/assert-iq-plan.md` (Claude) | agent files | subagent files |
+| Specialist agents (8) | `.claude/agents/specialists/*.md` is the **single source of truth**; `.github/agents/specialists/*.agent.md` is **generated** from it by `scripts/sync-agents.sh` (`.ps1` on Windows), which maps tool names between the two schemas | generated `.agent.md` files | source `.md` files |
 | Dreaming | `.assert-iq/dreaming/` (scripts + optional service) + `.assert-iq/memory/` store | yes (via `chat.hookFilesLocations`) | `.claude/settings.json` (hooks block, synced by installer) |
 | MCP wiring | `.vscode/mcp.json` | yes | yes (VS Code MCP is tool-agnostic) |
 | Per-client config | `.assert-iq/*` | yes | yes |
@@ -215,7 +216,7 @@ aren't physically present in the workspace, so all of them ship in.
 | `.assert-iq/maturity-profile.md` | Tier rationale — team-specific. |
 | `.github/copilot-instructions.md` + `.github/instructions/qi-*.instructions.md` | Copilot reads these only from the workspace; their `applyTo` globs scope to repo files. |
 | `.github/skills/` | All 30 QI skills — Copilot Chat reads them from this workspace path. |
-| `.github/agents/` | `Assert-IQ.agent.md` and `Assert-IQ-PLAN.agent.md` custom chat modes. |
+| `.github/agents/` | `Assert-IQ.agent.md` (front door; delegates via `agent/runSubagent`) and `Assert-IQ-PLAN.agent.md` custom chat modes, plus `specialists/` — 8 **generated** specialist agents. Do not hand-edit `specialists/`; edit the Claude sources and re-run `scripts/sync-agents.sh`. |
 | `.claude/agents/` | Claude Code subagent counterparts (`assert-iq.md`, `assert-iq-plan.md`, `grader.md`) plus `specialists/` — 8 v2.0 orchestration specialists (risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer, oracle-grader, calibration-specialist, memory-curator, traceability-auditor). |
 | `.claude/skills` | Symlink to `../.github/skills` (copy fallback on Windows without Developer Mode) so Claude Code discovers the same skills. |
 | `CLAUDE.md` / `AGENTS.md` | Claude and other agent runners read these from the repo root. |
@@ -267,7 +268,7 @@ Every install writes `.assert-iq/.install-manifest.json` recording
 to know which paths to add to `.git/info/exclude` (and which to remove
 on `--graduate`). Uninstall reads the same manifest.
 
-**Graduating from trial → committed:**
+#### Graduating from trial → committed
 
 ```bash
 # macOS / Linux
@@ -281,7 +282,7 @@ git add .assert-iq .claude .github CLAUDE.md AGENTS.md
 git commit -m "chore: adopt Assert.IQ agent pack"
 ```
 
-**Removing the pack from a workspace:**
+#### Removing the pack
 
 ```bash
 # macOS / Linux
@@ -315,7 +316,8 @@ the 30 skills. Behavior varies by platform:
 | Platform | What happens | What you need to do |
 |---|---|---|
 | **macOS / Linux** | Symlink created normally. | Nothing — edits to either path reflect instantly. |
-| **Windows + Developer Mode (or admin shell)** | Symlink created normally. | Enable Developer Mode once: `Settings → Privacy & security → For developers → Developer Mode On`. Then run `install.ps1`. |
+| **Windows + Developer Mode, PowerShell 7+** | Symlink created normally. | Enable Developer Mode once: `Settings → Privacy & security → For developers → Developer Mode On`. Then run `install.ps1`. |
+| **Windows + Developer Mode, Windows PowerShell 5.1** | 5.1 often still requires the `SeCreateSymbolicLink` privilege, so the installer **falls back to copying** even with Developer Mode on. | Run the installer under `pwsh` (PowerShell 7+) if you want a live link; otherwise treat it as the copy case below. `scripts\check-environment.ps1` reports which you'll get. |
 | **Windows without Developer Mode / admin** | Installer **falls back to copying** `.github/skills/` → `.claude/skills/` and logs the fallback. | **Re-run `install.ps1` after editing any skill** so Claude sees the change. There is real drift risk here — prefer Developer Mode. |
 | **CI runners, Docker `COPY`, manual zip downloads** | Symlinks may not be preserved — you may get a broken link or a copy. | Prefer the GitHub-generated source tarball (preserves symlinks), or run `install.sh` / `install.ps1` after checkout to repair the link. |
 
@@ -338,8 +340,12 @@ Skills         .github/skills/<name>/SKILL.md             Invokable workflows
 
 Modes          .github/agents/Assert-IQ.agent.md          Default front-door agent
                .github/agents/Assert-IQ-PLAN.agent.md     Read-only planning sibling
-               .claude/agents/assert-iq{,-plan}.md         Claude Code subagents
-               .claude/agents/specialists/*.md            8 v2.0 orchestration specialists
+               .github/agents/specialists/*.agent.md      8 specialists (GENERATED
+                                                          by scripts/sync-agents.sh)
+               .claude/agents/assert-iq{,-plan}.md        Claude Code subagents
+               .claude/agents/grader.md                   Oracle-layer grader
+               .claude/agents/specialists/*.md            8 orchestration specialists
+                                                          (source of truth for both)
 
 Tools          .vscode/mcp.json                           External integrations
                                                           (ADO, Jira, GitHub)
@@ -362,7 +368,7 @@ Copy these directories into the repo root:
 - `.github/copilot-instructions.md`
 - `.github/instructions/`
 - `.github/skills/`               ← each skill is a folder with a `SKILL.md`
-- `.github/agents/`               ← `Assert-IQ.agent.md` + `Assert-IQ-PLAN.agent.md`
+- `.github/agents/`               ← `Assert-IQ.agent.md` + `Assert-IQ-PLAN.agent.md` + `specialists/` (generated)
 - `.claude/`                      ← `agents/`, `settings.json`; `.claude/skills/` is created as a symlink by the installer
 - `.vscode/mcp.json`
 - `.vscode/settings.json`         ← wires `.github/skills/` into Copilot prompt-file loading and points `chat.hookFilesLocations` at `.claude/settings.json` (the Dreaming session-event hooks, read natively by both VS Code Copilot and Claude Code)
@@ -502,6 +508,33 @@ that requires it.
 | Skill | Purpose |
 |---|---|
 | `/measure-qi-impact` | Convert QI verdicts + baseline metrics into VP-ready quarterly HTML dashboards — escape reduction %, triage hours reclaimed, cycle-time acceleration, and total economic ROI in dollars. |
+
+---
+
+## Multi-agent orchestration (v2.0)
+
+When you invoke a quality or release decision skill, the lead agent (`Assert-IQ`
+or `Assert-IQ-PLAN`) delegates to **8 isolated specialist agents** that run as a
+parallel batch, then a serial chain. Each returns structured JSON; the lead
+synthesizes findings into one narrative + decision, preserving the audit trail in
+`.assert-iq/agent-runs/`.
+
+| Execution | Specialist | Responsibility |
+|---|---|---|
+| Parallel batch | `risk-scorer` | PR risk assessment (change + protection layers). |
+| | `coverage-analyst` | Test protection gap analysis. |
+| | `flake-adjudicator` | Test failure root-cause classification. |
+| | `hotspot-analyzer` | Fragile module identification (churn + complexity + escapes). |
+| Serial chain | `oracle-grader` | Rubric-based quality scoring. |
+| | `calibration-specialist` | Verdict accuracy measurement (Brier score, layer fidelity, drift). |
+| | `memory-curator` | Memory store health checks (cycles, staleness, contradictions). |
+| | `traceability-auditor` | AC↔code↔test linkage validation. |
+
+Both harnesses run this tier. `.claude/agents/specialists/*.md` is the single
+source of truth; the Copilot copies in `.github/agents/specialists/` are
+generated from it by `scripts/sync-agents.sh` (`sync-agents.ps1` on Windows), so
+edit the Claude sources and re-run the sync rather than editing the generated
+files.
 
 ---
 
@@ -696,6 +729,7 @@ or `qi-traceability.instructions.md` with examples drawn from your codebase.
 | **1.6.0** | **Oracle Layer — defensible quality verification via rubric-based grading.** New `/define-quality-rubric` skill (interview-driven rubric authorship), `/grade-with-rubric` skill (independent artifact grading in isolated context), `.claude/agents/grader.md` (grader agent with Anthropic outcomes wiring), `.assert-iq/oracles/` registry (schemas, rubric templates, verdict lineage), oracle integration in `/check-merge` and `/release-confidence` (Outcome layer, maturity-gated weighting), new `qi-oracle.instructions.md` governance rules. Oracle positioning: rubric authorship (not generation) is the defensible differentiator. Grader has zero access to generator reasoning. Rubrics are immutable, versioned, evidence-driven. **29 skills total** (was 27). |
 | **1.7.0** | **Decision Confidence Calibration — proving verdict accuracy over time.** Every PR risk assessment and release confidence judgment is recorded as an immutable verdict (band, score, per-layer states, assumptions, memory hash) in `.assert-iq/verdicts/`. Escapes link back to their original verdict; over time the pack computes Brier score, confusion matrix, per-layer fidelity, and memory-drift alerts (`.assert-iq/analysis/calibration.py`). Memory versioning via SHA256 hashing gives a reproducibility contract (restore snapshot → re-run assessment → identical verdict). Memory sanity checks (cycle, staleness, contradiction, granularity) guard the `/dream` consolidation pass. Verdict recording is mandatory in `/risk-assess-pr`, `/release-confidence`, and `/analyze-escaped-defect`. |
 | **2.0.0** | **Multi-agent orchestration + commercial instrumentation.** Lead agents (`Assert-IQ`, `Assert-IQ-PLAN`) now orchestrate **8 isolated specialist agents** under `.claude/agents/specialists/` — `risk-scorer`, `coverage-analyst`, `flake-adjudicator`, `hotspot-analyzer` (parallel batch) then `oracle-grader`, `calibration-specialist`, `memory-curator`, `traceability-auditor` (serial chain). Each returns structured JSON; the lead synthesizes findings into one narrative + decision, with the audit trail in `.assert-iq/agent-runs/`. New `/measure-qi-impact` skill converts QI verdicts + baseline metrics (`.assert-iq/business-metrics/baseline.json`) into VP-ready quarterly HTML dashboards: escape reduction %, triage hours reclaimed, cycle-time acceleration, and total economic ROI in dollars. Configured via `.assert-iq/config.yaml` → `business_metrics`. **30 skills total** (was 29). Strict superset of 1.7.0 — zero breaking changes. |
+| **Unreleased** | **Cross-harness parity + test-suite portability.** The 8 specialist agents are now generated for Copilot from the Claude sources by `scripts/sync-agents.sh` / `.ps1`, so the two harnesses cannot drift; `Assert-IQ` gained `agent/runSubagent` and an `agents:` allowlist so Copilot can actually delegate. New parity checks P5 (generated agents stale) and P6 (bash vs PowerShell tool map divergence). `jq` is no longer a dependency — JSON assertions moved to Python helpers — and the suite now resolves `python3` → `python` → `py -3` by execution, because Windows ships a `python3` stub and no `python3.exe`. Fixed: inverted Brier score in `calibration.py`, a `detect_cycles` crash on leaf topics, an unimportable `analysis/__init__.py`, un-git-ignored memory snapshots, and a PowerShell-only non-idempotent markdown merge that grew `copilot-instructions.md` by one CRLF on every bootstrap re-run. |
 
 Tag releases. Keep a CHANGELOG in `.assert-iq/CHANGELOG.md`.
 
@@ -732,6 +766,9 @@ Every PR risk assessment and release confidence judgment is recorded immutably:
 Run on-demand:
 ```bash
 python3 .assert-iq/analysis/calibration.py --window-days 90 --output report.json
+# Windows: python.org ships python.exe but no python3.exe. Use instead:
+#   python .assert-iq/analysis/calibration.py --window-days 90 --output report.json
+#   py -3   .assert-iq/analysis/calibration.py --window-days 90 --output report.json
 ```
 
 Generates:

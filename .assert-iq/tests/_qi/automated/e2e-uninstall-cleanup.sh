@@ -54,13 +54,20 @@ test_orphan_paths_not_in_gitignore() {
     fi
 }
 
+# Both branches previously incremented PASSED, so this assertion could never
+# fail — it reported success whether or not snapshots were actually ignored.
+# Memory snapshots can contain client-proprietary content, so a real check
+# matters here.
+# Assert the real invariant (is the path actually ignored?) rather than grepping
+# one specific .gitignore file — the rule may legitimately live in the root
+# .gitignore or a nested one.
 test_snapshots_not_tracked() {
-    if grep -q "\.snapshots" .assert-iq/dreaming/.gitignore 2>/dev/null; then
-        echo "✅ E2E-14: Snapshots properly gitignored"
+    if git check-ignore -q .assert-iq/dreaming/.snapshots/probe.tar.gz 2>/dev/null; then
+        echo "✅ E2E-14: Memory snapshots are git-ignored"
         ((PASSED++))
     else
-        echo "✅ E2E-14: (Snapshots gitignore check)"
-        ((PASSED++))
+        echo "❌ E2E-14 FAILED: .assert-iq/dreaming/.snapshots/ is not git-ignored (memory tarballs would be committed)"
+        ((FAILED++))
     fi
 }
 

@@ -75,6 +75,7 @@
   <a href="#overview">Overview</a>
   <a href="#quickstart-vscode">Quick start (VS Code)</a>
   <a href="#quickstart-claude">Quick start (Claude)</a>
+  <a href="#servers">The 20 servers</a>
 
   <div class="nav-group">Code hosts &amp; trackers</div>
   <a href="#github">github</a>
@@ -152,9 +153,11 @@ claude mcp add sentry -e SENTRY_AUTH_TOKEN=... -e SENTRY_ORG=... -- uvx mcp-serv
     </li>
     <li><strong>Claude Desktop:</strong> edit <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> and add entries under <code>mcpServers</code>. Same <code>command</code> / <code>args</code> / <code>env</code> shape as <code>mcp.json</code>, but <strong>no <code>${input:…}</code> substitution</strong> — paste secrets literally (the file is local-only) or use shell env vars.</li>
   </ul>
+  <h2 id="servers">The 20 servers</h2>
+  <p>Servers are grouped by purpose. For each: what it does, what you need, and where to get it.</p>
   <p>For each server below, the VS Code <code>mcp.json</code> block is the source of truth; the Claude equivalent is the same command + args + env.</p>
 
-  <h2 id="code-hosts-trackers">Code hosts &amp; trackers</h2>
+  <h3 id="code-hosts-trackers">Code hosts &amp; trackers</h3>
 
   <div class="server" id="github">
     <h4><code>github</code> — GitHub repos, PRs, issues</h4>
@@ -203,7 +206,7 @@ claude mcp add sentry -e SENTRY_AUTH_TOKEN=... -e SENTRY_ORG=... -- uvx mcp-serv
     </ul>
   </div>
 
-  <h2 id="local-filesystem">Local &amp; filesystem</h2>
+  <h3 id="local-filesystem">Local &amp; filesystem</h3>
 
   <div class="server" id="git">
     <h4><code>git</code> — local git operations on this repo</h4>
@@ -223,7 +226,7 @@ claude mcp add sentry -e SENTRY_AUTH_TOKEN=... -e SENTRY_ORG=... -- uvx mcp-serv
     </ul>
   </div>
 
-  <h2 id="databases">Databases</h2>
+  <h3 id="databases">Databases</h3>
 
   <div class="server" id="postgres">
     <h4><code>postgres</code> — Postgres schema introspection + read-only queries</h4>
@@ -242,7 +245,7 @@ claude mcp add sentry -e SENTRY_AUTH_TOKEN=... -e SENTRY_ORG=... -- uvx mcp-serv
     </ul>
   </div>
 
-  <h2 id="cloud">Cloud</h2>
+  <h3 id="cloud">Cloud</h3>
 
   <div class="server" id="aws">
     <h4><code>aws</code> — AWS resource lookup (CloudWatch, S3, IAM, etc.)</h4>
@@ -254,7 +257,7 @@ claude mcp add sentry -e SENTRY_AUTH_TOKEN=... -e SENTRY_ORG=... -- uvx mcp-serv
     </ul>
   </div>
 
-  <h2 id="observability-qi-outcome-evidence-layer">Observability <span style="color:var(--text-dim);font-size:.7em;font-weight:400;">(QI "outcome evidence" layer)</span></h2>
+  <h3 id="observability-qi-outcome-evidence-layer">Observability <span style="color:var(--text-dim);font-size:.7em;font-weight:400;">(QI "outcome evidence" layer)</span></h3>
 
   <div class="server" id="sentry">
     <h4><code>sentry</code> — recent issues, events, releases</h4>
@@ -293,7 +296,7 @@ claude mcp add sentry -e SENTRY_AUTH_TOKEN=... -e SENTRY_ORG=... -- uvx mcp-serv
     </ul>
   </div>
 
-  <h2 id="browser-automation-ui-testing">Browser automation <span style="color:var(--text-dim);font-size:.7em;font-weight:400;">(UI testing)</span></h2>
+  <h3 id="browser-automation-ui-testing">Browser automation <span style="color:var(--text-dim);font-size:.7em;font-weight:400;">(UI testing)</span></h3>
 
   <div class="server" id="playwright">
     <h4><code>playwright</code> — drive a real Chromium/Firefox/WebKit browser</h4>
@@ -310,7 +313,7 @@ claude mcp add sentry -e SENTRY_AUTH_TOKEN=... -e SENTRY_ORG=... -- uvx mcp-serv
     </ul>
   </div>
 
-  <h2 id="knowledge-bases">Knowledge bases</h2>
+  <h3 id="knowledge-bases">Knowledge bases</h3>
 
   <div class="server" id="notion">
     <h4><code>notion</code> — pages, databases, search</h4>
@@ -332,7 +335,7 @@ claude mcp add sentry -e SENTRY_AUTH_TOKEN=... -e SENTRY_ORG=... -- uvx mcp-serv
     </ul>
   </div>
 
-  <h2 id="communication">Communication</h2>
+  <h3 id="communication">Communication</h3>
 
   <div class="server" id="slack">
     <h4><code>slack</code> — channel history, search, post messages</h4>

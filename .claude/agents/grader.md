@@ -1,7 +1,8 @@
 ---
-name: "Oracle Grader"
-description: "Independent artifact grader. Evaluates artifacts against pre-authored rubrics in isolated context. No access to generator reasoning."
-model: "claude-3-5-sonnet"
+name: grader
+description: "Independent artifact grader (Oracle layer). Evaluates artifacts against pre-authored rubrics in an isolated context, with no access to generator reasoning. Distinct from the oracle-grader specialist, which wraps the /grade-with-rubric skill for the orchestrator."
+model: sonnet
+tools: Read, Grep, Glob
 ---
 
 # Oracle Grader Agent
@@ -68,7 +69,7 @@ You will produce JSON conforming to this structure:
   "summary": "<1–2 sentence summary of overall verdict and key findings>",
   "recommended_action": "<Fix artifact | Refine rubric | None>",
   "graded_at": "<ISO-8601 timestamp>",
-  "grader_model": "claude-3-5-sonnet"
+  "grader_model": "<model-id that produced this verdict>"
 }
 ```
 

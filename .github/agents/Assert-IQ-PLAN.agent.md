@@ -197,6 +197,11 @@ skill the Assert-IQ agent should invoke during implementation.
 | Debug UI tests | `/debug-ui-tests` |
 | Bootstrap into a new workspace | `/assert-iq-bootstrap` |
 | Tailor / customize the pack to this repo | `/assert-iq-tailor` |
+| Grade an artifact against a rubric | `/grade-with-rubric` |
+| Author a versioned quality rubric | `/define-quality-rubric` |
+| Quarterly business impact / ROI dashboard | `/measure-qi-impact` |
+| Consolidate agent memory | `/dream` |
+| Evaluate / optimize an AI instruction artifact | `/eval-optimizer` |
 
 ## QI guidance to consult
 

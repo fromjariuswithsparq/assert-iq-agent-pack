@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# Shared helpers: Python-interpreter resolution + JSON assertions.
+# Sourced by path relative to THIS file so it works from any cwd.
+_AIQ_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$_AIQ_LIB_DIR/lib/aiq-test-lib.sh"
 set -euo pipefail
 
 # E2E Test Suite: Specialist Orchestration (v2.0)
@@ -16,15 +21,19 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
 
+# NOTE: use $((x+1)) rather than ((x++)). Under `set -e`, ((x++)) returns the
+# PRE-increment value as its exit status, so the very first call (0 -> 1) exits
+# non-zero and aborts the whole script. This suite previously died after its
+# first passing assertion.
 log_pass() {
   echo -e "${GREEN}✅ $1${NC}"
-  ((PASS_COUNT++))
+  PASS_COUNT=$((PASS_COUNT + 1))
 }
 
 log_fail() {
   echo -e "${RED}❌ $1${NC}"
   TEST_RESULTS+=("$1")
-  ((FAIL_COUNT++))
+  FAIL_COUNT=$((FAIL_COUNT + 1))
 }
 
 echo "════════════════════════════════════════════════════════════════"
@@ -112,7 +121,7 @@ if [ -d "$agent_runs_dir" ]; then
   fi
   
   if [ -f "$agent_runs_dir/index.json" ]; then
-    if python3 -m json.tool "$agent_runs_dir/index.json" > /dev/null 2>&1; then
+    if aiq_json_valid "$agent_runs_dir/index.json"; then
       log_pass "agent-runs/index.json is valid JSON"
     else
       log_fail "agent-runs/index.json is malformed"
@@ -169,16 +178,20 @@ echo "────────────────────────�
 baseline_file="$REPO_ROOT/.assert-iq/business-metrics/baseline.json"
 
 if [ -f "$baseline_file" ]; then
-  if python3 -m json.tool "$baseline_file" > /dev/null 2>&1; then
+  if aiq_json_valid "$baseline_file"; then
     log_pass "baseline.json is valid JSON"
     
-    if python3 -c "import json; d=json.load(open('$baseline_file')); assert d.get('escape_rate_per_quarter')" 2>/dev/null; then
+    # Pass the path as argv, not embedded in the code string. Under MSYS/Git
+    # Bash, POSIX paths are translated to Windows paths for native-exe
+    # arguments, but NOT inside a -c string literal, so an embedded
+    # "/c/Users/..." reaches native Python unconverted and open() fails.
+    if aiq_json_has "$baseline_file" escape_rate_per_quarter; then
       log_pass "baseline.json contains escape_rate_per_quarter"
     else
       log_fail "baseline.json missing escape_rate_per_quarter"
     fi
     
-    if python3 -c "import json; d=json.load(open('$baseline_file')); assert d.get('triage_hours_per_quarter')" 2>/dev/null; then
+    if aiq_json_has "$baseline_file" triage_hours_per_quarter; then
       log_pass "baseline.json contains triage_hours_per_quarter"
     else
       log_fail "baseline.json missing triage_hours_per_quarter"
@@ -244,16 +257,16 @@ mock_risk_output='
 }
 '
 
-if echo "$mock_risk_output" | python3 -m json.tool > /dev/null 2>&1; then
+if echo "$mock_risk_output" | aiq_json_valid_stdin; then
   log_pass "Specialist output JSON schema is valid"
   
-  if echo "$mock_risk_output" | python3 -c "import sys, json; d=json.load(sys.stdin); assert d.get('specialist')" 2>/dev/null; then
+  if echo "$mock_risk_output" | aiq_json_has_stdin specialist; then
     log_pass "Specialist output contains specialist field"
   else
     log_fail "Specialist output missing specialist field"
   fi
   
-  if echo "$mock_risk_output" | python3 -c "import sys, json; d=json.load(sys.stdin); assert d.get('verdict_band')" 2>/dev/null; then
+  if echo "$mock_risk_output" | aiq_json_has_stdin verdict_band; then
     log_pass "Specialist output contains verdict_band field"
   else
     log_fail "Specialist output missing verdict_band field"
@@ -284,16 +297,16 @@ mock_audit='
 }
 '
 
-if echo "$mock_audit" | python3 -m json.tool > /dev/null 2>&1; then
+if echo "$mock_audit" | aiq_json_valid_stdin; then
   log_pass "Audit trail JSON schema is valid"
   
-  if echo "$mock_audit" | python3 -c "import sys, json; d=json.load(sys.stdin); assert d.get('run_id')" 2>/dev/null; then
+  if echo "$mock_audit" | aiq_json_has_stdin run_id; then
     log_pass "Audit trail contains run_id"
   else
     log_fail "Audit trail missing run_id"
   fi
   
-  if echo "$mock_audit" | python3 -c "import sys, json; d=json.load(sys.stdin); assert d.get('specialists_invoked')" 2>/dev/null; then
+  if echo "$mock_audit" | aiq_json_has_stdin specialists_invoked; then
     log_pass "Audit trail contains specialists_invoked"
   else
     log_fail "Audit trail missing specialists_invoked"

@@ -81,13 +81,14 @@
   <div class="nav-group">Dreaming</div>
   <a href="#top">Overview</a>
   <a href="#why">Why Dreaming &amp; token savings</a>
-  <a href="#loops">1. The two loops</a>
+  <a href="#loops">The two loops</a>
   <a href="#files">2. Files in this folder</a>
-  <a href="#config">3. Configuration</a>
-  <a href="#maturity">4. Maturity gating</a>
-  <a href="#safety">5. Safety</a>
-  <a href="#service">6. Optional background dreamer</a>
-  <a href="#sanity">7. Sanity check</a>
+  <a href="#config">Configuration</a>
+  <a href="#maturity">Maturity gating</a>
+  <a href="#safety">Safety</a>
+  <a href="#gitvis">Git visibility</a>
+  <a href="#service">Optional background dreamer</a>
+  <a href="#sanity">Sanity check</a>
 </aside>
 <main>
   <div class="doc-hero" id="top">
@@ -124,7 +125,7 @@
 
   <div class="callout warn"><strong>When it pays off.</strong> Dreaming helps most on recurring, long-lived work — a codebase, a test suite, a triage queue. For one-shot or highly varied tasks there is little to consolidate, which is exactly why it is gated (24h <em>and</em> 5 sessions) and maturity-tiered. It never blocks a session, and the memory store is a plain-markdown git diff you can review or revert.</div>
 
-  <h2 id="loops">1. The two loops</h2>
+  <h2 id="loops">The two loops</h2>
 <pre class="flow"><code>WAKING LOOP (per session, online)
   session ends → dream-record-session appends a dated note to
                  .assert-iq/memory/logs/ and bumps the session counter
@@ -134,7 +135,7 @@ DREAMING LOOP (on demand via /dream, or optional cron)
   → rewritten .assert-iq/memory/ (reviewable git diff) + a dream report</code></pre>
   <p>The heavy per-tool-call hook is gone — that is the token/memory-stewardship win. Signal is gathered by targeted grep over the daily logs and transcripts during a dream, not by logging every tool call.</p>
 
-  <h2 id="files">2. The files in this folder</h2>
+  <h2 id="files">What's in this folder</h2>
   <table>
     <thead><tr><th>Path</th><th>What it does</th></tr></thead>
     <tbody>
@@ -142,13 +143,35 @@ DREAMING LOOP (on demand via /dream, or optional cron)
       <tr><td><code>scripts/dream-gate.{sh,ps1}</code></td><td>Session-start dual-gate check. Nudges <code>/dream</code> when both gates are met.</td></tr>
       <tr><td><code>scripts/lib/dream-utils.{sh,ps1}</code></td><td>Shared helpers (state path, lock, config gate values).</td></tr>
       <tr><td><code>scripts/lib/render-events.{sh,ps1}</code></td><td>Renders <code>session-events.template.json</code> at install time.</td></tr>
-      <tr><td><code>session-events.template.json</code></td><td>Committed source-of-truth for the session-event wiring. Rendered by the installer into <code>.claude/settings.json</code>.</td></tr>
+      <tr><td><code>session-events.template.json</code></td><td>Copilot / VS Code session-event wiring. Rendered to <code>session-events.json</code> and registered via the <code>chat.hookFilesLocations</code> setting.</td></tr>
+      <tr><td><code>claude-hooks.{posix,windows}.template.json</code></td><td>Claude Code session-event wiring. Rendered into the <code>hooks</code> key of <code>.claude/settings.json</code>.</td></tr>
       <tr><td><code>service/dreaming_service.py</code></td><td><strong>Optional</strong> background dreamer (cron / post-session). Off by default; requires the <code>anthropic</code> SDK + <code>ANTHROPIC_API_KEY</code>.</td></tr>
     </tbody>
   </table>
   <p>The memory store itself lives at <code>.assert-iq/memory/</code> (<code>MEMORY.md</code> index ≤200 lines, <code>topics/*.md</code>, daily <code>logs/</code>, <code>.dream/state.json</code>).</p>
 
-  <h2 id="config">3. Configuration</h2>
+  <h3 id="hook-no-dollar">Editing the hook templates: no $ in the Copilot file</h3>
+  <p>Commands in <code>session-events.template.json</code> <strong>must not contain a <code>$</code></strong>.
+  Something between the hook file and the interpreter replaces every <code>$</code>-prefixed token with
+  nothing, so the old Windows command
+  <code>&amp; { $r = if ($env:CLAUDE_PLUGIN_ROOT) { … }; $s = Join-Path $r '…'; &amp; $s }</code>
+  reached PowerShell as <code>&amp; {  = if () {  } else { 'C:\…' }; &amp;  }</code> and failed with a
+  <code>ParserError</code>. The hooks never ran and nothing was written to
+  <code>.assert-iq/memory/logs/</code> — a silent failure, because a hook that cannot start looks the
+  same as a hook with nothing to say.</p>
+  <p>It is not ordinary shell expansion: <code>$env:CLAUDE_PLUGIN_ROOT</code> disappeared whole rather
+  than leaving <code>:CLAUDE_PLUGIN_ROOT</code> behind, and the POSIX payloads are single-quoted, which a
+  shell would have left alone. Rather than reverse-engineer the escaping rules of a layer we cannot
+  inspect, these commands depend on no variables at all: the installer bakes in an absolute path, and
+  <code>dream-utils.{ps1,sh}</code> derive <code>AIQ_PACK_ROOT</code> from their own location.</p>
+  <p>Two tests enforce this: <code>unit-hook-schema.py</code> fails if any Copilot command contains a
+  <code>$</code>, and <code>e2e-hook-execution.py</code> strips every <code>$</code>-token from the command
+  before running it, then asserts the session counter and the dated log file still get written. The
+  Claude Code templates <em>do</em> use <code>$</code> and must keep doing so — Claude Code passes the body
+  straight to the declared <code>shell</code>, and <code>CLAUDE_PLUGIN_ROOT</code> is how a plugin-style
+  install overrides the baked path.</p>
+
+  <h2 id="config">Configuration</h2>
   <p>All knobs live under <code>dreaming:</code> in <code>.assert-iq/config.yaml</code>:</p>
   <ul>
     <li><code>enabled</code> — master switch (env kill-switch: <code>AIQ_DREAMING_DISABLED=1</code>).</li>
@@ -157,7 +180,7 @@ DREAMING LOOP (on demand via /dream, or optional cron)
     <li><code>background_service</code> — opt-in cron dreamer (see §6).</li>
   </ul>
 
-  <h2 id="maturity">4. Maturity gating</h2>
+  <h2 id="maturity">Maturity gating</h2>
   <p>Mirrors Agentic Healing:</p>
   <table>
     <thead><tr><th>Tier</th><th>Behavior</th></tr></thead>
@@ -168,7 +191,7 @@ DREAMING LOOP (on demand via /dream, or optional cron)
     </tbody>
   </table>
 
-  <h2 id="safety">5. Safety (non-negotiable)</h2>
+  <h2 id="safety">Safety (non-negotiable)</h2>
   <ol>
     <li><strong>Write sandbox</strong> — the dream pass may write ONLY inside <code>.assert-iq/memory/</code>. Source, config, and instruction files are read-only.</li>
     <li><strong>Rules are immutable</strong> — <code>.github/instructions/*</code> are never modified by dreaming.</li>
@@ -176,7 +199,13 @@ DREAMING LOOP (on demand via /dream, or optional cron)
     <li><strong>Human review</strong> — every dream is a git-diffable change; skim the diff and hand-edit freely.</li>
   </ol>
 
-  <h2 id="service">6. Optional background dreamer</h2>
+  <h2 id="gitvis">Git visibility follows install mode</h2>
+  <ul>
+    <li><strong>Committed install</strong> — the memory store is tracked in git; every dream cycle is a reviewable diff (the audit interface).</li>
+    <li><strong>Trial install</strong> — the whole <code>.assert-iq/memory/</code> store is kept local-only via <code>.git/info/exclude</code>; git never sees it, and dreams update it autonomously. Run <code>scripts/bootstrap.sh --graduate</code> to expose it to git later. (Pack-as-workspace installs via <code>install.sh</code> track it, like committed.)</li>
+  </ul>
+
+  <h2 id="service">Optional background dreamer</h2>
   <p><code>service/dreaming_service.py</code> is the turnkey "dream while you sleep" path. It is <strong>never</strong> required — the <code>/dream</code> skill is the default engine and has no dependency on it. To enable:</p>
   <ol>
     <li>Set <code>dreaming.background_service.enabled: true</code> in <code>config.yaml</code> (only honored at <code>higher</code> tier).</li>
@@ -191,7 +220,7 @@ DREAMING LOOP (on demand via /dream, or optional cron)
 python3 .assert-iq/dreaming/service/dreaming_service.py . --force</code></pre>
   <p>Without the env key the service exits without doing anything, so the pack stays dependency-free by default.</p>
 
-  <h2 id="sanity">7. Sanity check</h2>
+  <h2 id="sanity">Sanity check</h2>
 <pre><code>python3 -c "import json; print(list(json.load(open('.claude/settings.json'))['hooks'].keys()))"
 # Expected: ['SessionStart', 'Stop']   (no PostToolUse)</code></pre>
 

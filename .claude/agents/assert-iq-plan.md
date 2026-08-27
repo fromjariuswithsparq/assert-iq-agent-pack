@@ -1,30 +1,22 @@
 ---
 name: assert-iq-plan
-description: "[Claude Code] Assert-IQ-PLAN — read-only planning sibling of the assert-iq subagent. Researches, writes and outlines multi-step a plan, presents it, and waits for the user to approve before handing back to assert-iq for execution. Invoke when the task is large, risky, or multi-file, or when the user asks for a plan first."
-argument-hint: Outline the goal or problem to research
-model: Claude Sonnet 4.6
-target: vscode
-disable-model-invocation: true
-tools: ['search', 'read', 'web', 'vscode/memory', 'github/issue_read', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/activePullRequest', 'execute/getTerminalOutput', 'execute/testFailure', 'vscode/askQuestions', 'agent', 'grep', 'glob', 'todo', 'webfetch']
-agents: ['Explore']
-handoffs:
-  - label: Start Implementation
-    agent: assert-iq
-    prompt: 'Start implementation'
-    send: true
-  - label: Open in Editor
-    agent: assert-iq
-    prompt: '#createFile the plan as is into an untitled file (`untitled:plan-${camelCaseName}.prompt.md` without frontmatter) for further refinement.'
-    send: true
-    showContinueOn: false
+description: "[Claude Code] Assert-IQ-PLAN — read-only planning sibling of the assert-iq subagent. Researches and outlines a multi-step plan, presents it, and waits for the user to approve before handing back to assert-iq for execution. Invoke when the task is large, risky, or multi-file, or when the user asks for a plan first."
+model: sonnet
+tools: Read, Grep, Glob, WebFetch, WebSearch, Agent, AskUserQuestion
 ---
 
 <!--
-Canonical source: .github/agents/Assert-IQ-PLAN.agent.md (VS Code Copilot agent).
-This file is the Claude Code subagent translation. Claude Code does not
-support frontmatter handoffs, so the handoff is described in prose: the
-user reviews the plan and then asks the main session (or the assert-iq
-subagent) to execute it.
+DIRECTION OF TRUTH: none. This file and .github/agents/Assert-IQ-PLAN.agent.md
+are PEER definitions, hand-maintained in parallel (see the note in
+assert-iq.md). Neither is generated from the other.
+
+Claude Code does not support frontmatter `handoffs:`, `agents:`, or `target:`,
+so those keys are absent here and the handoff is described in prose instead:
+the user reviews the plan, then asks the main session (or the assert-iq
+subagent) to execute it. The prose below still refers in places to Copilot-only
+affordances (a "Start Implementation" button, `vscode_askQuestions`,
+`/memories/session/plan.md`); read those as "ask the user / persist the plan"
+in a Claude Code session.
 -->
 
 # Assert-IQ-PLAN
@@ -219,6 +211,11 @@ skill the executing agent should invoke during implementation.
 | Debug UI tests | `/debug-ui-tests` |
 | Bootstrap into a new workspace | `/assert-iq-bootstrap` |
 | Tailor / customize the pack to this repo | `/assert-iq-tailor` |
+| Grade an artifact against a rubric | `/grade-with-rubric` |
+| Author a versioned quality rubric | `/define-quality-rubric` |
+| Quarterly business impact / ROI dashboard | `/measure-qi-impact` |
+| Consolidate agent memory | `/dream` |
+| Evaluate / optimize an AI instruction artifact | `/eval-optimizer` |
 
 ## Things you proactively raise
 

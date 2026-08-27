@@ -117,10 +117,17 @@ fi
 # Extract release notes for this version
 notes_file="$(mktemp)"
 trap 'rm -f "$notes_file"' EXIT
-awk -v v="$VERSION" '
-  $0 ~ "^## \\[" v "\\]" {flag=1; next}
-  /^## \[/ {flag=0}
-  flag {print}
+# Plain string matching, NOT a dynamic regex. Passing "^## \\[" v "\\]" to awk
+# is implementation-dependent: gawk (Git Bash) warns that it treats the escaped
+# bracket as a plain one and then reads [2.1.0] as a CHARACTER CLASS, so the
+# header never matches, the notes come out empty, and the release aborts on the
+# emptiness check below. BSD awk on macOS accepts it -- which is why this only
+# surfaced when cutting a release from Windows. index()/substr() behave
+# identically everywhere.
+awk -v hdr="## [$VERSION]" '
+  index($0, hdr) == 1 { flag = 1; next }
+  substr($0, 1, 4) == "## [" { flag = 0 }
+  flag { print }
 ' CHANGELOG.md > "$notes_file"
 if [[ ! -s "$notes_file" ]]; then
   echo "ERROR: extracted release notes are empty" >&2
@@ -139,14 +146,45 @@ echo "$VERSION" > VERSION
 echo ">> Bumping doc banners"
 bump_doc_banners "$VERSION"
 
-if command -v python3 >/dev/null 2>&1 && [[ -x scripts/build-search-index.py ]]; then
-  echo ">> Rebuilding cross-page search index"
-  python3 scripts/build-search-index.py
+# Resolve a working Python by EXECUTING candidates, not by testing a name.
+# Windows has no python3.exe from the python.org installer, and the Microsoft
+# Store `python3` is a stub that resolves but does not run -- so
+# `command -v python3` answered yes and the generators silently never ran.
+# That is exactly why v2.0.1 and v2.0.2 each needed a follow-up commit to fix
+# the version in docs/html by hand.
+AIQ_PY=""
+for cand in python3 python "py -3"; do
+  if $cand -c "import sys; sys.exit(0)" >/dev/null 2>&1; then AIQ_PY="$cand"; break; fi
+done
+if [[ -z "$AIQ_PY" ]]; then
+  echo "ERROR: no working Python 3 found (tried python3, python, py -3)." >&2
+  echo "       docs/html and assets/search-index.js are GENERATED from VERSION and" >&2
+  echo "       the markdown sources. Releasing without regenerating them ships a doc" >&2
+  echo "       set still advertising the previous version, and fails" >&2
+  echo "       unit-generated-docs-current.py." >&2
+  exit 1
 fi
 
-if ! git diff --quiet -- VERSION CHANGELOG.md README.md MANIFEST.md README.assert-iq.md README.assert-iq.html README.html claude-readme.html vscode-readme.html dreaming-readme.html MCP.html assets/search-index.js 2>/dev/null; then
+# docs/html/index.html embeds the VERSION file's contents, so it MUST be
+# regenerated after the bump. The old script bumped only the root *.html
+# banners and left docs/html/ stale -- the drift that unit-generated-docs-current.py
+# now catches, and that both previous releases had to patch up afterwards.
+echo ">> Regenerating docs/html (reads VERSION)"
+$AIQ_PY scripts/generate-documentation-html.py
+
+if [[ -f scripts/build-search-index.py ]]; then
+  echo ">> Rebuilding cross-page search index"
+  $AIQ_PY scripts/build-search-index.py
+fi
+
+RELEASE_PATHS=(
+  VERSION CHANGELOG.md README.md MANIFEST.md README.assert-iq.md
+  README.assert-iq.html README.html claude-readme.html vscode-readme.html
+  dreaming-readme.html MCP.html assets/search-index.js docs/html
+)
+if ! git diff --quiet -- "${RELEASE_PATHS[@]}" 2>/dev/null; then
   echo ">> Committing release bump"
-  git add VERSION CHANGELOG.md README.md MANIFEST.md README.assert-iq.md README.assert-iq.html README.html claude-readme.html vscode-readme.html dreaming-readme.html MCP.html assets/search-index.js
+  git add -- "${RELEASE_PATHS[@]}"
   git commit -m "Release $TAG"
 fi
 

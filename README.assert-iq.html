@@ -326,6 +326,7 @@
       <a href="#multi-agent">Multi-agent orchestration</a>
       <a href="#oracle">Oracle &amp; verification</a>
       <a href="#business-impact">Business impact dashboards</a>
+      <a href="#calibration">Calibration &amp; reproducibility</a>
     </nav>
 
     <div class="nav-group">Operate</div>
@@ -391,8 +392,9 @@
       <tbody>
         <tr><td>Always-on guidance</td><td><code>.github/copilot-instructions.md</code> + mirrored body in <code>CLAUDE.md</code></td><td><code>.github/copilot-instructions.md</code></td><td><code>CLAUDE.md</code></td></tr>
         <tr><td>Scoped instructions</td><td><code>.github/instructions/*.instructions.md</code></td><td>auto via <code>applyTo</code></td><td>via <code>@</code>-imports in <code>CLAUDE.md</code></td></tr>
-        <tr><td>Skills (26)</td><td><code>.github/skills/*/SKILL.md</code></td><td><code>.github/skills/</code></td><td><code>.claude/skills/</code> (symlink)</td></tr>
+        <tr><td>Skills (30)</td><td><code>.github/skills/*/SKILL.md</code></td><td><code>.github/skills/</code></td><td><code>.claude/skills/</code> (symlink)</td></tr>
         <tr><td>Chat mode / subagent</td><td><code>.github/agents/Assert-IQ.agent.md</code> + plan sibling; Claude counterparts</td><td>agent files</td><td>subagent files</td></tr>
+        <tr><td>Specialist agents (8)</td><td><code>.claude/agents/specialists/*.md</code> is the <strong>single source of truth</strong>; <code>.github/agents/specialists/*.agent.md</code> is <strong>generated</strong> by <code>scripts/sync-agents.sh</code> (<code>.ps1</code> on Windows)</td><td>generated <code>.agent.md</code> files</td><td>source <code>.md</code> files</td></tr>
         <tr><td>Dreaming</td><td><code>.assert-iq/dreaming/</code> + <code>.assert-iq/memory/</code></td><td>via <code>chat.hookFilesLocations</code></td><td><code>.claude/settings.json</code> (synced by installer)</td></tr>
         <tr><td>MCP wiring</td><td><code>.vscode/mcp.json</code></td><td>yes</td><td>yes</td></tr>
         <tr><td>Per-client config</td><td><code>.assert-iq/*</code></td><td>yes</td><td>yes</td></tr>
@@ -452,10 +454,10 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
 <span class="comment"># Reverse with: --uninstall --user</span></code></pre>
     <p>You can also opt in à la carte with <code>--skills-scope=user</code> (default is <code>workspace</code>; <code>both</code> puts skills in both places).</p>
 
-    <h4>Pinning to a tag</h4>
+    <h3 id="pinning-to-a-tag">Pinning to a tag</h3>
     <p>Use <code>git checkout v2.0.2</code> on the cloned copy. The pack is on the stable <code>1.x</code> line — bootstrap CLI flags, manifest schema, skill names, and workspace surface layout will not change in incompatible ways without a major-version bump.</p>
 
-    <h4>What bootstrap delivers (Path B)</h4>
+    <h3 id="what-bootstrap-delivers-path-b">What bootstrap delivers (Path B)</h3>
     <p>The bootstrap copies the <strong>complete workspace surface</strong> into the target repo. Copilot and Claude Code can't auto-discover skills or agents that aren't physically present in the workspace.</p>
     <table>
       <thead><tr><th>Surface</th><th>Why it's per-repo</th></tr></thead>
@@ -465,8 +467,8 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
         <tr><td><code>.assert-iq/maturity-profile.md</code></td><td>Tier rationale — team-specific.</td></tr>
         <tr><td><code>.github/copilot-instructions.md</code> + <code>instructions/</code></td><td>Copilot reads from workspace; <code>applyTo</code> globs scope to repo files.</td></tr>
         <tr><td><code>.github/skills/</code></td><td>All 30 QI skills — Copilot reads from this workspace path.</td></tr>
-        <tr><td><code>.github/agents/</code></td><td><code>Assert-IQ</code> + <code>Assert-IQ-PLAN</code> custom chat modes.</td></tr>
-        <tr><td><code>.claude/agents/</code></td><td>Claude Code subagent counterparts.</td></tr>
+        <tr><td><code>.github/agents/</code></td><td><code>Assert-IQ</code> (front door; delegates via <code>agent/runSubagent</code>) + <code>Assert-IQ-PLAN</code> custom chat modes, plus <code>specialists/</code> — 8 <strong>generated</strong> agents. Don't hand-edit <code>specialists/</code>; edit the Claude sources and re-run <code>scripts/sync-agents.sh</code>.</td></tr>
+        <tr><td><code>.claude/agents/</code></td><td>Claude Code subagent counterparts (<code>assert-iq.md</code>, <code>assert-iq-plan.md</code>, <code>grader.md</code>) plus <code>specialists/</code> — the 8 orchestration specialists, and the source of truth for the Copilot copies.</td></tr>
         <tr><td><code>.claude/skills</code></td><td>Symlink to <code>../.github/skills</code> (copy fallback on Windows).</td></tr>
         <tr><td><code>CLAUDE.md</code> / <code>AGENTS.md</code></td><td>Read from repo root by Claude / Codex / Cursor / Aider.</td></tr>
         <tr><td><code>.vscode/settings.json</code> + <code>mcp.json</code></td><td>Wires VS Code Copilot to read instructions, prompts, Dreaming session events; declares MCP servers.</td></tr>
@@ -475,7 +477,7 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
       </tbody>
     </table>
 
-    <h4>Trial vs Committed (Path B)</h4>
+    <h3 id="trial-vs-committed-path-b">Trial vs Committed (Path B)</h3>
     <table>
       <thead><tr><th>Mode</th><th>What happens</th><th>Reverse with</th></tr></thead>
       <tbody>
@@ -514,19 +516,20 @@ scripts/bootstrap.sh --uninstall --dry-run    <span class="comment"># preview wi
 pwsh -File scripts/bootstrap.ps1 -Uninstall
 pwsh -File scripts/bootstrap.ps1 -Uninstall -DryRun</code></pre>
 
-    <h4>Upgrading to a new release</h4>
+    <h3 id="upgrading-to-a-new-release">Upgrading to a new release</h3>
     <ol>
       <li>Read the release notes on the <a href="https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases">Releases page</a>.</li>
       <li>Uninstall the path you used (Path A: <code>install.sh --uninstall</code>; Path B: <code>bootstrap.sh --uninstall</code> in each target repo).</li>
       <li><code>git pull</code> (or re-clone) to the new tag, re-run the same path.</li>
     </ol>
 
-    <h4>Platform notes — <code>.claude/skills</code> symlink</h4>
+    <h3 id="platform-notes-claude-skills-symlink">Platform notes (<code>.claude/skills</code> symlink)</h3>
     <table>
       <thead><tr><th>Platform</th><th>What happens</th><th>What you need to do</th></tr></thead>
       <tbody>
         <tr><td>macOS / Linux</td><td>Symlink created normally.</td><td>Nothing — edits reflect instantly.</td></tr>
-        <tr><td>Windows + Developer Mode</td><td>Symlink created normally.</td><td>Enable Developer Mode once: <em>Settings → Privacy & security → For developers</em>.</td></tr>
+        <tr><td>Windows + Developer Mode, PowerShell 7+</td><td>Symlink created normally.</td><td>Enable Developer Mode once: <em>Settings → Privacy & security → For developers</em>.</td></tr>
+        <tr><td>Windows + Developer Mode, Windows PowerShell 5.1</td><td>5.1 often still requires the <code>SeCreateSymbolicLink</code> privilege, so the installer <strong>falls back to copying</strong> even with Developer Mode on.</td><td>Run the installer under <code>pwsh</code> (PowerShell 7+) for a live link; otherwise treat it as the copy case below. <code>scripts\check-environment.ps1</code> reports which you'll get.</td></tr>
         <tr><td>Windows w/o Dev Mode</td><td>Falls back to copying. Logs the fallback.</td><td><strong>Re-run <code>install.ps1</code> after editing any skill</strong> so Claude sees changes.</td></tr>
         <tr><td>CI / Docker COPY / zip downloads</td><td>Symlinks may not preserve.</td><td>Prefer GitHub source tarball, or run installer post-checkout.</td></tr>
       </tbody>
@@ -544,7 +547,9 @@ Skills         .github/skills/&lt;name&gt;/SKILL.md             Invokable workfl
 
 Modes          .github/agents/Assert-IQ.agent.md          Default front-door
                .github/agents/Assert-IQ-PLAN.agent.md     Read-only planning
+               .github/agents/specialists/*.agent.md      8 specialists (GENERATED)
                .claude/agents/assert-iq{,-plan}.md        Claude Code subagents
+               .claude/agents/specialists/*.md            source of truth for both
 
 Tools          .vscode/mcp.json                           External integrations
                                                           (ADO, Jira, GitHub…)
@@ -561,7 +566,7 @@ Dreaming       .assert-iq/dreaming/ + .assert-iq/memory/  Markdown memory
       <li><code>README.assert-iq.md</code></li>
       <li><code>CLAUDE.md</code> + <code>AGENTS.md</code></li>
       <li><code>.github/copilot-instructions.md</code> + <code>.github/instructions/</code></li>
-      <li><code>.github/skills/</code> + <code>.github/agents/</code></li>
+      <li><code>.github/skills/</code> + <code>.github/agents/</code> (incl. generated <code>specialists/</code>)</li>
       <li><code>.claude/</code> (<code>agents/</code>, <code>settings.json</code>; <code>skills/</code> created by installer)</li>
       <li><code>.vscode/mcp.json</code> + <code>settings.json</code></li>
       <li><code>hooks/</code></li>
@@ -576,7 +581,7 @@ Dreaming       .assert-iq/dreaming/ + .assert-iq/memory/  Markdown memory
     <h3 id="2-configure-for-the-client-context">2. Configure for the client context</h3>
     <div class="callout">
       <strong>The clear &amp; simple path: <code>/assert-iq-tailor</code></strong>
-      After bootstrap places the pack, select the <code>Assert-IQ</code> agent in chat and run <code>/assert-iq-tailor</code>. It scans the workspace once, shows you what it detected, then — gated by your review — customizes <code>.assert-iq/config.yaml</code> (the keystone every skill reads from), <code>governance.md</code>, <code>maturity-profile.md</code>, the five instruction files, and <code>.vscode/mcp.json</code> in the right order. Each edited file is snapshotted to <code>&lt;file&gt;.assert-iq.pre-tailor</code> first, so the pass is reversible. Review the <code>git diff</code> before committing.
+      After bootstrap places the pack, select the <code>Assert-IQ</code> agent in chat and run <code>/assert-iq-tailor</code>. It scans the workspace once, shows you what it detected, then — gated by your review — customizes <code>.assert-iq/config.yaml</code> (the keystone every skill reads from), <code>governance.md</code>, <code>maturity-profile.md</code>, the six instruction files, and <code>.vscode/mcp.json</code> in the right order. Each edited file is snapshotted to <code>&lt;file&gt;.assert-iq.pre-tailor</code> first, so the pass is reversible. Review the <code>git diff</code> before committing.
     </div>
     <p>Prefer to do it by hand? Open <code>.assert-iq/config.yaml</code> and set:</p>
     <ul>
@@ -681,7 +686,7 @@ Dreaming       .assert-iq/dreaming/ + .assert-iq/memory/  Markdown memory
       </tbody>
     </table>
 
-    <h3 id="setup"><span class="phase-pill phase-cross">Setup</span></h3>
+    <h3 id="setup"><span class="phase-pill phase-cross">Setup &amp; Meta</span></h3>
     <table>
       <thead><tr><th>Skill</th><th>Purpose</th></tr></thead>
       <tbody>
@@ -839,9 +844,69 @@ Dreaming       .assert-iq/dreaming/ + .assert-iq/memory/  Markdown memory
         <tr><td><strong>1.6.0</strong></td><td><strong>Oracle Layer — defensible quality verification via rubric-based grading.</strong> New <code>/define-quality-rubric</code> skill (interview-driven rubric authorship), <code>/grade-with-rubric</code> skill (independent artifact grading in isolated context), <code>.claude/agents/grader.md</code>, <code>.assert-iq/oracles/</code> registry (schemas, rubric templates, verdict lineage), oracle integration in <code>/check-merge</code> and <code>/release-confidence</code> (Outcome layer, maturity-gated weighting), new <code>qi-oracle.instructions.md</code>. Rubric authorship (not generation) is the defensible differentiator; grader has zero access to generator reasoning; rubrics are immutable, versioned, evidence-driven. <strong>29 skills total</strong> (was 27).</td></tr>
         <tr><td><strong>1.7.0</strong></td><td><strong>Decision Confidence Calibration — proving verdict accuracy over time.</strong> Every PR risk assessment and release confidence judgment is recorded as an immutable verdict (band, score, per-layer states, assumptions, memory hash) in <code>.assert-iq/verdicts/</code>. Escapes link back to their original verdict; over time the pack computes Brier score, confusion matrix, per-layer fidelity, and memory-drift alerts (<code>.assert-iq/analysis/calibration.py</code>). Memory versioning via SHA256 hashing gives a reproducibility contract. Memory sanity checks (cycle, staleness, contradiction, granularity) guard the <code>/dream</code> pass. Verdict recording is mandatory in <code>/risk-assess-pr</code>, <code>/release-confidence</code>, and <code>/analyze-escaped-defect</code>.</td></tr>
         <tr><td><strong>2.0.0</strong></td><td><strong>Multi-agent orchestration + commercial instrumentation.</strong> Lead agents (<code>Assert-IQ</code>, <code>Assert-IQ-PLAN</code>) orchestrate <strong>8 isolated specialist agents</strong> under <code>.claude/agents/specialists/</code> — <code>risk-scorer</code>, <code>coverage-analyst</code>, <code>flake-adjudicator</code>, <code>hotspot-analyzer</code> (parallel batch) then <code>oracle-grader</code>, <code>calibration-specialist</code>, <code>memory-curator</code>, <code>traceability-auditor</code> (serial chain). Each returns structured JSON; the lead synthesizes findings into one narrative + decision, audit trail in <code>.assert-iq/agent-runs/</code>. New <code>/measure-qi-impact</code> skill converts QI verdicts + baseline metrics into VP-ready quarterly HTML dashboards: escape reduction %, triage hours reclaimed, cycle-time acceleration, and total economic ROI in dollars. Configured via <code>.assert-iq/config.yaml</code> → <code>business_metrics</code>. <strong>30 skills total</strong> (was 29). Strict superset of 1.7.0 — zero breaking changes.</td></tr>
+        <tr><td><strong>Unreleased</strong></td><td><strong>Cross-harness parity + test-suite portability.</strong> The 8 specialist agents are now generated for Copilot from the Claude sources by <code>scripts/sync-agents.sh</code> / <code>.ps1</code>, so the two harnesses cannot drift; <code>Assert-IQ</code> gained <code>agent/runSubagent</code> and an <code>agents:</code> allowlist so Copilot can actually delegate. New parity checks P5 (generated agents stale) and P6 (bash vs PowerShell tool-map divergence). <code>jq</code> is no longer a dependency — JSON assertions moved to Python helpers — and the suite resolves <code>python3</code> → <code>python</code> → <code>py -3</code> by execution, because Windows ships a <code>python3</code> stub and no <code>python3.exe</code>. Fixed: inverted Brier score in <code>calibration.py</code>, a <code>detect_cycles</code> crash on leaf topics, an unimportable <code>analysis/__init__.py</code>, un-git-ignored memory snapshots, and a PowerShell-only non-idempotent markdown merge that grew <code>copilot-instructions.md</code> by one CRLF on every bootstrap re-run.</td></tr>
       </tbody>
     </table>
     <p>Tag releases. Keep a CHANGELOG in <code>.assert-iq/CHANGELOG.md</code>.</p>
+
+    <h2 id="calibration">Calibration &amp; Reproducibility <span class="accent">(v1.7.0+)</span></h2>
+
+    <h3 id="the-moat-your-client-specific-verdict-accuracy">The Moat: Your Client-Specific Verdict Accuracy</h3>
+    <p>Assert.IQ v1.7.0 introduces <strong>Decision Confidence Calibration</strong> — a longitudinal measurement system that reveals how accurate <em>your</em> verdicts are over time, against real escapes in production.</p>
+
+    <h4>What Gets Recorded</h4>
+    <p>Every PR risk assessment and release confidence judgment is recorded immutably:</p>
+    <ul>
+      <li>Verdict band (green / amber / red) + numeric confidence (0.0–1.0)</li>
+      <li>Layer scores (Change, Protection, Trust, Outcome — each with a STRONG / WEAK state)</li>
+      <li>Assumptions baked into the verdict</li>
+      <li>SHA256 hash of the memory used, which is what makes a verdict reproducible from any date</li>
+      <li>When an escape is discovered, it is linked back to the original verdict</li>
+    </ul>
+
+    <h4>Why This Matters</h4>
+    <ol>
+      <li><strong>For vendors:</strong> after 60 days you have escape-correlation data competitors cannot replicate. You can tell a regulated client: &ldquo;our verdicts had 94% precision on green-band PRs in your environment.&rdquo;</li>
+      <li><strong>For regulated clients:</strong> verdicts are auditable end-to-end. A SOX audit can ask &ldquo;why did we ship PR #4521?&rdquo; and get a memory snapshot &rarr; reproducible assessment &rarr; linked escape (if any).</li>
+      <li><strong>For teams:</strong> Brier-score trending reveals whether memory is drifting as old patterns go stale. Regression tests stop a dream cycle from degrading accuracy.</li>
+    </ol>
+
+    <h4>Using Calibration Metrics</h4>
+    <pre><code>python3 .assert-iq/analysis/calibration.py --window-days 90 --output report.json
+# Windows: python.org ships python.exe but no python3.exe. Use instead:
+#   python .assert-iq/analysis/calibration.py --window-days 90 --output report.json
+#   py -3   .assert-iq/analysis/calibration.py --window-days 90 --output report.json</code></pre>
+    <p>Generates:</p>
+    <ul>
+      <li><strong>Brier score</strong> — mean squared error between predicted confidence and actual outcome. Lower is better: a confident green verdict that held scores near 0.0.</li>
+      <li><strong>Confusion matrix</strong> — true / false positives per verdict band</li>
+      <li><strong>Per-layer fidelity</strong> — which of the four layers are predictive vs. noisy</li>
+      <li><strong>Drift alerts</strong> — Brier degradation across rolling windows</li>
+    </ul>
+
+    <h4>Reproducibility Contract</h4>
+    <p>For regulated clients the chain is:</p>
+    <ol>
+      <li>Restore memory to date X: <code>tar xzf .snapshots/mem-20260801T100000Z.tar.gz -C .assert-iq</code></li>
+      <li>Re-run the assessment: <code>/risk-assess-pr --pr-id 4521 --memory-version sha256:abc&hellip;</code></li>
+      <li>Get the same verdict — same band, score, and layer states</li>
+    </ol>
+    <p>This is what satisfies audit requirements for SOX, ISO 27001, and FedRAMP.</p>
+
+    <h4>Configuration</h4>
+    <pre><code>verdicts:
+  enabled: true
+  track_in_git: false  # true for regulated clients (verdicts must be committed)
+  retention_days: 730
+
+calibration:
+  enabled: true
+  window_days: 90
+  drift_alarm_threshold: 0.15
+
+regression_testing:
+  block_dream_on_regression: false  # true at higher maturity tiers
+  max_verdict_divergence_pct: 5</code></pre>
 
     <h2 id="ownership">Ownership</h2>
     <table>

@@ -4,13 +4,26 @@ Generate HTML sisters for Assert.IQ documentation markdown files.
 
 Converts markdown files to searchable, styled HTML for publication.
 Generates from both README markdown files and instruction files.
+
+Every open() below pins encoding='utf-8' explicitly. Without it Python uses the
+locale default -- cp1252 on Windows -- and this script died with
+UnicodeDecodeError on the first em-dash or arrow in the markdown, so it only
+ever worked on macOS/Linux. Writes also pin the newline so regenerating on
+Windows does not rewrite every output file with CRLF line endings.
 """
 
 import json
 import os
 import re
+import sys
 from pathlib import Path
 from datetime import datetime
+
+# The progress lines below contain the ✅ and → glyphs. A Windows console
+# defaults to cp1252 and raises UnicodeEncodeError on them, which killed this
+# script AFTER it had already written output files. Force UTF-8 on stdout.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 class DocumentationGenerator:
     def __init__(self, workspace_root="."):
@@ -87,7 +100,7 @@ class DocumentationGenerator:
                 continue
             
             # Read markdown
-            with open(source_file, 'r') as f:
+            with open(source_file, 'r', encoding='utf-8') as f:
                 markdown_content = f.read()
             
             # Extract title
@@ -101,7 +114,7 @@ class DocumentationGenerator:
             html_filename = source_file.stem + ".html"
             html_output_path = self.html_output_dir / html_filename
             
-            with open(html_output_path, 'w') as f:
+            with open(html_output_path, 'w', encoding='utf-8', newline='\n') as f:
                 f.write(html_content)
             
             generated_count += 1
@@ -147,7 +160,7 @@ class DocumentationGenerator:
             relative_path = html_filename
             
             # Extract title
-            with open(source_file, 'r') as f:
+            with open(source_file, 'r', encoding='utf-8') as f:
                 content = f.read()
             title_match = re.search(r'^#\s+(.+?)$', content, re.MULTILINE)
             title = title_match.group(1) if title_match else doc_path
@@ -164,7 +177,7 @@ class DocumentationGenerator:
 """
         
         index_path = self.html_output_dir / "index.html"
-        with open(index_path, 'w') as f:
+        with open(index_path, 'w', encoding='utf-8', newline='\n') as f:
             f.write(index_html)
         
         print(f"✅ Documentation index: {index_path.relative_to(self.workspace_root)}")

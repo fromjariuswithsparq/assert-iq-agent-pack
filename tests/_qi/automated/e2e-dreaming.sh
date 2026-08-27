@@ -12,6 +12,16 @@ set -u
 
 PACK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 KEEP=0
+
+# PYTHON: `python3` is NOT a reliable name. On Windows the Microsoft Store
+# ships a python3 STUB that resolves on PATH but always fails, and the
+# python.org installer provides python.exe with no python3.exe. Calling
+# python3 directly here made every state read silently return empty, which
+# surfaced as bogus gate failures. Route all Python through aiq_py, which
+# resolves python3 -> python -> py -3 by executing the candidate.
+# shellcheck source=../../../.assert-iq/tests/_qi/automated/lib/aiq-test-lib.sh
+. "$PACK/.assert-iq/tests/_qi/automated/lib/aiq-test-lib.sh"
+aiq_resolve_python || { echo "e2e-dreaming: no working Python 3 found (tried python3, python, py -3)" >&2; exit 1; }
 for arg in "$@"; do case "$arg" in --keep) KEEP=1 ;; esac; done
 
 grn() { printf '\033[32m%s\033[0m' "$*"; }
@@ -36,23 +46,23 @@ for i in 1 2 3 4 5; do
   out="$(echo "{\"session_id\":\"s$i\"}" | AIQ_DREAM_MIN_SESSIONS=5 bash "$REC")"
   [[ "$out" == '{"continue":true}' ]] || bad "recorder envelope on run $i (got: $out)"
 done
-count="$(python3 -c "import json;print(json.load(open('$MEM/.dream/state.json'))['sessions_since_dream'])")"
+count="$(aiq_py -c "import json,sys;print(json.load(open(sys.argv[1]))['sessions_since_dream'])" "$MEM/.dream/state.json")"
 [[ "$count" == "5" ]] && ok "counter reached 5" || bad "counter expected 5, got $count"
 [[ -n "$(find "$MEM/logs" -name '*.md' -print -quit)" ]] && ok "daily log written" || bad "no daily log"
 
 echo "== gate closed below threshold =="
 # reset to 3 sessions
-python3 -c "import json;p='$MEM/.dream/state.json';d=json.load(open(p));d['sessions_since_dream']=3;json.dump(d,open(p,'w'))"
+aiq_py -c "import json,sys;p=sys.argv[1];d=json.load(open(p));d['sessions_since_dream']=3;json.dump(d,open(p,'w'))" "$MEM/.dream/state.json"
 out="$(echo '{}' | AIQ_DREAM_MIN_SESSIONS=5 bash "$GATE")"
 echo "$out" | grep -q systemMessage && bad "gate fired at 3 sessions" || ok "gate closed at 3 sessions"
 
 echo "== gate opens at threshold (never dreamed => time gate satisfied) =="
-python3 -c "import json;p='$MEM/.dream/state.json';d=json.load(open(p));d['sessions_since_dream']=5;json.dump(d,open(p,'w'))"
+aiq_py -c "import json,sys;p=sys.argv[1];d=json.load(open(p));d['sessions_since_dream']=5;json.dump(d,open(p,'w'))" "$MEM/.dream/state.json"
 out="$(echo '{}' | AIQ_DREAM_MIN_SESSIONS=5 bash "$GATE")"
 echo "$out" | grep -q systemMessage && ok "gate opened at 5 sessions" || bad "gate did not open at 5 (got: $out)"
 
 echo "== gate time-gated when recently dreamed =="
-python3 -c "import json,datetime;p='$MEM/.dream/state.json';d={'last_dream_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'sessions_since_dream':9};json.dump(d,open(p,'w'))"
+aiq_py -c "import json,sys,datetime;p=sys.argv[1];d={'last_dream_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'sessions_since_dream':9};json.dump(d,open(p,'w'))" "$MEM/.dream/state.json"
 out="$(echo '{}' | AIQ_DREAM_MIN_SESSIONS=5 AIQ_DREAM_MIN_HOURS=24 bash "$GATE")"
 echo "$out" | grep -q systemMessage && bad "gate fired despite recent dream (time gate)" || ok "gate held by time gate"
 
@@ -61,7 +71,7 @@ out="$(echo '{}' | AIQ_DREAMING_DISABLED=1 bash "$GATE")"
 [[ "$out" == '{"continue":true}' ]] && ok "AIQ_DREAMING_DISABLED honored" || bad "kill-switch not honored (got: $out)"
 
 echo "== service enforces memory write-sandbox =="
-SB="$(python3 - "$PACK" "$MEM" <<'PY'
+SB="$(aiq_py - "$PACK" "$MEM" <<'PY'
 import importlib.util, sys, pathlib
 pack, mem = sys.argv[1], sys.argv[2]
 spec = importlib.util.spec_from_file_location("dsvc", pathlib.Path(pack)/".assert-iq/dreaming/service/dreaming_service.py")

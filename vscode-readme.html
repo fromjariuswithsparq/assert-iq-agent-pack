@@ -75,7 +75,7 @@
       <tr><td><code>copilot-instructions.md</code></td><td>The always-on guidance Copilot reads at the start of every chat. Think of it as Copilot's "house rules" for this repo.</td></tr>
       <tr><td><code>instructions/</code></td><td>Extra rule sheets that switch on automatically when you open certain kinds of files (for example, when you're working on tests).</td></tr>
       <tr><td><code>skills/</code></td><td>Step-by-step playbooks Copilot can run when you ask. Each one is a little expert. Type <code>/</code> in chat to see them. Examples: <code>/generate-bug-report</code>, <code>/code-review</code>, <code>/risk-assess-pr</code>.</td></tr>
-      <tr><td><code>agents/</code></td><td>Specialist agents you can pick from the chat agent dropdown. <strong><code>Assert-IQ</code></strong> is the default front door (full tools, routes to the right skill). <strong><code>Assert-IQ-PLAN</code></strong> is the read-only planning sibling — researches and writes a plan, then offers a <strong>Start Implementation</strong> button that hands off to <code>Assert-IQ</code>.</td></tr>
+      <tr><td><code>agents/</code></td><td>Specialist agents you can pick from the chat agent dropdown. <strong><code>Assert-IQ</code></strong> is the default front door (full tools, routes to the right skill). <strong><code>Assert-IQ-PLAN</code></strong> is the read-only planning sibling — researches and writes a plan, then offers a <strong>Start Implementation</strong> button that hands off to <code>Assert-IQ</code>. Alongside them, <code>agents/specialists/</code> holds eight single-purpose analysts the front door delegates to via <code>agent/runSubagent</code>. <strong>Those eight are generated</strong> from <code>.claude/agents/specialists/</code> by <code>scripts/sync-agents.ps1</code> (or <code>.sh</code>) — don't hand-edit them; edit the source and re-run the sync.</td></tr>
       <tr><td><code>../.assert-iq/dreaming/</code> + <code>../.assert-iq/memory/</code></td><td>The <strong>Dreaming</strong> feature: small background scripts that record session activity and nudge you to run <code>/dream</code>, plus the markdown memory store the agent consolidates over time. You don't interact with these directly.</td></tr>
     </tbody>
   </table>
@@ -91,6 +91,10 @@
 
   <h2 id="will-this-also-work-in-claude-code">"Will this also work in Claude Code?"</h2>
   <p>Yes. The same content is mirrored to the <code>.claude/</code> folder at the repo root. See <a href="claude-readme.html"><code>claude-readme.html</code></a> for the Claude side. You can use either tool — they share the same skills, instructions, and Dreaming memory.</p>
+
+  <div class="callout">
+    <strong>Before installing</strong>, run the environment check — <code>bash scripts/check-environment.sh</code> on macOS/Linux/WSL, or <code>pwsh -File scripts/check-environment.ps1</code> on Windows. It names every requirement and the fix for anything missing. On Windows use the PowerShell installers, not Git Bash. PowerShell 7+ (<code>pwsh</code>) is recommended; Windows PowerShell 5.1 is supported and tested if you'd rather install nothing. Full table in the <a href="README.html#environment-requirements">README</a>.
+  </div>
 
   <h2 id="uninstalling-the-pack">Uninstalling the pack</h2>
   <p>There are exactly two install paths and each has a matching uninstall.</p>

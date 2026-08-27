@@ -16,7 +16,7 @@ folder on their own.
 | `copilot-instructions.md` | The always-on guidance Copilot reads at the start of every chat. Think of it as Copilot's "house rules" for this repo. |
 | `instructions/` | Extra rule sheets that switch on automatically when you open certain kinds of files (for example, when you're working on tests). |
 | `skills/` | Step-by-step playbooks Copilot can run when you ask. Each one is a little expert. Type `/` in chat to see them. Examples: `/generate-bug-report`, `/code-review`, `/risk-assess-pr`. |
-| `agents/` | Specialist agents you can pick from the chat agent dropdown. **`Assert-IQ`** is the default front door (full tools, routes to the right skill). **`Assert-IQ-PLAN`** is the read-only planning sibling — researches and writes a plan, then offers a **Start Implementation** button that hands off to `Assert-IQ`. |
+| `agents/` | Specialist agents you can pick from the chat agent dropdown. **`Assert-IQ`** is the default front door (full tools, routes to the right skill). **`Assert-IQ-PLAN`** is the read-only planning sibling — researches and writes a plan, then offers a **Start Implementation** button that hands off to `Assert-IQ`. Alongside them, `agents/specialists/` holds eight single-purpose analysts the front door delegates to via `agent/runSubagent`. **Those eight are generated** from `.claude/agents/specialists/` by `scripts/sync-agents.ps1` (or `.sh`) — don't hand-edit them; edit the source and re-run the sync. |
 | `../.assert-iq/dreaming/` + `../.assert-iq/memory/` | The **Dreaming** feature: small background scripts that record session activity and nudge you to run `/dream`, plus the markdown memory store the agent consolidates over time. You don't interact with these directly. |
 
 ---
@@ -44,6 +44,13 @@ Yes. The same content is mirrored to the `.claude/` folder at the repo
 root. See [`.claude/claude-readme.md`](../.claude/claude-readme.md) for the Claude
 side. You can use either tool — they share the same skills, instructions,
 and Dreaming memory.
+
+> **Before installing**, run the environment check — `bash scripts/check-environment.sh`
+> on macOS/Linux/WSL, or `pwsh -File scripts/check-environment.ps1` on Windows.
+> It names every requirement and the fix for anything missing. On Windows use the
+> PowerShell installers, not Git Bash. PowerShell 7+ (`pwsh`) is recommended;
+> Windows PowerShell 5.1 is supported and tested if you'd rather install nothing.
+> Full table in the [README](../README.md#environment-requirements).
 
 ---
 

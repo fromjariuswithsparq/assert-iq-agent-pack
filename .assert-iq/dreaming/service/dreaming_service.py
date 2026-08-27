@@ -21,7 +21,6 @@ Usage:
 """
 from __future__ import annotations
 
-import fcntl
 import json
 import os
 import subprocess
@@ -30,6 +29,50 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
+
+# ---- single-writer lock -----------------------------------------------------
+# fcntl is POSIX-only. A bare `import fcntl` at module scope made this entire
+# service unimportable on Windows, so the pack's own sandbox test could not
+# even load it. Probe both primitives at import time and degrade explicitly:
+# on a platform with neither, the lock is a no-op -- concurrent dreams become
+# possible, but nothing crashes.
+try:  # POSIX
+    import fcntl as _fcntl
+except ImportError:
+    _fcntl = None
+try:  # Windows
+    import msvcrt as _msvcrt
+except ImportError:
+    _msvcrt = None
+
+
+def _lock_exclusive_nb(fh) -> bool:
+    """Take an exclusive non-blocking lock. False = held by another process."""
+    if _fcntl is not None:
+        try:
+            _fcntl.flock(fh, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
+            return True
+        except BlockingIOError:
+            return False
+    if _msvcrt is not None:
+        try:
+            _msvcrt.locking(fh.fileno(), _msvcrt.LK_NBLCK, 1)
+            return True
+        except OSError:
+            return False
+    return True  # no locking primitive available; proceed unguarded
+
+
+def _unlock(fh) -> None:
+    try:
+        if _fcntl is not None:
+            _fcntl.flock(fh, _fcntl.LOCK_UN)
+        elif _msvcrt is not None:
+            fh.seek(0)
+            _msvcrt.locking(fh.fileno(), _msvcrt.LK_UNLCK, 1)
+    except OSError:
+        pass  # releasing a lock we may not hold is not worth failing a dream
+
 
 
 @dataclass(frozen=True)
@@ -73,7 +116,7 @@ class DreamGate:
 
     def _load_state(self) -> dict:
         try:
-            return json.loads(self._cfg.state_path.read_text())
+            return json.loads(self._cfg.state_path.read_text(encoding="utf-8-sig"))
         except (FileNotFoundError, json.JSONDecodeError):
             return {"last_dream_utc": None, "sessions_since_dream": 0}
 
@@ -179,12 +222,12 @@ class DreamCycle:
 
     def _orient(self) -> tuple[str, str]:
         index_path = self._cfg.memory_dir / "MEMORY.md"
-        index = index_path.read_text() if index_path.exists() else "(empty)"
+        index = index_path.read_text(encoding="utf-8-sig") if index_path.exists() else "(empty)"
         topics: list[str] = []
         topics_dir = self._cfg.memory_dir / "topics"
         if topics_dir.exists():
             for f in sorted(topics_dir.glob("*.md")):
-                topics.append(f"--- {f.relative_to(self._cfg.memory_dir)} ---\n{f.read_text()}")
+                topics.append(f"--- {f.relative_to(self._cfg.memory_dir)} ---\n{f.read_text(encoding="utf-8-sig")}")
         return index, "\n\n".join(topics) or "(no topic files)"
 
     def _consolidate(self, index: str, topics: str, signal: str) -> dict:
@@ -250,17 +293,15 @@ def dream(project_root: str, force: bool = False) -> str:
         return "Gate not met (need 24h AND 5+ sessions). Skipping."
 
     cfg.lock_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(cfg.lock_path, "w") as lock:
-        try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
+    with open(cfg.lock_path, "w", encoding="utf-8", newline="\n") as lock:
+        if not _lock_exclusive_nb(lock):
             return "Another dream is in progress. Skipping."
         try:
             report = DreamCycle(cfg, client).run()
             gate.mark_dreamed()
             return f"Dream complete.\n{report}"
         finally:
-            fcntl.flock(lock, fcntl.LOCK_UN)
+            _unlock(lock)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# Shared helpers: Python-interpreter resolution + JSON assertions.
+# Sourced by path relative to THIS file so it works from any cwd.
+_AIQ_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$_AIQ_LIB_DIR/lib/aiq-test-lib.sh"
 set -euo pipefail
 
 # ============================================================================
@@ -27,18 +32,22 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+# NOTE: use $((x+1)) rather than ((x++)). Under `set -e`, ((x++)) returns the
+# PRE-increment value as its exit status, so the very first call (0 -> 1) exits
+# non-zero and aborts the whole script. This suite previously died inside its
+# first log_suite call and emitted no output at all.
 log_pass() {
   echo -e "${GREEN}✅${NC} $1"
-  ((PASS++))
+  PASS=$((PASS + 1))
 }
 
 log_fail() {
   echo -e "${RED}❌${NC} $1"
-  ((FAIL++))
+  FAIL=$((FAIL + 1))
 }
 
 log_suite() {
-  ((SUITE++))
+  SUITE=$((SUITE + 1))
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "SUITE $SUITE: $1"
@@ -210,7 +219,7 @@ SCHEMA
 
 # Validate each schema
 for schema_file in /tmp/*-output.json; do
-  if python3 -m json.tool "$schema_file" > /dev/null 2>&1; then
+  if aiq_json_valid "$schema_file"; then
     specialist=$(basename "$schema_file" -output.json)
     log_pass "Schema valid for $specialist"
   else
@@ -325,7 +334,7 @@ else
   log_pass "Baseline file exists"
   
   # Validate JSON
-  if python3 -m json.tool "$baseline_file" > /dev/null 2>&1; then
+  if aiq_json_valid "$baseline_file"; then
     log_pass "Baseline JSON is valid"
   else
     log_fail "Baseline JSON is invalid"
@@ -342,7 +351,9 @@ else
   done
   
   # Verify metric values are positive
-  escape_rate=$(python3 -c "import json; print(json.load(open('$baseline_file'))['escape_rate_per_quarter'])" 2>/dev/null || echo "-1")
+  # Path via argv, not embedded in the -c string: MSYS translates POSIX paths
+  # in native-exe arguments but not inside string literals.
+  escape_rate=$(aiq_json_get "$baseline_file" escape_rate_per_quarter || echo "-1")
   if [ "$escape_rate" -gt 0 ]; then
     log_pass "Baseline escape_rate_per_quarter is positive ($escape_rate)"
   else
@@ -415,7 +426,7 @@ metrics = {
 print(json.dumps(metrics, indent=2))
 PYEOF
 
-if python3 /tmp/test-metrics-calc.py > /tmp/metrics-output.json 2>&1; then
+if aiq_py /tmp/test-metrics-calc.py > /tmp/metrics-output.json 2>&1; then
   output=$(cat /tmp/metrics-output.json)
   if echo "$output" | grep -q "total_economic_value"; then
     log_pass "Metrics calculation produces valid output"
@@ -438,7 +449,9 @@ else
   log_fail "Skill missing HTML Dashboard specification"
 fi
 
-if grep -q "4 metric cards\|metric card\|hero section" .github/skills/measure-qi-impact/SKILL.md; then
+# Case-insensitive: the skill writes "Metric cards" / "Hero section" in title
+# case, so a case-sensitive match reported a missing section that is present.
+if grep -qi "4 metric cards\|metric card\|hero section" .github/skills/measure-qi-impact/SKILL.md; then
   log_pass "Skill documents dashboard structure"
 else
   log_fail "Skill missing dashboard structure details"
@@ -472,7 +485,7 @@ if [ -f ".assert-iq/agent-runs/index.json" ]; then
   log_pass "Orchestration index.json exists"
   
   # Verify index structure
-  if python3 -m json.tool ".assert-iq/agent-runs/index.json" > /dev/null 2>&1; then
+  if aiq_json_valid ".assert-iq/agent-runs/index.json"; then
     log_pass "Orchestration index.json is valid JSON"
   else
     log_fail "Orchestration index.json is invalid"
@@ -523,7 +536,7 @@ specialists=("risk-scorer" "coverage-analyst" "flake-adjudicator" "oracle-grader
 count=0
 for specialist in "${specialists[@]}"; do
   if grep -q "$specialist" .claude/agents/assert-iq.md; then
-    ((count++))
+    count=$((count + 1))
   fi
 done
 

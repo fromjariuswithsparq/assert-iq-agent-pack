@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# Shared helpers: Python-interpreter resolution + JSON assertions.
+# Sourced by path relative to THIS file so it works from any cwd.
+_AIQ_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$_AIQ_LIB_DIR/lib/aiq-test-lib.sh"
 # Integration: Calibration library availability
 
 set -e
@@ -46,7 +51,7 @@ test_audit_verdict_exists() {
 }
 
 test_calibration_python_syntax() {
-    if python3 -m py_compile "$CALIBRATION_PY" 2>/dev/null; then
+    if aiq_py -m py_compile "$CALIBRATION_PY" 2>/dev/null; then
         echo "✅ Test 4: calibration.py has valid Python syntax"
         ((PASSED++))
         return 0
@@ -58,7 +63,7 @@ test_calibration_python_syntax() {
 }
 
 test_memory_sanity_python_syntax() {
-    if python3 -m py_compile "$MEMORY_SANITY_PY" 2>/dev/null; then
+    if aiq_py -m py_compile "$MEMORY_SANITY_PY" 2>/dev/null; then
         echo "✅ Test 5: memory-sanity.py has valid Python syntax"
         ((PASSED++))
         return 0

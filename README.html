@@ -403,7 +403,7 @@
 <div class="container">
 
 <section id="qi">
-  <h2 id="the-shift-from-qa-to-qi">The shift from <span class="accent">QA</span> to <span class="accent">QI</span></h2>
+  <h2 id="the-shift-from-qa-to-qi">Quality Intelligence — the shift from <span class="accent">QA</span> to <span class="accent">QI</span></h2>
   <p class="lead">Traditional QA asks one question: <em>did this pass?</em> Quality Intelligence asks four — and synthesizes them into <strong>Decision Confidence</strong> no single coverage percentage or green CI badge can give you.</p>
 
   <div class="layers">
@@ -451,7 +451,7 @@
     <div class="feature">
       <div class="feature-icon" aria-hidden="true">🤖</div>
       <h4>Multi-Agent Orchestration <span class="accent">(v2.0)</span></h4>
-      <p>Two lead agents (<code>Assert-IQ</code> for execution, <code>Assert-IQ-PLAN</code> for plan-first) orchestrate <strong>8 isolated specialist agents</strong> — risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer, oracle-grader, calibration-specialist, memory-curator, traceability-auditor — in parallel then serially.</p>
+      <p>On <strong>both</strong> harnesses, two lead agents (<code>Assert-IQ</code> for execution, <code>Assert-IQ-PLAN</code> for plan-first) orchestrate <strong>8 isolated specialist agents</strong> — risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer, oracle-grader, calibration-specialist, memory-curator, traceability-auditor — in parallel then serially.</p>
     </div>
     <div class="feature">
       <div class="feature-icon" aria-hidden="true">💰</div>
@@ -486,29 +486,77 @@
   </div>
 </section>
 
+<section id="environment">
+  <h2 id="environment-requirements">Environment <span class="accent">requirements</span></h2>
+  <p>Run the environment check first. It reports every requirement, what it found, and the exact fix for anything missing — so a bad environment surfaces here instead of as a confusing failure mid-install.</p>
+<pre><code><span class="comment"># macOS / Linux / WSL</span>
+bash scripts/check-environment.sh
+
+<span class="comment"># Windows</span>
+pwsh -File scripts/check-environment.ps1</code></pre>
+
+  <table>
+    <thead>
+      <tr><th></th><th>macOS / Linux / WSL</th><th>Windows</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Installer to run</strong></td><td><code>bash install.sh</code>, <code>bash scripts/bootstrap.sh</code></td><td><code>install.ps1</code>, <code>scripts\bootstrap.ps1</code></td></tr>
+      <tr><td><strong>Host</strong></td><td>bash 3.2+ (macOS's <code>/bin/bash</code> qualifies)</td><td><strong>PowerShell 7+ (<code>pwsh</code>) recommended.</strong> Windows PowerShell 5.1 is supported and tested — see below</td></tr>
+      <tr><td><strong>git</strong></td><td>Required</td><td>Required</td></tr>
+      <tr><td><strong>Python 3</strong></td><td>Required for calibration, memory sanity, verdict recording</td><td>Same — the pack resolves <code>python3</code> → <code>python</code> → <code>py -3</code> itself</td></tr>
+      <tr><td><strong>jq</strong></td><td>Optional for install; <strong>required</strong> for <code>bootstrap.sh --upgrade</code></td><td>Not used — the PowerShell path parses JSON natively</td></tr>
+      <tr><td><strong>Symlinks</strong></td><td>Native</td><td>Developer Mode for a live <code>.claude/skills</code>; otherwise it is copied</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Why PowerShell 7 is the recommendation.</strong> Both hosts pass the full suite, so 5.1 is a real fallback, not a warning label — install nothing if you'd rather not. PowerShell 7 is simply the better default: it creates a live <code>.claude/skills</code> symlink where 5.1 usually falls back to a copy, and it avoids a family of .NET Framework quirks (native stderr promoted to terminating errors, <code>-Encoding UTF8</code> writing a byte-order mark) that the pack now works around explicitly rather than relies on.</p>
+<pre><code>winget install Microsoft.PowerShell     <span class="comment"># optional; 5.1 works if you skip it</span></code></pre>
+  <p style="font-size:0.92em;">Note that <strong>your Dreaming hooks may still run under 5.1 regardless</strong> of what you install: the session-event handlers invoke <code>powershell</code>, and on a typical Windows box that name resolves to 5.1 even when <code>pwsh</code> is present. That is why 5.1 stays supported and tested rather than merely tolerated.</p>
+
+  <h3 id="windows-specifics">Windows specifics</h3>
+  <p>These four are the only Windows behaviors that differ enough to matter:</p>
+  <ul>
+    <li><strong>Use the PowerShell installers, not Git Bash.</strong> <code>bootstrap.sh</code> refuses to run under Git Bash/MSYS and points you at <code>bootstrap.ps1</code>. Windows process creation costs ~50–100&nbsp;ms, and a full install copies and hashes ~1000 files one child process at a time: <strong>9+ minutes</strong> per install under Git Bash versus about a minute under PowerShell, with no output for most of it — indistinguishable from a hang. Override with <code>--allow-msys</code> if you truly want it. <strong>WSL is unaffected</strong> — inside WSL this is Linux, and bash is the right path.</li>
+    <li><strong><code>python3</code> may be a decoy.</strong> The Microsoft Store ships a <code>python3</code> stub that resolves on <code>PATH</code>, prints an install hint, and exits non-zero; the python.org installer provides <code>python.exe</code> with <strong>no</strong> <code>python3.exe</code>. Every pack script probes <code>python3</code> → <code>python</code> → <code>py -3</code> by executing it, so a correct install works either way. If you see a Microsoft Store hint where you expected Python, that is the stub.</li>
+    <li><strong>Developer Mode controls <code>.claude/skills</code>.</strong> With it on, <code>.claude/skills</code> is a live symlink to <code>.github/skills</code> and skill edits appear immediately. Without it the installer copies the directory, so re-run the installer after editing a skill. Windows PowerShell 5.1 often cannot create symlinks even with Developer Mode on, while PowerShell 7 usually can — the main practical reason to prefer <code>pwsh</code>. <code>check-environment.ps1</code> tells you which you will get.</li>
+    <li><strong>Line endings.</strong> The pack pins shell scripts to LF via <code>.gitattributes</code>. If your checkout predates that file and you also use it from WSL, run <code>git add --renormalize . &amp;&amp; git checkout -- .</code> — bash on Linux/macOS rejects a CRLF script with <code>$'\r': command not found</code>.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Contributors — run the PowerShell suites under <em>both</em> hosts.</strong>
+    <p style="margin:6px 0 8px 0;">Windows PowerShell 5.1 and PowerShell 7 are different runtimes with different failure modes, and a green run on one proves nothing about the other. 5.1 is .NET Framework (no <code>ProcessStartInfo.ArgumentList</code>), it promotes native-command stderr to a <em>terminating</em> error under <code>$ErrorActionPreference='Stop'</code>, and its <code>-Encoding UTF8</code> writes a BOM that Python's <code>json.load</code> rejects. Every one of those produced a real, silent Windows defect that a fully green PowerShell 7 run reported as fine.</p>
+<pre><code>powershell -File tests\_qi\automated\e2e-bootstrap.ps1   <span class="comment"># Windows PowerShell 5.1</span>
+pwsh       -File tests\_qi\automated\e2e-bootstrap.ps1   <span class="comment"># PowerShell 7+</span>
+powershell -File tests\_qi\automated\e2e-dreaming.ps1
+pwsh       -File tests\_qi\automated\e2e-dreaming.ps1
+bash .assert-iq/tests/_qi/automated/run-all.sh           <span class="comment"># includes e2e-hook-execution.py</span></code></pre>
+    <p style="font-size:0.88em;margin:6px 0 0 0;">The suites print which host they ran under for exactly this reason.</p>
+  </div>
+</section>
+
 <section id="get-started">
   <h2 id="get-started-in-three-steps">Get started in <span class="accent">three steps</span></h2>
 
   <div class="steps">
 
     <div class="step">
-      <h3 id="install-the-pack">Install the pack</h3>
+      <h3 id="install-the-pack">1 · Install the pack</h3>
       <p>Two install paths. Pick the one that matches how comfortable you are dropping the pack into your team's codebase.</p>
 
       <div class="paths">
         <div class="path-card">
-          <h3 id="path-a-try-it-on-the-pack">Path A · Try it on the pack</h3>
+          <h4 id="path-a-try-it-on-the-pack">Path A · Try it on the pack</h4>
           <p style="font-size:0.92em;">Best if you want to play with Assert.IQ before touching your team's repository. Clone the pack, run the installer, and open the <strong>pack folder</strong> as your workspace.</p>
 <pre><code>git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack
 cd assert-iq-agent-pack
-bash install.sh           <span class="comment"># macOS / Linux / WSL</span>
+bash install.sh                <span class="comment"># macOS / Linux / WSL</span>
 <span class="comment"># or</span>
-pwsh ./install.ps1        <span class="comment"># Windows PS 7+</span></code></pre>
+pwsh -File install.ps1         <span class="comment"># Windows (also macOS/Linux)</span>
+<span class="comment"># PS 5.1 works too: powershell -File install.ps1</span></code></pre>
           <p style="font-size:0.88em;">Reverse with <code>bash install.sh --uninstall</code>.</p>
         </div>
 
         <div class="path-card featured">
-          <h3 id="path-b-install-into-your-codebase">Path B · Install into your codebase</h3>
+          <h4 id="path-b-install-into-your-codebase">Path B · Install into your codebase</h4>
           <p style="font-size:0.92em;">The real deployment path. <strong>Run the bootstrap script from a terminal in your target repo</strong> — no editor required:</p>
 <pre><code><span class="comment"># 1. Clone the pack somewhere (one time, anywhere)</span>
 git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack ~/assert-iq-agent-pack
@@ -517,11 +565,12 @@ git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack ~/assert-i
 cd ~/code/my-app
 
 <span class="comment"># 3. Run the bootstrap script from the clone</span>
+<span class="comment"># macOS / Linux / WSL:</span>
 bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
-<span class="comment"># Windows (PowerShell 5.1 or PowerShell Core):</span>
-powershell -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
-<span class="comment"># or if you have PowerShell Core 7+ installed:</span>
-pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
+<span class="comment"># Windows — PowerShell, NOT Git Bash (see Environment requirements):</span>
+pwsh -File $HOME/assert-iq-agent-pack/scripts/bootstrap.ps1 -Mode trial
+<span class="comment"># PS 5.1 works too, if you don't have pwsh:</span>
+<span class="comment">#   powershell -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</span></code></pre>
           <p style="font-size:0.88em;">The script is fully standalone — it accepts <code>--preset=solo|pod</code>, prompts interactively, and writes everything Copilot and Claude need. <strong>No chicken-and-egg.</strong> You do not need to open VS Code or Claude Code first, and the <code>/assert-iq-bootstrap</code> skill does not need to be loaded — the script is what the skill calls under the hood.</p>
 
           <div class="callout" style="margin-top:16px;margin-bottom:16px;">
@@ -563,7 +612,7 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
         </tbody>
       </table>
 
-      <h4>Compare the presets</h4>
+      <h4>Compare the Presets</h4>
       <p style="font-size:0.92em;">To avoid confusion regarding what files land globally versus locally, here is a breakdown of the three installation presets:</p>
       <table>
         <thead>
@@ -588,14 +637,14 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
     </div>
 
     <div class="step">
-      <h3 id="customize-and-wire-everything-in">Tailor the pack to your codebase</h3>
+      <h3 id="customize-and-wire-everything-in">2 · Customize and wire everything in</h3>
       <p>Bootstrap <em>places</em> the pack; one command <em>tailors</em> it. In Copilot Chat (or Claude Code), select the <code>Assert-IQ</code> agent and run:</p>
 <pre><code>/assert-iq-tailor</code></pre>
       <p>It scans your workspace once, shows you what it detected, then customizes every configurable surface <strong>in the right order</strong> — gated by your review:</p>
       <ul style="font-size:0.92em;color:var(--text-dim);padding-left:20px;">
         <li><strong><code>.assert-iq/config.yaml</code></strong> — the keystone. Tracker, VCS, test frameworks &amp; run commands, traceability marker, sensitive paths. Every skill reads from here, so filling it once flows into all 30.</li>
         <li><strong><code>.assert-iq/governance.md</code></strong> &amp; <strong><code>maturity-profile.md</code></strong> — compliance posture (ask-only, never inferred) and your Early / Mid / Higher tier.</li>
-        <li><strong>The five instruction files</strong> — traceability marker, CI signal-emission, and test-design examples aligned to your stack.</li>
+        <li><strong>The six instruction files</strong> — traceability marker, CI signal-emission, and test-design examples aligned to your stack.</li>
         <li><strong><code>.vscode/mcp.json</code></strong> — keeps the MCP servers your stack needs, comments out the rest. Secrets stay as <code>${input:…}</code> prompts.</li>
       </ul>
       <p style="font-size:0.92em;">Every file it edits is snapshotted to <code>&lt;file&gt;.assert-iq.pre-tailor</code> first, so the pass is reversible and safe to re-run. Review the <code>git diff</code> before committing — AI-tailored config is a draft pending your sign-off.</p>
@@ -620,7 +669,7 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
     </div>
 
     <div class="step">
-      <h3 id="run-a-skill">Run a skill</h3>
+      <h3 id="run-a-skill">3 · Run a skill</h3>
       <p>With the pack tailored, put it to work. In Copilot Chat, select the <code>Assert-IQ</code> agent and try:</p>
 <pre><code>/risk-assess-pr</code></pre>
       <p>The agent pulls context from your connected tools and reasons through all four signal layers.</p>
@@ -636,6 +685,7 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
   <span class="dir">instructions/</span>               <span class="comment">← 6 scoped rule sheets (tests, C#/XAML, CI, oracle…)</span>
   <span class="dir">skills/</span>                     <span class="comment">← 30 QI skills, one subfolder each</span>
   <span class="dir">agents/</span>                     <span class="comment">← Assert-IQ &amp; Assert-IQ-PLAN lead agents</span>
+    <span class="dir">specialists/</span>             <span class="comment">← 8 specialists, GENERATED by scripts/sync-agents.sh</span>
 <span class="dir">.claude/</span>
   <span class="dir">agents/</span>                     <span class="comment">← lead + grader subagents</span>
     <span class="dir">specialists/</span>             <span class="comment">← 8 v2.0 orchestration specialists (JSON-only)</span>
@@ -649,7 +699,8 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
   <span class="dir">agent-runs/</span>                 <span class="comment">← v2.0 orchestration audit trail</span>
   <span class="dir">business-metrics/</span>           <span class="comment">← v2.0 baseline + quarterly ROI dashboards</span>
 <span class="dir">scripts/</span>
-  <span class="file">bootstrap.sh / .ps1</span>         <span class="comment">← workspace installer, cross-platform</span></pre>
+  <span class="file">bootstrap.sh / .ps1</span>         <span class="comment">← workspace installer, cross-platform</span>
+  <span class="file">sync-agents.sh / .ps1</span>       <span class="comment">← renders Copilot specialists from .claude sources</span></pre>
 </section>
 
 <section>
@@ -710,6 +761,15 @@ pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
 Total quarterly ROI: $204,675</code></pre>
 
   <p>Enable in <code>.assert-iq/config.yaml</code> — set <code>business_metrics.enabled: true</code> and provide baseline metrics in <code>.assert-iq/business-metrics/baseline.json</code>. Regenerate quarterly or on-demand with <code>/measure-qi-impact</code>.</p>
+
+
+  <h3 id="why-this-matters">Why This Matters</h3>
+  <ul>
+    <li><strong>Context isolation</strong> — specialists don't see each other's prompts; each reasons independently.</li>
+    <li><strong>Parallel speed</strong> — 4 agents run simultaneously, so orchestration cuts analysis latency.</li>
+    <li><strong>VP conversations</strong> — business metrics are the missing lever for renewal and investment conversations. "Token savings" doesn't sell; <strong>"$200K in prevented incidents + $4.7K in triage reclamation" does.</strong></li>
+    <li><strong>Predictive accuracy</strong> — the calibration layer measures verdict fidelity over time, feeding back into confidence scoring.</li>
+  </ul>
 
 </section>
 

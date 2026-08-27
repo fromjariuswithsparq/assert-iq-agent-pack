@@ -45,7 +45,7 @@ def detect_cycles(topics: Dict[str, Path]) -> List[List[str]]:
     # Build reference graph
     for topic_name, topic_path in topics.items():
         try:
-            with open(topic_path, "r") as f:
+            with open(topic_path, "r", encoding="utf-8-sig") as f:
                 content = f.read().lower()
                 refs = extract_references(content)
                 for ref in refs:
@@ -62,8 +62,12 @@ def detect_cycles(topics: Dict[str, Path]) -> List[List[str]]:
         visited.add(node)
         rec_stack.add(node)
         path.append(node)
-        
-        for neighbor in graph[node]:
+
+        # `graph` is a defaultdict, so `graph[node]` would INSERT an empty set
+        # for any leaf node (a topic that is referenced but references nothing).
+        # That mutates the dict while the loop below iterates it, raising
+        # "dictionary changed size during iteration". Read without inserting.
+        for neighbor in graph.get(node, set()):
             if neighbor not in visited:
                 dfs(neighbor, path)
             elif neighbor in rec_stack:
@@ -76,7 +80,8 @@ def detect_cycles(topics: Dict[str, Path]) -> List[List[str]]:
         rec_stack.remove(node)
         path.pop()
     
-    for node in graph:
+    # Snapshot the keys: defensive against any further mutation during DFS.
+    for node in list(graph):
         if node not in visited:
             dfs(node, [])
     
@@ -93,7 +98,7 @@ def detect_staleness(topics: Dict[str, Path], threshold_days: int = 180) -> Dict
     
     for topic_name, topic_path in topics.items():
         try:
-            with open(topic_path, "r") as f:
+            with open(topic_path, "r", encoding="utf-8-sig") as f:
                 for line_no, line in enumerate(f, 1):
                     if line.strip().startswith("-") or line.strip().startswith("*"):
                         # Extract date from line
@@ -126,7 +131,7 @@ def detect_contradictions(topics: Dict[str, Path]) -> List[Tuple[str, str, str, 
     
     for topic_name, topic_path in topics.items():
         try:
-            with open(topic_path, "r") as f:
+            with open(topic_path, "r", encoding="utf-8-sig") as f:
                 content = f.read().lower()
                 for line_no, line in enumerate(f, 1):
                     topic_assertions[topic_name].append((line_no, line))
@@ -138,9 +143,9 @@ def detect_contradictions(topics: Dict[str, Path]) -> List[Tuple[str, str, str, 
     for i, topic_a in enumerate(topic_names):
         for topic_b in topic_names[i+1:]:
             try:
-                with open(topics[topic_a], "r") as f:
+                with open(topics[topic_a], "r", encoding="utf-8-sig") as f:
                     content_a = f.read()
-                with open(topics[topic_b], "r") as f:
+                with open(topics[topic_b], "r", encoding="utf-8-sig") as f:
                     content_b = f.read()
                 
                 # Simple substring contradiction check
@@ -159,7 +164,7 @@ def detect_granularity_issues(topics: Dict[str, Path]) -> Dict[str, List[str]]:
     
     for topic_name, topic_path in topics.items():
         try:
-            with open(topic_path, "r") as f:
+            with open(topic_path, "r", encoding="utf-8-sig") as f:
                 lines = f.readlines()
                 for i, line in enumerate(lines):
                     # Check for overly long lines (copy-paste indicator)
@@ -240,7 +245,7 @@ def main():
     report = generate_report(memory_path)
     
     if args.output:
-        with open(args.output, "w") as f:
+        with open(args.output, "w", encoding="utf-8", newline="\n") as f:
             f.write(report)
         print(f"✅ Memory sanity report written to {args.output}")
     else:

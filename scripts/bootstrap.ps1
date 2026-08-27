@@ -1,4 +1,4 @@
-# Assert.IQ Agent Pack — workspace bootstrap (Windows / PowerShell)
+# Assert.IQ Agent Pack -- workspace bootstrap (Windows / PowerShell)
 #
 # Copies workspace-loaded surfaces (instructions, .assert-iq/, CLAUDE.md,
 # copilot-instructions.md, AGENTS.md) from the cloned pack into the
@@ -18,8 +18,8 @@
 #   -SkillsScope both        workspace AND user-global
 #
 # Presets:
-#   -Preset pod        (default) team install — everything in workspace
-#   -Preset solo       solo dev — instructions + CLAUDE.md user-global
+#   -Preset pod        (default) team install -- everything in workspace
+#   -Preset solo       solo dev -- instructions + CLAUDE.md user-global
 #   -Preset portable   skills user-global, minimal workspace footprint
 #                      (chat agents + manifest still live in the repo)
 #
@@ -82,6 +82,125 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# UTF-8 WITHOUT BOM, ON EVERY HOST.
+#
+# `Set-Content -Encoding UTF8` writes a byte-order mark on Windows PowerShell
+# 5.1; PowerShell 7's UTF8 means UTF-8 *without* BOM. The pack's Python tooling
+# reads JSON with encoding="utf-8", which REJECTS a BOM
+# (json.JSONDecodeError: Expecting value: line 1 column 1), so on a stock
+# Windows box every JSON file written here -- dream state, verdicts, the install
+# manifest, .claude/settings.json -- became unparseable to calibration.py,
+# memory-sanity.py, the verdict recorder and dreaming_service.py. The
+# `-Encoding utf8NoBOM` value that would fix this exists only in PowerShell 6+,
+# so write through .NET instead. Semantics match Set-Content: an array is joined
+# with newlines and a trailing newline is added unless -NoNewline is given.
+$script:AiqUtf8NoBom = New-Object System.Text.UTF8Encoding($false)
+function Write-AiqUtf8 {
+    param(
+        [Parameter(Mandatory)][string] $Path,
+        [Parameter()][AllowEmptyString()][AllowNull()] $Value,
+        [switch] $NoNewline,
+        [switch] $Append
+    )
+    if ($null -eq $Value) { $Value = @() }
+    # Order matters. A [string] is itself IEnumerable (of chars), so it must be
+    # tested FIRST. And the collection test must be IEnumerable, not
+    # [System.Array]: several callers pass a
+    # System.Collections.Generic.List[string], which is NOT an array. Getting
+    # that wrong sent a List down the [string] cast, which joins with $OFS -- a
+    # SPACE -- collapsing .git/info/exclude into a single line so git matched
+    # nothing and trial mode silently stopped hiding anything.
+    if ($Value -is [string]) {
+        $text = $Value
+    } elseif ($Value -is [System.Collections.IEnumerable]) {
+        $text = (@($Value) | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
+    } else {
+        $text = [string]$Value
+    }
+    if (-not $NoNewline -and $text.Length -ge 0) { $text += [Environment]::NewLine }
+    if ($Append) {
+        [System.IO.File]::AppendAllText($Path, $text, $script:AiqUtf8NoBom)
+    } else {
+        [System.IO.File]::WriteAllText($Path, $text, $script:AiqUtf8NoBom)
+    }
+}
+
+
+# WINDOWS POWERSHELL 5.1: native stderr must not be fatal.
+#
+# With $ErrorActionPreference='Stop', Windows PowerShell 5.1 converts native
+# command stderr into a TERMINATING NativeCommandError -- and `2>$null` does NOT
+# prevent it. Several git probes here write to stderr as their NORMAL result:
+#
+#     git ls-files --error-unmatch -- <path>     # "error: pathspec ... did not
+#                                                #  match any file(s)" for every
+#                                                #  UNTRACKED file
+#
+# Test-Tracked runs that probe for every pack file in trial mode, so the first
+# untracked file aborted the whole script -- after copying files but BEFORE
+# writing .git/info/exclude. Net effect on a stock Windows box (5.1 only):
+# `-Mode trial` left the entire pack VISIBLE to git, which is the opposite of
+# what trial mode promises. PowerShell 7 is unaffected because of the
+# $PSNativeCommandUseErrorActionPreference switch below, which 5.1 lacks.
+#
+# Shadowing `git` with a function fixes every call site at once (PowerShell
+# resolves functions before applications). git.exe is invoked explicitly so this
+# cannot recurse, and $LASTEXITCODE is still set, so the exit-code checks that
+# these probes actually rely on keep working.
+$PSNativeCommandUseErrorActionPreference = $false
+$script:AiqGitExe = (Get-Command git.exe -ErrorAction SilentlyContinue).Source
+if (-not $script:AiqGitExe) { $script:AiqGitExe = 'git' }
+function git {
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & $script:AiqGitExe @args
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+}
+
+function Copy-GitBlobToFile {
+    <#
+      Write the raw bytes of <Rev> out of <Repo> to <OutFile>. Returns $true on
+      success. Used to reconstruct an upgrade baseline from the pack's git
+      history, where byte fidelity matters: `git merge-file` is byte-oriented, so
+      a baseline that differs from the installed file by even a trailing newline
+      or a single lone LF turns a clean three-way merge into a conflict, and the
+      upgrade then writes a sidecar instead of merging the pack update in.
+      Piping `git show` through a PowerShell variable cannot preserve those
+      bytes; copying the stdout stream can.
+    #>
+    param(
+        [Parameter(Mandatory)][string] $Repo,
+        [Parameter(Mandatory)][string] $Rev,
+        [Parameter(Mandatory)][string] $OutFile
+    )
+    try {
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $script:AiqGitExe
+        $argLine = '-C "' + $Repo + '" show "' + $Rev + '"'
+        $psi.Arguments = $argLine
+        $psi.UseShellExecute = $false
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.CreateNoWindow = $true
+        $p = [System.Diagnostics.Process]::Start($psi)
+        $fs = [System.IO.File]::Create($OutFile)
+        try {
+            $p.StandardOutput.BaseStream.CopyTo($fs)
+        } finally {
+            $fs.Close()
+        }
+        $null = $p.StandardError.ReadToEnd()
+        $p.WaitForExit()
+        if ($p.ExitCode -ne 0) { return $false }
+        return ((Get-Item -LiteralPath $OutFile).Length -gt 0)
+    } catch {
+        return $false
+    }
+}
 
 # Resolve mode shorthand switches.
 if ($Trial)     { $Mode = 'trial' }
@@ -178,7 +297,7 @@ function Get-Base([string]$Dst) {
     return ''
 }
 
-# Manifest action sets — kept here so adding a new action only touches one
+# Manifest action sets -- kept here so adding a new action only touches one
 # place. RemovableActions are deleted on uninstall; ExcludableActions are
 # emitted into .git/info/exclude in trial mode.
 $script:RemovableActions  = @('created','unchanged_owned','overwritten','rendered','sidecar')
@@ -239,7 +358,7 @@ function Save-MergeResultSha {
             Where-Object { $_ -and -not $_.StartsWith("$Path`t") }
     }
     $existing += "$Path`t$sha"
-    Set-Content -LiteralPath $sidecar -Value $existing -Encoding UTF8
+    Write-AiqUtf8 -Path $sidecar -Value $existing
 }
 
 function Get-MergeResultSha {
@@ -414,14 +533,14 @@ function Remove-ManagedBlockLines([string[]]$Lines) {
 function Write-ExcludeBlock {
     # Always-on writer for .git/info/exclude managed block. Two layers:
     #   1) backup-globs (`*.assert-iq.pre-install`, `*.assert-iq.pre-tailor`,
-    #      `*.assert-iq.uninstall-saved`) written in every mode — tool
+    #      `*.assert-iq.uninstall-saved`) written in every mode -- tool
     #      artifacts that must never be committed. `pre-tailor` snapshots come
     #      from the /assert-iq-tailor skill, excluded here so they never leak.
-    #   2) per-path entries for workspace-scoped pack files — only when
+    #   2) per-path entries for workspace-scoped pack files -- only when
     #      $Mode -eq 'trial' so committed-mode adoption stays visible to git.
     $excl = Get-ExcludeFilePath
     if (-not $excl) {
-        Write-Warning "Not inside a git repo — skipping .git/info/exclude wiring."
+        Write-Warning "Not inside a git repo -- skipping .git/info/exclude wiring."
         Write-Warning "Pack files are present on disk; commit them only when ready."
         return
     }
@@ -475,17 +594,17 @@ function Write-ExcludeBlock {
     $newLines = New-Object System.Collections.Generic.List[string]
     foreach ($l in $kept) { $newLines.Add($l) | Out-Null }
     $newLines.Add($ExcludeBegin) | Out-Null
-    $newLines.Add('# Managed by scripts/bootstrap.ps1 — do not edit by hand.') | Out-Null
+    $newLines.Add('# Managed by scripts/bootstrap.ps1 -- do not edit by hand.') | Out-Null
     $newLines.Add('# Remove with: scripts/bootstrap.ps1 -Uninstall (or -Graduate to keep files but expose to git)') | Out-Null
     # Layer 1: always-on backup-glob exclusions.
-    $newLines.Add('# Tool artifacts — never commit:') | Out-Null
+    $newLines.Add('# Tool artifacts -- never commit:') | Out-Null
     $newLines.Add('*.assert-iq.pre-install') | Out-Null
     $newLines.Add('*.assert-iq.pre-tailor') | Out-Null
     $newLines.Add('*.assert-iq.uninstall-saved') | Out-Null
     $newLines.Add('.assert-iq/.skip-worktree-paths') | Out-Null
     $newLines.Add('.assert-iq/.merge-result-shas') | Out-Null
     $newLines.Add('.assert-iq/.base/') | Out-Null
-    # Dreaming per-machine artifacts — never commit in any mode:
+    # Dreaming per-machine artifacts -- never commit in any mode:
     $newLines.Add('.assert-iq/dreaming/session-events.json') | Out-Null
     $newLines.Add('.assert-iq/memory/.dream/state.lock') | Out-Null
     $newLines.Add('.assert-iq/memory/.dream/dream.lock') | Out-Null
@@ -495,7 +614,7 @@ function Write-ExcludeBlock {
         $newLines.Add('# Trial-mode pack paths:') | Out-Null
         foreach ($r in $rels) { $newLines.Add($r) | Out-Null }
     }
-    # Trial-mode: keep the entire Dreaming memory store local-only — dreams
+    # Trial-mode: keep the entire Dreaming memory store local-only -- dreams
     # update it autonomously without ever appearing in git. Committed mode
     # leaves it visible on purpose (every dream cycle is a reviewable diff).
     if ($Mode -eq 'trial') {
@@ -504,14 +623,14 @@ function Write-ExcludeBlock {
     }
     $newLines.Add($ExcludeEnd) | Out-Null
 
-    Set-Content -LiteralPath $excl -Value $newLines -Encoding UTF8
+    Write-AiqUtf8 -Path $excl -Value $newLines
 
     Write-Host ''
     if ($Mode -eq 'trial') {
         Write-Host ("Trial mode active. {0} path(s) added to .git/info/exclude (plus backup-glob exclusions)." -f $rels.Count)
         if ($skippedTracked.Count -gt 0) {
             Write-Host ''
-            Write-Host ("NOTE: {0} path(s) already tracked by git — using --skip-worktree to hide local changes:" -f $skippedTracked.Count)
+            Write-Host ("NOTE: {0} path(s) already tracked by git -- using --skip-worktree to hide local changes:" -f $skippedTracked.Count)
             foreach ($t in $skippedTracked) { Write-Host "  $t" }
         }
         Write-Host ''
@@ -542,7 +661,7 @@ function Invoke-SkipWorktree {
     if (-not (Test-Path -LiteralPath $sidecarDir)) {
         New-Item -ItemType Directory -Force -Path $sidecarDir | Out-Null
     }
-    Set-Content -LiteralPath $sidecar -Value @() -Encoding UTF8
+    Write-AiqUtf8 -Path $sidecar -Value @()
     $marked = 0
     $preexisting = 0
     $marks = New-Object System.Collections.Generic.List[string]
@@ -562,7 +681,7 @@ function Invoke-SkipWorktree {
         }
     }
     if ($marks.Count -gt 0) {
-        Set-Content -LiteralPath $sidecar -Value $marks -Encoding UTF8
+        Write-AiqUtf8 -Path $sidecar -Value $marks
     }
     if ($marked -gt 0) {
         Write-Host ("Marked {0} tracked path(s) --skip-worktree (local edits hidden from git status)." -f $marked)
@@ -576,7 +695,7 @@ function Clear-SkipWorktree {
     # Reverse of Invoke-SkipWorktree. Clears ONLY flags we set ourselves,
     # tracked via the .assert-iq/.skip-worktree-paths sidecar. Falls back
     # to the manifest walk for installs that pre-date the sidecar. Never
-    # scans the index globally — that would clobber pre-existing flags the
+    # scans the index globally -- that would clobber pre-existing flags the
     # user set themselves on unrelated files.
     $gd = Get-GitDir
     if (-not $gd) { return }
@@ -613,16 +732,16 @@ function Clear-SkipWorktree {
 function Remove-ExcludeBlock {
     $excl = Get-ExcludeFilePath
     if (-not $excl -or -not (Test-Path -LiteralPath $excl)) {
-        Write-Host "No .git/info/exclude found — nothing to do."
+        Write-Host "No .git/info/exclude found -- nothing to do."
         return
     }
     $existing = Get-Content -LiteralPath $excl
     $kept = Remove-ManagedBlockLines $existing
-    Set-Content -LiteralPath $excl -Value $kept -Encoding UTF8
+    Write-AiqUtf8 -Path $excl -Value $kept
     if ($script:_StripRemoved) {
         Write-Host "Removed Assert.IQ managed block from $excl"
     } else {
-        Write-Host "No Assert.IQ managed block found in $excl — nothing to remove."
+        Write-Host "No Assert.IQ managed block found in $excl -- nothing to remove."
     }
 }
 
@@ -647,7 +766,7 @@ if ($doGraduate) {
         }
     }
     # Re-write the managed block in committed mode so the always-on backup-glob
-    # exclusions remain — only the per-path entries are dropped.
+    # exclusions remain -- only the per-path entries are dropped.
     $Mode = 'committed'
     Write-ExcludeBlock
     Write-Host ''
@@ -690,7 +809,9 @@ function Invoke-Uninstall {
             Write-Host '  - restore originals where the bootstrap modified your files (from .assert-iq.pre-install backups)'
             Write-Host '  - remove any /assert-iq-tailor snapshots (.assert-iq.pre-tailor)'
             Write-Host '  - strip the trial-mode block from .git/info/exclude (if any)'
-            Write-Host '  - remove the rendered .assert-iq/dreaming/session-events.json (the memory store is preserved)'
+            Write-Host '  - remove the rendered .assert-iq/dreaming/session-events.json'
+            Write-Host '  - remove .assert-iq/memory/ ONLY if it holds no consolidated facts;'
+            Write-Host '    a topics/*.md or a real MEMORY.md entry keeps the whole store'
             if ($User) {
                 Write-Host '  - also remove user-scope copies in ~/.assert-iq, ~/.claude, and the user prompts dir'
             }
@@ -800,7 +921,7 @@ function Invoke-Uninstall {
             $script:UninstallStats.Preserved++
             return
         }
-        # The Dreaming memory store is the user's data — never removed on uninstall.
+        # The Dreaming memory store is the user's data -- never removed on uninstall.
         if ($e.action -ne 'pre_install_backup' -and (($e.path -replace '\\','/') -like '*/.assert-iq/memory/*')) {
             $script:UninstallStats.Preserved++
             return
@@ -846,7 +967,7 @@ function Invoke-Uninstall {
                 }
             }
             default {
-                Write-Warning "unknown manifest action '$($e.action)' for $($e.path) — skipping (manifest may be from a newer pack version)"
+                Write-Warning "unknown manifest action '$($e.action)' for $($e.path) -- skipping (manifest may be from a newer pack version)"
                 $script:UninstallStats.Skipped++
             }
         }
@@ -860,7 +981,7 @@ function Invoke-Uninstall {
         Invoke-Entry $e
     }
 
-    # Rendered session-events.json — per-machine, regenerated on next install.
+    # Rendered session-events.json -- per-machine, regenerated on next install.
     # The memory store (.assert-iq/memory/) is deliberately NOT cleared here.
     foreach ($d in @(
             (Join-Path $Workspace '.assert-iq\dreaming\session-events.json'),
@@ -872,24 +993,63 @@ function Invoke-Uninstall {
         if (Test-Path -LiteralPath $userEventsJson) { Remove-PathOrDir $userEventsJson }
     }
 
-    # The memory store is the user's data — preserved when it holds real dream
-    # content, but a pristine never-dreamed seed is just install scaffolding, so
-    # remove it for a clean uninstall.
+    # The memory store is the user's data -- preserved when it holds actual
+    # consolidated KNOWLEDGE (a topics/*.md file, or real content in the
+    # MEMORY.md index), removed when it does not.
+    #
+    # This used to ALSO preserve on (a) any file under logs/ and (b) MEMORY.md
+    # not saying "Last consolidated: never". Both are metadata, not knowledge:
+    # logs/ is the waking-loop trail that /dream CONSUMES, and the
+    # consolidation stamp records only that a dream ran, not that it found
+    # anything. Those two conditions were unreachable while the session hooks
+    # were broken; once the hooks started firing, every install -> chat ->
+    # uninstall left a memory store behind whose index read "_(no entries
+    # yet)_" under every heading and whose topics/ was empty.
+    function Test-AiqMemoryHasKnowledge([string]$mem) {
+        $topics = @(Get-ChildItem -LiteralPath (Join-Path $mem 'topics') -Recurse -File `
+                        -Filter '*.md' -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Name -ne '.gitkeep' })
+        if ($topics.Count -gt 0) { return $true }
+        $memIndex = Join-Path $mem 'MEMORY.md'
+        if (-not (Test-Path -LiteralPath $memIndex -PathType Leaf)) { return $false }
+        # Anything left after stripping the seed scaffolding -- the HTML comment
+        # block, headings, the consolidation stamp, the "(no entries yet)"
+        # placeholders and blank lines -- is real content. Deliberately broad:
+        # a hand-written note counts just as much as a /dream pointer, because
+        # the cost of a false positive (an orphan directory) is far lower than
+        # the cost of a false negative (deleting someone's notes).
+        $inComment = $false
+        foreach ($line in @(Get-Content -LiteralPath $memIndex -ErrorAction SilentlyContinue)) {
+            if ($line -match '<!--') { $inComment = $true }
+            if ($inComment) {
+                if ($line -match '-->') { $inComment = $false }
+                continue
+            }
+            if ($line -match '^\s*$')                 { continue }
+            if ($line -match '^\s*#')                 { continue }
+            if ($line -match '^_Last consolidated:')  { continue }
+            if ($line -match '^_\(no entries yet\)_') { continue }
+            return $true
+        }
+        return $false
+    }
+
     function Remove-SeedMemory([string]$mem) {
         if (-not (Test-Path -LiteralPath $mem -PathType Container)) { return }
-        $hasTopics = @(Get-ChildItem -LiteralPath (Join-Path $mem 'topics') -Recurse -File -Filter '*.md' -ErrorAction SilentlyContinue).Count -gt 0
-        $hasLogs   = @(Get-ChildItem -LiteralPath (Join-Path $mem 'logs') -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne '.gitkeep' }).Count -gt 0
-        $memIndex  = Join-Path $mem 'MEMORY.md'
-        $dreamt = $false
-        if (Test-Path -LiteralPath $memIndex -PathType Leaf) {
-            $raw = Get-Content -LiteralPath $memIndex -Raw -ErrorAction SilentlyContinue
-            if ($raw -and ($raw -notmatch 'Last consolidated: never')) { $dreamt = $true }
-        }
-        if ($hasTopics -or $hasLogs -or $dreamt) {
+        if (Test-AiqMemoryHasKnowledge $mem) {
             Write-Host "Preserved your Dreaming memory store (has consolidated content): $mem"
             return
         }
-        if ($DryRun) { Write-Host "${prefix}rm: $mem (pristine seed)" }
+        # Say what is going, so discarding an un-consolidated trail is never silent.
+        $nlogs = @(Get-ChildItem -LiteralPath (Join-Path $mem 'logs') -Recurse -File -Force `
+                       -ErrorAction SilentlyContinue |
+                   Where-Object { $_.Name -ne '.gitkeep' }).Count
+        if ($nlogs -gt 0) {
+            Write-Host ("Removing the Dreaming memory store: MEMORY.md and topics/ hold no " +
+                        "consolidated facts (discarding $nlogs un-consolidated session log " +
+                        "file(s)): $mem")
+        }
+        if ($DryRun) { Write-Host "${prefix}rm: $mem (no consolidated content)" }
         else { Remove-Item -LiteralPath $mem -Recurse -Force -ErrorAction SilentlyContinue }
     }
     Remove-SeedMemory (Join-Path $Workspace '.assert-iq\memory')
@@ -897,10 +1057,42 @@ function Invoke-Uninstall {
         Remove-SeedMemory (Join-Path $env:USERPROFILE '.agents\.assert-iq\memory')
     }
 
+    # Runtime sinks: the verdict archive (v1.7+), the business-impact report
+    # sink (v2.0+) and the pre-dream memory snapshots. These ship as empty
+    # directories created by the seed step, so they never arrive via a tree
+    # copy and are absent from the manifest -- which is why verdicts\archive\
+    # and business-metrics\reports\ were both left behind after uninstall.
+    #
+    # Same policy as the memory store above: this is the user's own generated
+    # data, so preserve it when it holds real content -- the verdict archive in
+    # particular is a regulatory audit trail (SOX / ISO 27001 / FedRAMP) and
+    # must never be silently deleted -- but a never-written empty sink is just
+    # install scaffolding, and leaving it behind is litter.
+    function Remove-RuntimeSink([string]$sink, [string]$label) {
+        if (-not (Test-Path -LiteralPath $sink -PathType Container)) { return }
+        $hasContent = @(Get-ChildItem -LiteralPath $sink -Recurse -File -Force -ErrorAction SilentlyContinue |
+                        Where-Object { $_.Name -ne '.gitkeep' }).Count -gt 0
+        if ($hasContent) {
+            Write-Host "Preserved your $label (has content): $sink"
+            return
+        }
+        if ($DryRun) { Write-Host "${prefix}rm: $sink (empty runtime sink)" }
+        else { Remove-Item -LiteralPath $sink -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+    function Remove-RuntimeSinks([string]$base) {
+        Remove-RuntimeSink (Join-Path $base 'verdicts\archive')         'verdict archive'
+        Remove-RuntimeSink (Join-Path $base 'business-metrics\reports') 'business-impact reports'
+        Remove-RuntimeSink (Join-Path $base 'dreaming\.snapshots')      'pre-dream memory snapshots'
+    }
+    Remove-RuntimeSinks (Join-Path $Workspace '.assert-iq')
+    if ($User) {
+        Remove-RuntimeSinks (Join-Path $env:USERPROFILE '.agents\.assert-iq')
+    }
+
     # Sweep orphaned /assert-iq-tailor snapshots. These *.assert-iq.pre-tailor
     # files are created by the tailor skill (not this script, so they aren't in
     # the manifest). The pack files they snapshot are being removed above, so
-    # the snapshots are now meaningless — clean them up rather than leave litter.
+    # the snapshots are now meaningless -- clean them up rather than leave litter.
     # Confined to the dirs the tailor skill writes to, and the suffix is unique
     # to our tooling, so this can't touch unrelated user files.
     foreach ($d in @(
@@ -921,9 +1113,19 @@ function Invoke-Uninstall {
             (Join-Path $Workspace '.github\skills'),
             (Join-Path $Workspace '.github\agents'),
             (Join-Path $Workspace '.claude\agents'),
-            (Join-Path $Workspace '.assert-iq\dreaming'))
+            (Join-Path $Workspace '.assert-iq\dreaming'),
+            (Join-Path $Workspace '.assert-iq\oracles'),
+            (Join-Path $Workspace '.assert-iq\verdicts'),
+            (Join-Path $Workspace '.assert-iq\business-metrics'),
+            (Join-Path $Workspace '.assert-iq\analysis'),
+            (Join-Path $Workspace '.assert-iq\tests\_qi\regression'))
         if ($User) {
-            $treeRoots += @($userVscodeSkills, $userClaudeSkills, $userAssertIq, (Join-Path $env:USERPROFILE '.agents\.assert-iq\dreaming'))
+            $treeRoots += @($userVscodeSkills, $userClaudeSkills, $userAssertIq,
+                (Join-Path $env:USERPROFILE '.agents\.assert-iq\dreaming'),
+                (Join-Path $env:USERPROFILE '.agents\.assert-iq\oracles'),
+                (Join-Path $env:USERPROFILE '.agents\.assert-iq\verdicts'),
+                (Join-Path $env:USERPROFILE '.agents\.assert-iq\business-metrics'),
+                (Join-Path $env:USERPROFILE '.agents\.assert-iq\analysis'))
         }
         foreach ($tree in $treeRoots) {
             if ((Test-Path -LiteralPath $tree -PathType Container) -and `
@@ -938,6 +1140,11 @@ function Invoke-Uninstall {
             }
         }
         $emptyDirs = @(
+            (Join-Path $Workspace '.assert-iq\oracles'),
+            (Join-Path $Workspace '.assert-iq\verdicts'),
+            (Join-Path $Workspace '.assert-iq\business-metrics'),
+            (Join-Path $Workspace '.assert-iq\analysis'),
+            (Join-Path $Workspace '.assert-iq\tests\_qi\regression'),
             (Join-Path $Workspace '.assert-iq\dreaming'),
             (Join-Path $Workspace '.vscode'),
             (Join-Path $Workspace '.claude\agents'),
@@ -954,6 +1161,10 @@ function Invoke-Uninstall {
                 $userAgentsDir,
                 $userClaudeSkills,
                 $userClaudeDir,
+                (Join-Path $env:USERPROFILE '.agents\.assert-iq\oracles'),
+                (Join-Path $env:USERPROFILE '.agents\.assert-iq\verdicts'),
+                (Join-Path $env:USERPROFILE '.agents\.assert-iq\business-metrics'),
+                (Join-Path $env:USERPROFILE '.agents\.assert-iq\analysis'),
                 $userAssertIq)
         }
         foreach ($d in $emptyDirs) {
@@ -966,7 +1177,7 @@ function Invoke-Uninstall {
 
         # Manifest-derived safety net: rmdir every ancestor dir of paths we
         # just removed (deepest-first, scope-gated, symlink-safe). Future
-        # additions don't have to update the hardcoded lists above — if the
+        # additions don't have to update the hardcoded lists above -- if the
         # path went into the manifest, its empty parent dirs get reaped here.
         $ancestorSet = @{}
         foreach ($e in $entries) {
@@ -980,7 +1191,7 @@ function Invoke-Uninstall {
                 $cur = $next
             }
         }
-        # Sort by path-segment depth, not string length — a deeper sibling
+        # Sort by path-segment depth, not string length -- a deeper sibling
         # may have a shorter total path than a shallow one with a long name.
         foreach ($d in ($ancestorSet.Keys | Sort-Object -Property @{Expression={($_ -split '[\\/]').Length}; Descending=$true})) {
             if ((Test-Path -LiteralPath $d -PathType Container) -and `
@@ -1044,7 +1255,7 @@ if ($doUninstall) {
 function Resolve-Mode {
     if ($Mode -eq 'trial' -or $Mode -eq 'committed') { return }
     if ($Mode -eq '' -or $Mode -eq 'ask') {
-        # A prior install pins the mode — never silently flip trial<->committed
+        # A prior install pins the mode -- never silently flip trial<->committed
         # on a plain re-run.
         if (Test-Path -LiteralPath $manifestPath) {
             try {
@@ -1056,9 +1267,9 @@ function Resolve-Mode {
         if ($isInteractive) {
             Write-Host ''
             Write-Host 'Choose install mode:'
-            Write-Host '  [t] Trial    — files added but ignored by .git/info/exclude'
+            Write-Host '  [t] Trial    -- files added but ignored by .git/info/exclude'
             Write-Host '                 (codebase .gitignore untouched; team will not see them)'
-            Write-Host '  [c] Committed — files visible to git (you commit when ready)'
+            Write-Host '  [c] Committed -- files visible to git (you commit when ready)'
             Write-Host ''
             while ($true) {
                 $ans = Read-Host 'Mode [t/c] (default c)'
@@ -1125,7 +1336,7 @@ function Invoke-UpgradePrepare {
     $script:InstalledVersion = if ($script:OldManifest.version) { $script:OldManifest.version } else { 'unknown' }
     $instMode = if ($script:OldManifest.mode) { $script:OldManifest.mode } else { 'committed' }
     if ($instMode -ne 'trial' -and $instMode -ne 'committed') { $instMode = 'committed' }
-    # Pin mode to what was installed — never flip trial<->committed on upgrade.
+    # Pin mode to what was installed -- never flip trial<->committed on upgrade.
     $script:Mode = $instMode
 
     $script:AssertIq       = Get-UpgradeScope '.assert-iq/config.yaml' (Join-Path $userAssertIq 'config.yaml')
@@ -1140,7 +1351,7 @@ function Invoke-UpgradePrepare {
     $script:Dreaming = $script:ClaudeSettings
     if ($script:Dreaming -eq 'skip' -and (Get-UpgradeScope 'hooks/') -eq 'workspace') { $script:Dreaming = 'workspace' }
     # New surfaces absent from an older manifest still get added on upgrade,
-    # following where the pack itself lives — so upgrading a pre-Dreaming install
+    # following where the pack itself lives -- so upgrading a pre-Dreaming install
     # installs the Dreaming machinery and seeds the memory store.
     if ($script:Dreaming -eq 'skip' -and $script:AssertIq -ne 'skip') { $script:Dreaming = $script:AssertIq }
     if ($script:ClaudeSettings -eq 'skip' -and $script:AssertIq -eq 'workspace') { $script:ClaudeSettings = 'workspace' }
@@ -1191,9 +1402,33 @@ function Invoke-UpgradeThreeWay {
     if (-not $baseFile -and $script:InstalledVersion -ne 'unknown') {
         & git -C $Source cat-file -e "v$($script:InstalledVersion):$relUnix" 2>$null
         if ($LASTEXITCODE -eq 0) {
-            $blob = & git -C $Source show "v$($script:InstalledVersion):$relUnix" 2>$null
-            if ($LASTEXITCODE -eq 0) {
-                [System.IO.File]::WriteAllText($baseTmp, (($blob -join "`n") + "`n"))
+            # BYTE-EXACT extraction. Capturing `git show` into a PowerShell
+            # variable decodes the blob into strings, splits it on newlines and
+            # re-joins it -- which loses the exact bytes (trailing newline, any
+            # lone LF inside an otherwise-CRLF file, encoding round-trips). The
+            # reconstructed baseline then differs from the installed file in ways
+            # `git merge-file` counts as real changes, so a clean merge became a
+            # conflict. bash does `git show > file`; do the same here by copying
+            # the raw stdout stream straight to disk.
+            $blobOk = Copy-GitBlobToFile -Repo $Source `
+                        -Rev "v$($script:InstalledVersion):$relUnix" -OutFile $baseTmp
+            if ($blobOk) {
+                $baseText = [System.IO.File]::ReadAllText($baseTmp)
+                # LINE ENDINGS: git stores blobs with LF, but the workspace copy
+                # on Windows is CRLF (Git's core.autocrlf smudge on checkout, and
+                # the pack's own .gitattributes leaves .md as platform-native).
+                # `git merge-file` is byte-oriented, so an LF baseline against a
+                # CRLF destination makes EVERY line look modified: a clean
+                # three-way merge degenerates into a whole-file conflict, and the
+                # upgrade writes a .assert-iq-new sidecar instead of merging. The
+                # user's edits survive, but the PACK UPDATE IS SILENTLY DROPPED.
+                # Match the destination's convention before merging. macOS/Linux
+                # are unaffected (LF throughout), which is why bootstrap.sh has
+                # never needed this.
+                if ((Get-Content -Raw -LiteralPath $Dst -ErrorAction SilentlyContinue) -match "`r`n") {
+                    $baseText = $baseText -replace "(?<!`r)`n", "`r`n"
+                }
+                [System.IO.File]::WriteAllText($baseTmp, $baseText)
                 $baseFile = $baseTmp
             }
         }
@@ -1205,7 +1440,7 @@ function Invoke-UpgradeThreeWay {
         & git merge-file -- $mergedTmp $baseFile $Src 2>$null | Out-Null
         $mergeRc = $LASTEXITCODE
         if ($mergeRc -eq 0) {
-            # Clean three-way merge — non-destructive by definition.
+            # Clean three-way merge -- non-destructive by definition.
             if ($Yes -or -not $interactive) {
                 Copy-Item -LiteralPath $mergedTmp -Destination $Dst -Force
                 Add-ManifestEntry 'overwritten' $Dst $Scope
@@ -1224,7 +1459,7 @@ function Invoke-UpgradeThreeWay {
                 }
             }
         } else {
-            # Conflict — you and the pack changed overlapping lines.
+            # Conflict -- you and the pack changed overlapping lines.
             if ($Yes -or -not $interactive) {
                 $side = "$Dst.assert-iq-new"
                 Copy-Item -LiteralPath $Src -Destination $side -Force
@@ -1246,7 +1481,7 @@ function Invoke-UpgradeThreeWay {
         }
     } else {
         # No reconstructable baseline -> conservative 2-way resolver (never clobbers).
-        $choice = Resolve-Conflict -Src $Src -Dst $Dst -Label "$Label (no base — merge unavailable)"
+        $choice = Resolve-Conflict -Src $Src -Dst $Dst -Label "$Label (no base -- merge unavailable)"
         switch ($choice) {
             'keep'      { Record $Label 'skipped (kept yours)' $Dst }
             'overwrite' { Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-Base -Content $Src -Dst $Dst; Record $Label 'overwritten' $Dst }
@@ -1284,7 +1519,7 @@ function Invoke-UpgradeOrphans {
                 Write-Host "  orphan from a previous version (kept; re-run interactively to remove): $relUnix"
                 continue
             }
-            $decision = Read-Host "Orphan from a previous version: $relUnix — [r]emove / [k]eep / [R]emove-all / [K]eep-all"
+            $decision = Read-Host "Orphan from a previous version: $relUnix -- [r]emove / [k]eep / [R]emove-all / [K]eep-all"
         }
         if ($decision -eq 'R') { $bulk = 'R'; $decision = 'r' }
         elseif ($decision -eq 'K') { $bulk = 'K'; $decision = 'k' }
@@ -1310,9 +1545,9 @@ function Seed-MemoryIndex {
     $parent = Split-Path -Parent $Path
     if ($parent -and -not (Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
     $content = @'
-# MEMORY.md — Project Memory Index
+# MEMORY.md -- Project Memory Index
 
-_Last consolidated: never — run `/dream` to populate_
+_Last consolidated: never -- run `/dream` to populate_
 
 <!--
 Long-term memory INDEX for the Assert.IQ Dreaming feature (loaded at session
@@ -1335,7 +1570,7 @@ _(no entries yet)_
 
 _(no entries yet)_
 '@
-    Set-Content -LiteralPath $Path -Value $content -Encoding UTF8
+    Write-AiqUtf8 -Path $Path -Value $content
 }
 
 function Seed-MemoryStore {
@@ -1346,15 +1581,23 @@ function Seed-MemoryStore {
     New-Item -ItemType Directory -Path (Join-Path $MemDir 'topics') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $MemDir 'logs') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $MemDir '.dream') -Force | Out-Null
+    # Verdict archive (v1.7.0+) and pre-dream memory snapshots are git-ignored
+    # runtime sinks that ship as empty dirs, so they never arrive via copy_tree.
+    # Derive the .assert-iq base from the memory dir so this is correct for both
+    # the workspace and user-base call sites.
+    $aiqBase = Split-Path -Parent $MemDir
+    New-Item -ItemType Directory -Path (Join-Path $aiqBase 'verdicts\archive') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $aiqBase 'dreaming\.snapshots') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $aiqBase 'business-metrics\reports') -Force | Out-Null
     $statePath = Join-Path $MemDir '.dream\state.json'
     if (-not (Test-Path -LiteralPath $statePath)) {
-        Set-Content -LiteralPath $statePath -Value "{`n  `"last_dream_utc`": null,`n  `"sessions_since_dream`": 0`n}" -Encoding UTF8
+        Write-AiqUtf8 -Path $statePath -Value "{`n  `"last_dream_utc`": null,`n  `"sessions_since_dream`": 0`n}"
     }
     $topicKeep = Join-Path $MemDir 'topics\.gitkeep'
     if (-not (Test-Path -LiteralPath $topicKeep)) { New-Item -ItemType File -Force -Path $topicKeep | Out-Null }
     $logKeep = Join-Path $MemDir 'logs\.gitkeep'
     if (-not (Test-Path -LiteralPath $logKeep)) { New-Item -ItemType File -Force -Path $logKeep | Out-Null }
-    # README is static docs (not dream data) — seed it if the pack ships one.
+    # README is static docs (not dream data) -- seed it if the pack ships one.
     $srcReadme = Join-Path $Source '.assert-iq\memory\README.md'
     $dstReadme = Join-Path $MemDir 'README.md'
     if ((Test-Path -LiteralPath $srcReadme -PathType Leaf) -and -not (Test-Path -LiteralPath $dstReadme)) {
@@ -1526,7 +1769,17 @@ function Merge-MarkdownFile {
         $userPart = $existing
         $merged = "$beginMarker$nl$($packContent.TrimEnd("`r","`n"))$nl$endMarker$nl$nl$userPart"
     }
-    # Write atomically (Write-AtomicFile rejects empty content; merged is always non-empty).
+    # Normalize the trailing newline before writing. Write-AtomicFile uses
+    # Set-Content, which appends its own line terminator, so writing content
+    # that already ends in a newline grew the file by one CRLF on EVERY re-merge
+    # (944 -> 946 -> 948 bytes ...). The block itself re-merged cleanly, so the
+    # only symptom was an accumulating run of blank lines at the end of the
+    # user's file -- bootstrap re-runs and upgrades were not idempotent.
+    # Trimming here makes the write a fixed point: Set-Content re-adds exactly
+    # one terminator, and the next read trims it again.
+    # POSIX-only bug note: scripts/bootstrap.sh writes with printf and is not
+    # affected, which is why a macOS-only test run never surfaced this.
+    $merged = $merged.TrimEnd("`r", "`n")
     Write-AtomicFile -Path $Dst -Content $merged
     Add-ManifestEntry 'merged_markdown' $Dst $Scope
     Save-MergeResultSha -Path $Dst
@@ -1536,7 +1789,7 @@ function Merge-MarkdownFile {
 function Copy-FileScoped {
     param([string]$Label, [string]$Src, [string]$Dst, [string]$Scope)
 
-    # Never touch the user's Dreaming memory on upgrade — it's their data.
+    # Never touch the user's Dreaming memory on upgrade -- it's their data.
     if ($doUpgrade -and (($Dst -replace '\\','/') -like '*/.assert-iq/memory/*')) {
         Record $Label 'skipped (memory preserved)' $Dst
         return
@@ -1628,7 +1881,7 @@ function Merge-Hashtables {
     $userIsObj = ($User -is [pscustomobject]) -or ($User -is [hashtable])
     $packIsObj = ($Pack -is [pscustomobject]) -or ($Pack -is [hashtable])
     if (-not ($userIsObj -and $packIsObj)) {
-        # Scalar or array conflict — user wins.
+        # Scalar or array conflict -- user wins.
         return $User
     }
     $result = [ordered]@{}
@@ -1675,7 +1928,7 @@ function Merge-JsonFile {
             -ChangedAction 'merged_settings' `
             -ChangedMessage 'merged (additive, yours wins)'
     } catch {
-        # Parse or write failed — sidecar.
+        # Parse or write failed -- sidecar.
         $side = "$Dst.assert-iq-new"
         Copy-Item -LiteralPath $Src -Destination $side -Force
         Add-ManifestEntry 'sidecar' $side $Scope
@@ -1812,7 +2065,7 @@ function Step-Dreaming {
                 return
             }
             Copy-TreeScoped '.assert-iq/dreaming' $dreamSrcDir (Join-Path $Workspace '.assert-iq\dreaming') 'workspace' -Exclude @('session-events.json')
-            # Seed the memory store clean — never ships the pack's own dream data.
+            # Seed the memory store clean -- never ships the pack's own dream data.
             $memDir = Join-Path $Workspace '.assert-iq\memory'
             Seed-MemoryStore -MemDir $memDir
             Record '.assert-iq/memory/' 'seeded (clean slate)' $memDir
@@ -1854,15 +2107,49 @@ function Step-Dreaming {
     }
 }
 
+function Get-RenderedClaudeHooksJson {
+    # Renders the CLAUDE-shaped hook template (Windows variant) with
+    # __PACK_ROOT__ -> $PackRoot. Returns the temp file path; caller removes it.
+    #
+    # Deliberately NOT Get-RenderedEventsJson. VS Code Copilot and Claude Code
+    # use incompatible hook schemas: Copilot puts handlers directly in the event
+    # array with osx/linux/windows overrides, while Claude Code requires a
+    # matcher-group wrapper with a nested "hooks" array, has no platform keys,
+    # and selects the interpreter with a "shell" field. Writing the Copilot shape
+    # into .claude\settings.json produces a file Claude Code silently ignores --
+    # how Dreaming came to be dead under Claude Code while still working under
+    # VS Code on macOS. The Windows variant uses powershell handlers so the
+    # bash/python3 path is never taken on Windows. Enforced by unit-hook-schema.py.
+    param([string]$PackRoot)
+    $template = Join-Path $Source '.assert-iq\dreaming\claude-hooks.windows.template.json'
+    if (-not (Test-Path -LiteralPath $template)) { return $null }
+    # Render-EventsTemplate lives in the dreaming lib and must be dot-sourced
+    # INTO THIS FUNCTION's scope -- a dot-source inside a sibling function does
+    # not reach here. Omitting this made the call throw CommandNotFound, which
+    # the catch below swallowed into a silent 'missing-template' record, so no
+    # .claude\settings.json was ever written on Windows.
+    $lib = Join-Path $Source '.assert-iq\dreaming\scripts\lib\render-events.ps1'
+    if (-not (Test-Path -LiteralPath $lib)) { return $null }
+    . $lib
+    $tmp = [System.IO.Path]::GetTempFileName()
+    try {
+        Render-EventsTemplate -Template $template -Out $tmp -PackRoot $PackRoot
+    } catch {
+        Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+        return $null
+    }
+    return $tmp
+}
+
 function Step-ClaudeSettings {
     # Merge only the .hooks key into .claude/settings.json; preserve everything
     # else. Copilot side disables this file via chat.hookFilesLocations to
     # avoid double-fire.
     switch ($ClaudeSettings) {
         'workspace' {
-            $rendered = Get-RenderedEventsJson -PackRoot $Workspace
+            $rendered = Get-RenderedClaudeHooksJson -PackRoot $Workspace
             if (-not $rendered) {
-                Record '.claude/settings.json' 'missing-template' (Join-Path $Source '.assert-iq\dreaming\session-events.template.json')
+                Record '.claude/settings.json' 'missing-template' (Join-Path $Source '.assert-iq\dreaming\claude-hooks.windows.template.json')
                 return
             }
             $dst = Join-Path $Workspace '.claude\settings.json'
@@ -1981,13 +2268,21 @@ function Step-ClaudeSkillsLink {
             Record '.claude/skills' 'unchanged (pack-owned symlink)' $dst
             return
         }
-        # Anything else — sidecar.
+        # Anything else -- sidecar.
         $side = "$dst.assert-iq-new"
         if (Test-Path -LiteralPath $side) {
             Remove-Item -LiteralPath $side -Recurse -Force -ErrorAction SilentlyContinue
         }
         try {
-            New-Item -ItemType SymbolicLink -Path $side -Target $targetRel -Force | Out-Null
+            # Same cwd caveat as the main link below: create it from inside the
+            # parent so PowerShell 5.1's -Target validation matches how NTFS
+            # actually resolves the stored relative path.
+            Push-Location -LiteralPath (Split-Path -Parent $side)
+            try {
+                New-Item -ItemType SymbolicLink -Path $side -Target $targetRel -Force | Out-Null
+            } finally {
+                Pop-Location
+            }
         } catch {
             if (Test-Path -LiteralPath $targetAbs -PathType Container) {
                 Copy-Item -LiteralPath $targetAbs -Destination $side -Recurse -Force
@@ -2003,7 +2298,19 @@ function Step-ClaudeSkillsLink {
         New-Item -ItemType Directory -Force -Path $parent | Out-Null
     }
     try {
-        New-Item -ItemType SymbolicLink -Path $dst -Target $targetRel -Force -ErrorAction Stop | Out-Null
+        # Create the link from INSIDE its parent. NTFS resolves a relative
+        # symlink target against the link's own directory, but Windows
+        # PowerShell 5.1 validates -Target against the CURRENT working
+        # directory first -- and bootstrap is almost always run from somewhere
+        # other than the target workspace, so 5.1 rejected the relative target
+        # and silently fell back to a COPY. The target must stay relative:
+        # the pack-owned check above compares this exact string.
+        Push-Location -LiteralPath $parent
+        try {
+            New-Item -ItemType SymbolicLink -Path $dst -Target $targetRel -Force -ErrorAction Stop | Out-Null
+        } finally {
+            Pop-Location
+        }
         Add-ManifestEntry 'created' $dst 'workspace'
         Record '.claude/skills' "linked -> $targetRel" $dst
     } catch {
@@ -2036,7 +2343,7 @@ Step-ClaudeSkillsLink
 
 Write-Manifest
 
-# Always write the managed exclude block — Layer 1 (backup-globs) applies in
+# Always write the managed exclude block -- Layer 1 (backup-globs) applies in
 # every mode; Layer 2 (per-path entries) only fires when $Mode -eq 'trial'.
 Write-ExcludeBlock
 if ($Mode -eq 'trial') {
@@ -2072,7 +2379,7 @@ if ($keptCount -gt 0) {
 
 if ($Script:UserDreamingInstalled) {
     Write-Host ''
-    Write-Host '─── USER-GLOBAL DREAMING INSTALLED ───'
+    Write-Host '--- USER-GLOBAL DREAMING INSTALLED ---'
     Write-Host 'The Dreaming machinery is at ~/.agents/.assert-iq/dreaming/ and the memory'
     Write-Host 'store at ~/.agents/.assert-iq/memory/. Session events fire across every VS'
     Write-Host 'Code workspace once you register them in your VS Code USER settings.json.'
@@ -2088,7 +2395,7 @@ if ($Script:UserDreamingInstalled) {
     Write-Host ''
     Write-Host 'This is one-time setup. To uninstall the user-global hooks later, run:'
     Write-Host '  scripts/bootstrap.ps1 -Uninstall -User'
-    Write-Host '───'
+    Write-Host '---'
 }
 
 Write-Host ''

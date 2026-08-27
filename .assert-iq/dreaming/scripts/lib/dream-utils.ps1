@@ -2,7 +2,7 @@
 # Dot-sourced by dream-record-session.ps1 and dream-gate.ps1; not run directly.
 
 if (-not $env:AIQ_PACK_ROOT) {
-    # …/.assert-iq/dreaming/scripts/lib → repo root is four levels up.
+    # .../.assert-iq/dreaming/scripts/lib -> repo root is four levels up.
     $env:AIQ_PACK_ROOT = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\..')).Path
 }
 $script:AiqPackRoot   = $env:AIQ_PACK_ROOT

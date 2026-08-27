@@ -22,7 +22,7 @@
 </head>
 <body>
     <h1>QI foundation instruction</h1>
-    <div class="meta">Generated: 2026-08-11 19:53:45 UTC</div>
+    <div class="meta">Generated: 2026-08-26 16:06:16 UTC</div>
 <p>---
 applyTo: "**"
 description: "QI foundation — applied to every interaction in this repository."
@@ -113,7 +113,10 @@ addressed. If a layer cannot be evaluated, say so explicitly.</p><h2>Decision Co
   - Measures predictiveness of each layer
 - **Memory Drift Detection** — post-dream, compare verdict accuracy before/after
   - Regression test corpus prevents memory degradation</p><h3>Memory Poisoning Prevention</h3></p><p>Before <code>/dream</code> consolidates memory:
-1. Run <code>python3 .assert-iq/analysis/memory-sanity.py</code> for sanity checks:
+1. Run <code>python3 .assert-iq/analysis/memory-sanity.py</code> for sanity checks
+   (on Windows use <code>python</code> or <code>py -3</code> — the python.org installer ships
+   <code>python.exe</code> but no <code>python3.exe</code>, and the Microsoft Store <code>python3</code> is a
+   non-functional stub):
    - Cycle detection (A→B→C→A flags editorial confusion)
    - Fact staleness (>180 days without update)
    - Contradiction detection (conflicting facts across topics)

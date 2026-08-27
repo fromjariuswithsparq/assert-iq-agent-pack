@@ -164,7 +164,10 @@ Longitudinal accuracy is measured via:
 ### Memory Poisoning Prevention
 
 Before `/dream` consolidates memory:
-1. Run `python3 .assert-iq/analysis/memory-sanity.py` for sanity checks:
+1. Run `python3 .assert-iq/analysis/memory-sanity.py` for sanity checks
+   (on Windows use `python` or `py -3` — the python.org installer ships
+   `python.exe` but no `python3.exe`, and the Microsoft Store `python3` is a
+   non-functional stub):
    - Cycle detection (A→B→C→A flags editorial confusion)
    - Fact staleness (>180 days without update)
    - Contradiction detection (conflicting facts across topics)

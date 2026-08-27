@@ -5,6 +5,465 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [2.1.0] — 2026-08-27
+
+**Windows is now a first-class, verified platform for both harnesses.** All four
+supported variations (Windows/macOS x Copilot/Claude Code) are covered, with the
+PowerShell suites run under **both** Windows PowerShell 5.1 and PowerShell 7 — a
+green run on one says nothing about the other, and four 5.1-only defects were
+hiding behind a passing 7 run.
+
+Highlights:
+
+- **Dreaming session hooks actually fire under Copilot.** They had never run on
+  Windows: `$`-prefixed tokens were stripped before PowerShell parsed the command.
+- **Uninstall leaves nothing behind.** Two classes of orphan fixed, plus a memory
+  store that is now preserved on consolidated knowledge rather than mere activity.
+- **`bootstrap.ps1 -Upgrade` applies the update.** It silently dropped it whenever
+  the baseline came from a git tag.
+- **New environment doctors** (`scripts/check-environment.{sh,ps1}`) and an
+  **Environment requirements** section in the README.
+- **Copilot reaches parity with Claude Code** on the specialist tier, including
+  real `agent/runSubagent` delegation, generated from a single source of truth.
+- **~16 new test files**, most notably behavioural coverage that executes the hooks
+  instead of inspecting their shape.
+
+Note for existing installs: if you have never run `/dream`, uninstall now discards
+the un-consolidated session-log trail (it is `/dream`'s input, not its output). Any
+single `/dream` that records a fact keeps the whole store. Removal is never silent.
+
+
+### Added
+
+- **Cross-harness agent sync.** `scripts/sync-agents.sh` / `scripts/sync-agents.ps1`
+  render `.github/agents/specialists/*.agent.md` from `.claude/agents/specialists/*.md`,
+  mapping tool names between the two schemas (`Read`->`codebase`, `Grep`/`Glob`->`search`,
+  `Bash`->`runCommands`, ...). The Claude files are now the single source of truth for
+  the specialist tier; the generated Copilot files carry a DO-NOT-EDIT banner.
+  `--check` / `-Check` verifies freshness, `--print-map` / `-PrintMap` emits the table.
+- **Copilot specialist tier + delegation (parity with Claude Code).** `.github/agents/`
+  gains the 8 generated specialists, and `Assert-IQ.agent.md` gains the
+  `agent/runSubagent` tool plus an `agents:` allowlist and an orchestration section,
+  so Copilot can actually delegate rather than only routing to skills.
+- **`e2e-agent-parity.sh` checks P5 and P6.** P5 fails when the generated Copilot
+  specialists are stale; P6 fails when the bash and PowerShell tool maps diverge
+  (otherwise the generated agents would differ depending on which OS ran the sync).
+- **Test dependency preflight** (`unit-test-dependencies.sh`) now creates the git-ignored
+  runtime sinks (`verdicts/archive/`, `dreaming/.snapshots/`,
+  `business-metrics/reports/`) when they are absent, instead of letting 5 suites fail
+  with cryptic "Archive directory missing" style errors. They are empty directories that
+  git cannot carry, so a fresh clone or a CI checkout never has them; demanding an
+  install first put the suite red on exactly the setups it protects. The installer's
+  obligation to create them is asserted separately, against a real install, by case 41
+  of `e2e-bootstrap.{sh,ps1}`.
+- **Environment doctor.** `scripts/check-environment.sh` / `scripts/check-environment.ps1`
+  report every requirement, what was found, and the exact fix -- host/shell version, git,
+  a working Python 3, jq, symlink capability, shell line endings, and the shape of an
+  existing `.claude/settings.json`. Documented as the first step in the README's new
+  **Environment requirements** section. Blocking issues exit non-zero; warnings mark
+  reduced functionality only.
+- **`.gitattributes`** (the pack never had one). Pins `*.sh`/`*.py` to `eol=lf` and
+  `*.ps1` to `eol=crlf` so a checkout is byte-correct regardless of `core.autocrlf`.
+- **`unit-script-portability.py`** locks down both encoding rules: `.ps1` files must be
+  ASCII-only or BOM-marked, and tracked `.sh`/`.py` must be LF in the index and covered
+  by an `eol=lf` attribute.
+
+### Changed (uninstall preserves memory on knowledge, not on activity)
+
+- **Uninstall left `.assert-iq/memory/` behind on every workspace once the session
+  hooks started firing.** The preserve rule triggered on three conditions, two of
+  which are metadata rather than knowledge: any file under `logs/`, and `MEMORY.md`
+  not saying `Last consolidated: never`. `logs/` is the waking-loop trail that
+  `/dream` *consumes*, and the consolidation stamp records only that a dream ran,
+  not that it found anything. Both conditions were unreachable while the Copilot
+  hooks were broken, so fixing the hooks made every install -> chat -> uninstall
+  leave a store behind whose `topics/` was empty and whose index read
+  `_(no entries yet)_` under every heading -- an orphan tree holding none of the
+  user's knowledge.
+
+  The store is now preserved when it holds actual consolidated knowledge: a
+  `topics/*.md` file, or real content in the `MEMORY.md` index (anything left after
+  stripping the seed's comment block, headings, consolidation stamp and
+  `_(no entries yet)_` placeholders). Deliberately broad -- a hand-written note
+  counts as much as a `/dream` pointer, because an orphan directory costs far less
+  than deleting someone's notes. When a store IS removed, any un-consolidated
+  session logs going with it are named in the output rather than discarded
+  silently.
+
+  **Consequence worth knowing:** if you never run `/dream`, uninstall now discards
+  the session-log trail. Those logs are one line per session and are `/dream`'s
+  input, not its output; a single `/dream` that records anything at all makes the
+  whole store sticky again.
+
+- **`e2e-bootstrap.{sh,ps1}` case 36 asserted the old rule** -- it seeded only a
+  session log and required the store to survive. It now seeds a real
+  `topics/*.md` and asserts the store, the topic AND the un-consolidated logs all
+  survive together. New case 42/43 covers the reported scenario directly: a store
+  with a session log and a "dream ran" stamp but no facts is removed, the workspace
+  is left with nothing but `.git`, and the discarded trail is reported.
+
+### Fixed (Dreaming hooks never fired under Copilot -- found by manual testing)
+
+- **Every Copilot session-event hook was dead, silently.** The rendered hook
+  commands used PowerShell/shell variables, and something between the hook file and
+  the interpreter substitutes every `$`-prefixed token with nothing, so the Windows
+  command arrived as `& {  = if () {  } else { 'C:\...' }; &  }` and died with a
+  `ParserError`. `SessionStart` and `Stop` never ran, so the session counter never
+  advanced and `.assert-iq/memory/logs/` stayed empty. Nothing surfaced but two
+  warnings in the chat pane -- and a hook that cannot start is indistinguishable
+  from a hook with nothing to say.
+
+  All four command strings in `session-events.template.json` are now `$`-free: the
+  installer bakes in an absolute path, which is all these hooks ever needed, because
+  `dream-utils.{ps1,sh}` already derive `AIQ_PACK_ROOT` from their own location. The
+  vestigial `CLAUDE_PLUGIN_ROOT` override is gone from the Copilot file, where it
+  never applied -- it is a Claude Code variable. The Claude templates are unchanged
+  and still use it deliberately.
+
+  The POSIX commands were fixed the same way even though only Windows was reported:
+  the failure cannot be plain shell expansion (`$env:CLAUDE_PLUGIN_ROOT` vanished
+  whole instead of leaving `:CLAUDE_PLUGIN_ROOT` behind), which means the substitution
+  is happening over the raw string and would reach the single-quoted POSIX payloads
+  too. They also no longer need `chmod +x`, since they invoke `bash <script>`.
+
+- **The test that was supposed to catch this passed throughout.**
+  `e2e-hook-execution.py` ran the Copilot command with `shell=True`, which on Windows
+  is `cmd.exe` -- and `cmd.exe` does not touch `$`. It modelled a friendlier
+  environment than the real one. It now strips every `$`-token before running the
+  command and still asserts the observable outcome (counter incremented, dated log
+  written), so the guard fails if a variable is reintroduced. `unit-hook-schema.py`
+  adds the cheap static half: no command in the Copilot template may contain a `$`.
+  Both were negative-tested by restoring the broken command -- the behavioural one
+  reproduces the reported `At line:1 char:12` error exactly.
+
+- **Corrected `.assert-iq/dreaming/README.md`**, which claimed
+  `session-events.template.json` renders into `.claude/settings.json`. It renders to
+  `session-events.json` and is registered through `chat.hookFilesLocations`;
+  `.claude/settings.json` comes from the `claude-hooks.*` templates. The no-`$` rule
+  is documented there for anyone editing the templates.
+
+### Fixed (uninstall left orphaned directories behind)
+
+- **`.assert-iq/business-metrics/` survived every uninstall, on both platforms.** The
+  business-impact report sink arrived in v2.0 and was never added to either script's
+  cleanup lists. Because it is created directly as an empty directory (not copied), it
+  never enters the install manifest, so neither the manifest-driven removal nor the
+  manifest-derived parent-directory sweep could reach it -- `reports/` kept
+  `business-metrics/` non-empty, which in turn kept `.assert-iq/` alive.
+- **`.assert-iq/verdicts/` additionally survived on Windows only.** `bootstrap.ps1`'s
+  cleanup lists had drifted from `bootstrap.sh`'s and were missing `verdicts`, `oracles`,
+  `analysis` and `tests/_qi/regression` entirely. The bash side reaped the verdict
+  archive; the PowerShell side did not. The lists are now in parity.
+- **Both scripts now treat runtime sinks the way they already treated the memory
+  store**: removed when empty (install scaffolding), preserved with an explicit
+  `Preserved your ...` line when they hold real content. The verdict archive is a
+  regulatory audit trail whose purpose is reproducing a past release decision, so a
+  blanket delete would have been a worse bug than the orphan it fixed -- an intermediate
+  version of this fix did exactly that, and case 42 is what caught it.
+- **Regression coverage:** `e2e-bootstrap.{sh,ps1}` case 40/41 asserts the workspace is
+  empty apart from `.git` after uninstall -- deliberately generic, so the next runtime
+  sink someone adds is caught automatically rather than shipping as litter -- and case
+  41/42 asserts content-bearing sinks survive and are reported.
+
+### Fixed (upgrade path on Windows -- found by the newly ported tests)
+
+- **`bootstrap.ps1 -Upgrade` silently dropped the pack update whenever the baseline
+  came from a git tag.** The PowerShell twin of the bash suite was missing five cases,
+  so `-Upgrade` had **zero** Windows coverage. Porting them exposed a real defect in the
+  tag-fallback path (used whenever an install predates the `.assert-iq/.base` cache, or
+  the cache was cleared): the baseline was reconstructed by capturing `git show` into a
+  PowerShell variable, which decodes to strings, splits on newlines and re-joins --
+  losing the exact bytes. `git merge-file` is byte-oriented, so the reconstructed
+  baseline never matched the installed file and every clean three-way merge became a
+  whole-file conflict. The user's edits survived (safe direction), but the pack update
+  was written to a `.assert-iq-new` sidecar and never applied -- an upgrade that
+  reported success without upgrading. Two fixes: a new `Copy-GitBlobToFile` streams the
+  blob to disk byte-exactly (what `git show > file` does in bash), and the baseline is
+  normalized to the destination's line endings, since git stores LF while the Windows
+  working tree is CRLF. macOS is unaffected -- LF throughout, which is why
+  `bootstrap.sh` never needed either fix.
+
+### Added (test coverage that was missing entirely)
+
+- **Five bootstrap cases ported to `e2e-bootstrap.ps1`** (35 clean-slate memory seed,
+  36 uninstall preserves memory, 37 upgrade merge + conflict + orphan, 38 upgrade base
+  cache (tagless), 39 upgrade tag fallback). The two suites are now 43 vs 42 cases and
+  the Windows installer's riskiest operation is covered. `Invoke-RunBoot` now keeps the
+  bootstrap output (cases 35 and 37 assert on it), plus new helpers: `Invoke-MkSource`
+  (tagged/untagged upgrade sources) and byte-preserving fixture edits -- editing with
+  `Get-Content | Set-Content` rewrites the whole file and manufactures merge conflicts
+  the bash suite never sees.
+- **`e2e-bootstrap.ps1` case 40: `install.ps1 -Uninstall` round-trip.** Cases 22/23
+  covered only install, reinstall and key preservation. The new case asserts the pack's
+  wiring is removed while the user's other `settings.json` keys and their dreamed
+  `.assert-iq/memory/` data survive. Negative-tested by sabotaging the uninstall.
+- **`unit-generated-docs-current.py`** gates the generated `docs/html/` set against its
+  markdown sources, the way check P5 gates the generated Copilot agents. That set had
+  been stale since before v2.0.0 with nothing to catch it.
+
+### Changed (Windows host policy)
+
+- **PowerShell 7+ (`pwsh`) is now the documented Windows default; Windows PowerShell 5.1
+  remains supported and tested.** Every Windows command in the docs, the installer
+  guard messages, and `check-environment.ps1` leads with `pwsh`, with 5.1 named as the
+  no-install fallback. This is a documentation/recommendation change, not a support drop:
+  the full matrix passes on both hosts (`e2e-bootstrap.ps1` 43/43 and `e2e-dreaming.ps1`
+  7/7 under each), so nothing was removed and no 5.1 workaround was reverted.
+
+  5.1 stays a first-class host for a concrete reason: **the session-event handlers invoke
+  `powershell`**, and on a typical Windows box that name resolves to 5.1 even when `pwsh`
+  is installed. Requiring PowerShell 7 for the *installers* would not change which
+  interpreter runs the *hooks* -- the component that fails silently when it breaks. The
+  practical reason to prefer 7 is narrower: it can usually create the `.claude/skills`
+  symlink where 5.1 falls back to a copy.
+
+  Contributors must run the PowerShell suites under **both** hosts; the suites print
+  which host they ran under. Every 5.1 defect fixed below was hidden behind a fully green
+  PowerShell 7 run.
+
+### Fixed (Windows PowerShell 5.1 -- found by executing the hooks, not inspecting them)
+
+These four were invisible to every structural check in the suite. All of them are
+5.1-only, so a fully green PowerShell 7 run said nothing about them, and 5.1 is the
+only PowerShell guaranteed present on a Windows machine.
+
+- **`bootstrap.ps1 -Mode trial` left the entire pack VISIBLE to git.** `Test-Tracked`
+  probes each file with `git ls-files --error-unmatch`, which writes to stderr for every
+  *untracked* file -- the normal case in trial mode. Under
+  `$ErrorActionPreference='Stop'`, Windows PowerShell 5.1 promotes native stderr to a
+  **terminating** error, and `2>$null` does not prevent it. So bootstrap aborted after
+  copying files but *before* writing `.git/info/exclude`: trial mode did the opposite of
+  what it promises. PowerShell 7 was unaffected via
+  `$PSNativeCommandUseErrorActionPreference`, which 5.1 lacks. `git` is now shadowed by a
+  function that runs git.exe with the preference relaxed, fixing all ~37 call sites at
+  once while preserving `$LASTEXITCODE`.
+- **Every JSON file PowerShell wrote was unreadable to the pack's Python tooling.**
+  `Set-Content -Encoding UTF8` means UTF-8 **with a BOM** on 5.1 and **without** one on 7.
+  Python's `json.load` rejects a BOM (`Expecting value: line 1 column 1`), so dream state,
+  the verdict archive, the install manifest and `.claude/settings.json` written on a 5.1
+  box broke `calibration.py`, `memory-sanity.py`, the verdict recorder and
+  `dreaming_service.py`. `-Encoding utf8NoBOM` exists only in PowerShell 6+, so all 14
+  write sites now go through a `Write-AiqUtf8` helper backed by
+  `UTF8Encoding($false)`. Guarded by `unit-script-portability.py`.
+- **The runtime Python readers had no encoding at all.** 18 `open()` calls in
+  `calibration.py`, `memory-sanity.py`, `verdict-recorder.py` and `dreaming_service.py`
+  used the locale default -- cp1252 on Windows -- which fails on a BOM *and* on any
+  non-ASCII content. Reads now use `utf-8-sig` (tolerates a BOM from any producer),
+  writes use `utf-8` with `newline="\n"`.
+- **`install.sh` on Windows produced a Windows-broken install, silently.** It renders the
+  POSIX Claude template (`shell="bash"`, `.sh` hook scripts) and bakes an MSYS pack root
+  (`/c/Users/...`) that PowerShell cannot resolve -- so the Copilot `windows` override hit
+  `if (-not (Test-Path $s)) { exit 0 }` and **exited successfully having done nothing**.
+  It now refuses under MSYS/Cygwin and names `install.ps1`; `--allow-msys` /
+  `AIQ_ALLOW_MSYS=1` overrides (the bash suites set it deliberately).
+- **The E2E PowerShell harness could not run on 5.1 at all.**
+  `ProcessStartInfo.ArgumentList` does not exist on .NET Framework, so `.Add()` threw
+  "You cannot call a method on a null-valued expression" for every case. It now falls back
+  to the quoted `.Arguments` string, and the suite prints which host it ran under, because
+  a green run on one host proves nothing about the other.
+
+### Added (behavioral hook coverage)
+
+- **`e2e-hook-execution.py`** executes the command each harness would actually run on the
+  current platform -- Copilot's `osx`/`linux`/`windows` override and Claude Code's
+  matcher-group body with its declared `shell` -- and asserts the observable state change
+  (`sessions_since_dream` reaches 5, a dated log appears, SessionStart emits the nudge).
+  `CLAUDE_PLUGIN_ROOT` is deliberately unset so the baked-in fallback path is under test,
+  which is the half that was broken for Copilot on Windows. One implementation covers all
+  four supported variations: running it on Windows exercises Windows+Copilot and
+  Windows+Claude Code, on macOS the two Mac variations.
+
+### Fixed (Windows environment foundation)
+
+- **`bootstrap.ps1` and `install.ps1` failed to PARSE under Windows PowerShell 5.1,
+  installing nothing.** Windows PowerShell 5.1 -- the only PowerShell guaranteed present
+  on a Windows box -- reads a BOM-less file as the system ANSI code page, not UTF-8
+  (7+ reads UTF-8). `bootstrap.ps1` carried 43 em dashes and 9 box-drawing characters
+  written on macOS; under 5.1 the em dash in `"... tracked by git -- using --skip-worktree"`
+  became three cp1252 characters, the third a QUOTE, which terminated the string literal
+  and produced `Unexpected token 'using' in expression or statement` plus cascading
+  `Missing statement block` errors. The README advertised 5.1 support the whole time.
+  All five affected `.ps1` files are now ASCII-only, and both installers plus both
+  Dreaming hook scripts are verified end-to-end under 5.1 **and** 7.
+- **`.claude/skills` silently degraded from a symlink to a copy.** Both installers passed
+  the relative target `..\.github\skills` to `New-Item -ItemType SymbolicLink`. NTFS
+  resolves a stored relative target against the link's own directory, but PowerShell
+  validates `-Target` against the CURRENT WORKING DIRECTORY first -- and bootstrap is
+  normally run from outside the target workspace, so validation failed and the `catch`
+  fell back to a recursive copy even with Developer Mode enabled. The link is now created
+  from inside its parent directory, which keeps the stored target relative (required: the
+  pack-owned-link check compares that exact string, so an absolute target would make every
+  re-install produce a sidecar).
+- **`bootstrap.sh` under Git Bash looked like a hang.** MSYS process creation costs
+  ~50-100 ms and a full install copies and hashes ~1000 files one child process at a
+  time: measured 9+ minutes for a single install on Windows 11, silent for most of it.
+  `bootstrap.sh` now refuses to run under MSYS/Cygwin and names the PowerShell command to
+  use instead; `--allow-msys` (or `AIQ_ALLOW_MSYS=1`, which the e2e suite sets) overrides.
+  WSL is unaffected. `e2e-bootstrap.sh` also warns up front when run under Git Bash.
+- **`dreaming_service.py` was unimportable on Windows.** A module-scope `import fcntl`
+  (POSIX-only) meant the optional background dreamer -- and the pack's own sandbox test --
+  could not even load. It now probes `fcntl`/`msvcrt` and uses the platform's advisory
+  lock, verified to give real mutual exclusion on Windows.
+- **`e2e-dreaming.sh` reported four false failures on Windows.** It called bare `python3`
+  in five places; the Microsoft Store stub made every state read return empty, which
+  surfaced as bogus "gate fired at 3 sessions" errors. All Python now goes through the
+  resolver. Suite: 3/7 -> 7/7.
+- **`e2e-dreaming.ps1` claimed parity with the bash driver but covered 5 of its 7 cases.**
+  Added the time-gate and write-sandbox cases (both negative-tested), and made
+  `Resolve-Python` 5.1-safe -- with `$ErrorActionPreference='Stop'`, Windows PowerShell 5.1
+  turns native-command stderr into a terminating error, so probing the Store `python3`
+  stub aborted the whole suite. Now 7/7 under both hosts.
+- **The E2E PowerShell harness hard-coded `pwsh`**, making it unrunnable on a stock Windows
+  box. It now spawns child processes with the current host.
+- **`install.sh` worked exactly once on any machine without `jq`.** The
+  `.claude/settings.json` merge was jq-only, and the no-jq branch aborted as soon as the
+  file existed ("jq not installed and .claude/settings.json already exists"). Stock macOS
+  ships Python 3 but not jq, so every re-run of the documented, advertised-as-re-runnable
+  Path A failed there. The merge now prefers Python (resolved by execution:
+  `python3` → `python` → `py -3`) and falls back to jq; with neither it fails loudly and
+  leaves the file byte-identical rather than partially written. Pinned by
+  `unit-install-settings-merge.sh`.
+- **`unit-hook-schema.py` could not see a broken renderer.** It checked that each installer
+  *references* the Claude-shaped template, which stayed true while `bootstrap.ps1` never
+  dot-sourced `render-events.ps1` -- so `Render-EventsTemplate` was undefined, the call
+  threw, a `catch` swallowed it into a `missing-template` record, and no
+  `.claude/settings.json` was written at all (5 of 34 `e2e-bootstrap.ps1` cases). The test
+  now also asserts the render library is loaded in the same scope as the render call.
+
+### Fixed (Dreaming + trial-mode install)
+
+- **Trial-mode install leaked 4 files into git.** After `bootstrap --mode=trial`,
+  `.assert-iq/agent-runs/.gitignore`, `agent-runs/index.json`,
+  `business-metrics/.gitignore` and `business-metrics/baseline.json` showed up in
+  `git status` even though all four WERE listed in `.git/info/exclude`. Cause: a
+  `.gitignore` deeper in the tree outranks `.git/info/exclude`, so the negation
+  patterns those two files used (`*` + `!index.json`, `*.json` + `!baseline.json`)
+  silently RE-INCLUDED them. `git check-ignore -v` named the negation as the
+  winning rule. Both files now use additive patterns only
+  (`*.specialist-outputs.json`, `reports/`), which keeps the seed files trackable
+  in committed mode and the generated artifacts ignored. New
+  `unit-gitignore-hygiene.sh` fails on any negation in a pack-shipped
+  `.gitignore`.
+
+- **Dreaming never fired under Claude Code (any OS).** The installers copied the
+  Copilot-shaped `session-events.json` verbatim into `.claude/settings.json`, but
+  the two harnesses have incompatible hook schemas:
+  - VS Code Copilot puts handlers directly in the event array and takes
+    `osx`/`linux`/`windows` command overrides.
+  - Claude Code requires a matcher-group wrapper with a nested `hooks` array, has
+    no platform keys, and selects the interpreter with a `shell` field.
+
+  Claude Code silently ignores a flat handler, so neither SessionStart (dream
+  gate) nor Stop (session recorder) ever ran under Claude Code -- while the same
+  file kept working under VS Code on macOS, which made it look like a platform
+  problem rather than a schema problem. `.claude/settings.json` is now rendered
+  from its own Claude-shaped templates
+  (`claude-hooks.posix.template.json` / `claude-hooks.windows.template.json`);
+  `session-events.json` is unchanged, so the working Copilot path is untouched.
+  Verified end-to-end on Windows: the Stop hook bumped `sessions_since_dream`
+  0 -> 1 and wrote the daily log; the SessionStart gate stayed quiet at 1 session
+  and nudged at 5.
+
+  The Windows template uses PowerShell handlers, so the bash/`python3`/`fcntl`
+  path is never taken on Windows at all.
+
+- **The command body must not re-invoke its own interpreter.** With
+  `shell: "powershell"` the body is already run by PowerShell, so the original
+  `powershell -NoProfile -Command "& {...}"` wrapper double-processed the quoting
+  and died with a ParserError. Both Claude templates now carry native command
+  bodies. Guarded by `unit-hook-schema.py`.
+
+- **A missing interpreter silently disabled Dreaming.** `aiq_enabled()` ran a
+  `python3` snippet and returned ITS exit status, so a missing or stubbed
+  interpreter was indistinguishable from `dreaming.enabled: false`: the hook
+  exited 0, printed `{"continue":true}` and wrote nothing. The gate is now pure
+  `awk` (no interpreter at all), the remaining `python3` uses go through a
+  `python3 -> python -> py -3` resolver, and a failure now leaves a breadcrumb in
+  `.assert-iq/memory/logs/dreaming-errors.log` instead of failing quietly.
+  `fcntl` (POSIX-only) degrades to no locking rather than crashing.
+
+  Caught while testing: the first `awk` rewrite matched `enabled: false` at ANY
+  depth inside the `dreaming:` block, and the shipped `config.yaml` has a NESTED
+  `enabled: false` for the optional background dreamer -- that rule would have
+  disabled Dreaming for every user. Only the first `enabled:` counts, matching
+  the original python semantics. Pinned down by `unit-dreaming-gate.sh` (6 cases,
+  all run with an empty interpreter PATH on purpose).
+
+- **`e2e-dreaming.sh` embedded POSIX paths inside `python3 -c` strings.** Under
+  MSYS/Git Bash, argv is translated to Windows paths but a string literal is not,
+  so the harness's own state reads/writes silently no-op'd; the counter came back
+  empty and cascaded into bogus "gate fired at 3 sessions" failures. Paths now go
+  through argv. On Windows the suite went 3/7 -> 6/7; the remaining failure is
+  `dreaming_service.py` importing POSIX-only `fcntl` (the OPTIONAL background
+  dreamer, not the hook path).
+
+- **`AIQ_CONFIG` is now overridable** (like `AIQ_MEMORY_DIR` already was) so the
+  enable-gate can be tested against fixture configs rather than only the live one.
+
+### Changed
+
+- **Markdown / HTML documentation parity enforced.** Every user-facing doc ships
+  twice (markdown + hand-authored HTML sister) and the two had drifted. New
+  `unit-doc-parity.py` compares heading trees (text *and* depth) across all 7
+  pairs; deliberate differences must be declared with a reason, and a declared
+  exception that is no longer divergent also fails so waivers cannot rot.
+  Fixed in the process:
+  - `README.assert-iq.html` was missing the entire **Calibration &
+    Reproducibility (v1.7.0+)** section, including "The Moat" — the pack's core
+    commercial argument — and gained it plus a sidebar entry.
+  - `README.assert-iq.md` was missing the **Multi-agent orchestration (v2.0)**
+    section the HTML had.
+  - Four Installation topics (Pinning to a tag, What bootstrap delivers, Trial vs
+    Committed, Upgrading to a new release) sat at `<h4>` in HTML but `###` in
+    markdown. `build-search-index.py` indexes h1–h3 only, so those sections were
+    **invisible to the site search**; promoting them fixed both the divergence
+    and the search gap.
+  - `MCP.html` had dropped the `The 20 servers` parent section and promoted all 8
+    server categories to `h2`.
+  - `dreaming-readme.html` numbered its sections ("1. The two loops") while the
+    markdown did not, so every title disagreed; it was also missing **Git
+    visibility follows install mode**, and the markdown was missing the
+    **Why Dreaming — and how it saves tokens** section (token-savings model).
+  - `README.html` had drifted titles: `Tailor the pack to your codebase` while
+    its own anchor still read `customize-and-wire-everything-in`.
+  - Search index grew 103 → 111 entries as a direct result.
+
+- **`jq` is no longer a dependency.** All 13 call sites moved to Python helpers in
+  `.assert-iq/tests/_qi/automated/lib/aiq-test-lib.sh`. A regression guard in the
+  preflight fails if `jq` is reintroduced. The suite now needs one interpreter, not two.
+- **Python is resolved, not assumed.** Tests probe `python3` -> `python` -> `py -3` by
+  EXECUTING each candidate. On Windows the Microsoft Store ships a `python3` stub that
+  resolves on PATH but fails on invocation, and the python.org installer provides
+  `python.exe` with no `python3.exe` at all — so a correctly installed machine could
+  still fail every JSON assertion.
+- **Specialist tool grants corrected.** `hotspot-analyzer` and `calibration-specialist`
+  gained `Bash`/`runCommands`: the former derives churn from git history, the latter
+  runs `.assert-iq/analysis/calibration.py`. Neither could do its job read-only.
+
+### Fixed
+
+- **macOS bash 3.2 compatibility regression.** The new tests used `mapfile` (bash 4.0+)
+  and `local -n` (bash 4.3+), which hard-fail on the `/bin/bash` macOS still ships, and
+  the preflight demanded bash >= 4. All replaced with 3.2-safe constructs; the floor is
+  now documented as 3.2.
+- **`Merge-MarkdownFile` was not idempotent (PowerShell only).** `Write-AtomicFile` uses
+  `Set-Content`, which appends its own line terminator, so every bootstrap re-run grew
+  `copilot-instructions.md` / `CLAUDE.md` / `AGENTS.md` by one CRLF (944 -> 946 -> 948
+  bytes). `scripts/bootstrap.sh` writes with `printf` and was unaffected, which is why a
+  macOS-only test run never surfaced it.
+- **`scripts/generate-documentation-html.py` could not run on Windows.** Four bare
+  `open()` calls used the locale default (cp1252) and died with
+  `UnicodeDecodeError` on the first em-dash in the markdown; after that was
+  fixed it crashed again printing its own ✅/→ progress glyphs, *after* having
+  already written output files, leaving `docs/html/` half-regenerated. Now pins
+  `encoding='utf-8'` on every open, forces UTF-8 stdout, and pins the output
+  newline so regenerating on Windows does not rewrite every file as CRLF.
+
+- **`e2e-version-consistency.sh`** no longer mistakes a `## [Unreleased]` heading for a
+  release when comparing `VERSION` to the changelog.
+
 ## [2.0.2] — 2026-08-12
 
 ### Fixed
@@ -29,6 +488,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 - Added memory protection guide: 4-layer safeguard, best practices for protecting custom files
 - Created topics/memory-protection-guide.md with detailed protection mechanisms and scenarios
+
+## [2.0.0] — 2026-08-11
+
+_Backfilled. The v2.0.0 release (commit `0f02b88`) shipped without a changelog
+entry, so the file jumped 1.7.0-alpha1 → 2.0.1 and the headline feature of the
+major version was undocumented here._
+
+### Added
+
+- **Multi-Agent Orchestration.** The Claude Code lead agent
+  (`.claude/agents/assert-iq.md`) became a Lead Orchestrator that delegates to
+  8 isolated specialist subagents in `.claude/agents/specialists/` rather than
+  analyzing directly:
+  - Parallel batch (independent): `risk-scorer`, `coverage-analyst`,
+    `flake-adjudicator`, `hotspot-analyzer`
+  - Serial tier (depends on earlier findings): `oracle-grader`,
+    `calibration-specialist`, `memory-curator`, `traceability-auditor`
+  - Each specialist returns structured JSON only; the lead synthesizes a single
+    narrative plus a Recommendation / Next Steps / Owners / Timeline close.
+  - Audit trail written to `.assert-iq/agent-runs/`.
+- **Commercial Instrumentation.** New `/measure-qi-impact` skill converts QI
+  verdicts plus baseline metrics into VP-ready HTML dashboards: escape
+  reduction %, triage hours reclaimed, release-cycle acceleration, and total
+  economic ROI. Configured via `business_metrics` in `.assert-iq/config.yaml`,
+  with pre-QI figures in `.assert-iq/business-metrics/baseline.json` and reports
+  written to `.assert-iq/business-metrics/reports/` (git-ignored).
+
+### Compatibility
+
+- v2.0.0 is a strict superset of v1.7.0 — no breaking changes.
+- **Copilot parity gap (known, unresolved at release).** The specialist tier and
+  orchestration model were added to `.claude/agents/` only. `.github/agents/`
+  has no `specialists/` directory, so VS Code Copilot continued to use v1.x
+  single-agent skill routing. This was not recorded at the time; it is now
+  asserted by `.assert-iq/tests/_qi/automated/e2e-agent-parity.sh`.
 
 ## [1.7.0-alpha1] — 2026-08-11
 
@@ -680,6 +1174,7 @@ change in incompatible ways without a major-version bump.
 
 See git history (`git log v0.8.0`). Releases prior to 1.0.0 are pre-stable.
 
+[2.1.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.0.2...v2.1.0
 [1.1.1]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v0.9.0...v1.0.0

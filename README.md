@@ -35,7 +35,7 @@ The immediate impact:
 Assert.IQ is the accelerator. It drops a QI reasoning layer directly into **GitHub Copilot Chat** and **Claude Code** so teams don't have to learn a new tool or change their workflow. The IDE they already use becomes QI-aware.
 
 - **30 skills** covering the full QE lifecycle — test generation, code review, risk assessment, hotspot mapping, traceability matrices, release confidence, escaped-defect analysis, exploratory charters, oracle-based grading, business metrics dashboards, and more.
-- **Multi-agent orchestration (v2.0)** — two lead agents (`Assert-IQ` for full execution, `Assert-IQ-PLAN` for plan-first workflows) orchestrate **8 isolated specialist agents** (risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer, oracle-grader, calibration-specialist, memory-curator, traceability-auditor) that run in parallel then serially, each returning structured JSON the lead synthesizes into one decision.
+- **Multi-agent orchestration (v2.0)** — available on **both** harnesses: two lead agents (`Assert-IQ` for full execution, `Assert-IQ-PLAN` for plan-first workflows) orchestrate **8 isolated specialist agents** (risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer, oracle-grader, calibration-specialist, memory-curator, traceability-auditor) that run in parallel then serially, each returning structured JSON the lead synthesizes into one decision.
 - **Business impact dashboards (v2.0)** — the `/measure-qi-impact` skill converts QI verdicts into VP-ready HTML dashboards: escape reduction %, triage hours reclaimed, cycle-time acceleration, and total economic ROI in dollars.
 - **Maturity-aware behavior** — a one-file config scales the pack from "early / manual generation only" to "higher / autonomous healing," meeting teams where they are.
 - **MCP wiring** to GitHub, ADO, Jira, Sentry, Grafana, Playwright, Slack, and 13 more tool surfaces — configured in one file, credentials kept in your OS keychain.
@@ -62,6 +62,7 @@ Assert.IQ v1.7.0 introduces **Decision Confidence Calibration**: a longitudinal 
 **Quick example:**
 ```bash
 python3 .assert-iq/analysis/calibration.py --window-days 90 --output report.json
+# Windows: python.org ships python.exe but no python3.exe — use `python` or `py -3`
 # Outputs: Brier Score, Confusion Matrix, Per-Layer Fidelity, Drift Alerts
 ```
 
@@ -169,6 +170,56 @@ Enable in `.assert-iq/config.yaml` — set `business_metrics.enabled: true` and 
 
 ---
 
+## Environment requirements
+
+Run the environment check first. It reports every requirement, what it found, and the exact fix for anything missing — so a bad environment surfaces here instead of as a confusing failure mid-install.
+
+```bash
+# macOS / Linux / WSL
+bash scripts/check-environment.sh
+
+# Windows
+pwsh -File scripts/check-environment.ps1
+```
+
+| | macOS / Linux / WSL | Windows |
+|---|---|---|
+| **Installer to run** | `bash install.sh`, `bash scripts/bootstrap.sh` | `install.ps1`, `scripts\bootstrap.ps1` |
+| **Host** | bash 3.2+ (macOS's `/bin/bash` qualifies) | **PowerShell 7+ (`pwsh`) recommended.** Windows PowerShell 5.1 is supported and tested — see below |
+| **git** | Required | Required |
+| **Python 3** | Required for calibration, memory sanity, verdict recording | Same — the pack resolves `python3` → `python` → `py -3` itself |
+| **jq** | Optional for install; **required** for `bootstrap.sh --upgrade` | Not used — the PowerShell path parses JSON natively |
+| **Symlinks** | Native | Developer Mode for a live `.claude/skills`; otherwise it is copied |
+
+**Why PowerShell 7 is the recommendation.** Both hosts pass the full suite, so 5.1 is a real fallback, not a warning label — install nothing if you'd rather not. PowerShell 7 is simply the better default: it creates a live `.claude/skills` symlink where 5.1 usually falls back to a copy, and it avoids a family of .NET Framework quirks (native stderr promoted to terminating errors, `-Encoding UTF8` writing a byte-order mark) that the pack now works around explicitly rather than relies on.
+
+```powershell
+winget install Microsoft.PowerShell     # optional; 5.1 works if you skip it
+```
+
+Note that **your Dreaming hooks may still run under 5.1 regardless** of what you install: the session-event handlers invoke `powershell`, and on a typical Windows box that name resolves to 5.1 even when `pwsh` is present. That is why 5.1 stays supported and tested rather than merely tolerated.
+
+### Windows specifics
+
+These four are the only Windows behaviors that differ enough to matter:
+
+- **Use the PowerShell installers, not Git Bash.** `bootstrap.sh` refuses to run under Git Bash/MSYS and points you at `bootstrap.ps1`. Windows process creation costs ~50–100 ms, and a full install copies and hashes ~1000 files one child process at a time: **9+ minutes** per install under Git Bash versus about a minute under PowerShell, with no output for most of it — indistinguishable from a hang. Override with `--allow-msys` if you truly want it. **WSL is unaffected** — inside WSL this is Linux, and bash is the right path.
+- **`python3` may be a decoy.** The Microsoft Store ships a `python3` stub that resolves on `PATH`, prints an install hint, and exits non-zero; the python.org installer provides `python.exe` with **no** `python3.exe`. Every pack script probes `python3` → `python` → `py -3` by executing it, so a correct install works either way. If you see a Microsoft Store hint where you expected Python, that is the stub.
+- **Developer Mode controls `.claude/skills`.** With it on, `.claude/skills` is a live symlink to `.github/skills` and skill edits appear immediately. Without it the installer copies the directory, so re-run the installer after editing a skill. Windows PowerShell 5.1 often cannot create symlinks even with Developer Mode on, while PowerShell 7 usually can — the main practical reason to prefer `pwsh`. `check-environment.ps1` tells you which you will get.
+- **Line endings.** The pack pins shell scripts to LF via `.gitattributes`. If your checkout predates that file and you also use it from WSL, run `git add --renormalize . && git checkout -- .` — bash on Linux/macOS rejects a CRLF script with `$'\r': command not found`.
+
+> **Contributors — run the PowerShell suites under _both_ hosts.** Windows PowerShell 5.1 and PowerShell 7 are different runtimes with different failure modes, and a green run on one proves nothing about the other. 5.1 is .NET Framework (no `ProcessStartInfo.ArgumentList`), it promotes native-command stderr to a *terminating* error under `$ErrorActionPreference='Stop'`, and its `-Encoding UTF8` writes a BOM that Python's `json.load` rejects. Every one of those produced a real, silent Windows defect that a fully green PowerShell 7 run reported as fine.
+>
+> ```powershell
+> powershell -File tests\_qi\automated\e2e-bootstrap.ps1   # Windows PowerShell 5.1
+> pwsh       -File tests\_qi\automated\e2e-bootstrap.ps1   # PowerShell 7+
+> powershell -File tests\_qi\automated\e2e-dreaming.ps1
+> pwsh       -File tests\_qi\automated\e2e-dreaming.ps1
+> bash .assert-iq/tests/_qi/automated/run-all.sh           # includes e2e-hook-execution.py
+> ```
+>
+> The suites print which host they ran under for exactly this reason.
+
 ## Get started in three steps
 
 ### 1 · Install the pack
@@ -180,9 +231,10 @@ There are exactly two install paths. Pick the one that matches how comfortable y
 ```bash
 git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack
 cd assert-iq-agent-pack
-bash install.sh           # macOS / Linux / WSL
+bash install.sh                      # macOS / Linux / WSL
 # or
-pwsh ./install.ps1        # Windows PowerShell 7+
+pwsh -File install.ps1               # Windows (also works on macOS/Linux)
+# Windows PowerShell 5.1 works too:  powershell -File install.ps1
 ```
 
 The installer renders the session-events wiring for the pack's own root, scaffolds the `.assert-iq/memory/` store, wires `.claude/settings.json`, and creates the `.claude/skills` symlink — all inside the pack folder. Re-runnable. Reverse it with `bash install.sh --uninstall` (or `pwsh ./install.ps1 -Uninstall`).
@@ -197,11 +249,12 @@ git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack ~/assert-i
 cd ~/code/my-app
 
 # 3. Run the bootstrap script from the clone
+# macOS / Linux / WSL:
 bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
-# Windows (PowerShell 5.1 or PowerShell Core):
-powershell -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
-# or if you have PowerShell Core 7+ installed:
-pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
+# Windows — use PowerShell, NOT Git Bash (see Environment requirements above):
+pwsh -File $HOME/assert-iq-agent-pack/scripts/bootstrap.ps1 -Mode trial
+# Windows PowerShell 5.1 works too, if you don't have pwsh:
+#   powershell -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
 ```
 
 The script is fully standalone — it accepts `--preset=solo|pod`, prompts interactively when run in a TTY, and writes everything Copilot and Claude need into your workspace. **There is no chicken-and-egg.** You do not need to open VS Code or Claude Code first, and you do not need the `/assert-iq-bootstrap` skill loaded — the script is what the skill calls under the hood.
@@ -316,6 +369,7 @@ The agent pulls context from your connected tools and reasons through all four s
   instructions/               ← 6 scoped rule sheets (tests, C#/XAML, CI, oracle, etc.)
   skills/                     ← 30 QI skills, one subfolder each
   agents/                     ← Assert-IQ and Assert-IQ-PLAN lead agent definitions
+    specialists/              ← 8 specialists, GENERATED by scripts/sync-agents.sh
 .claude/
   agents/                     ← Claude Code lead + grader subagents
     specialists/              ← 8 v2.0 orchestration specialists (JSON-only output)
@@ -330,6 +384,7 @@ The agent pulls context from your connected tools and reasons through all four s
   business-metrics/           ← v2.0 baseline metrics + quarterly ROI dashboards
 scripts/
   bootstrap.sh / .ps1         ← workspace installer, cross-platform
+  sync-agents.sh / .ps1       ← renders the Copilot specialists from .claude sources
 ```
 
 ---

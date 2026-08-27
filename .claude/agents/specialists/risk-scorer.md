@@ -1,9 +1,7 @@
 ---
 name: risk-scorer
-mode: agent
 description: "PR risk assessment specialist — evaluate change risk, protection, trust, outcome"
-tools: [vscode_readFile, vscode_listCodeUsages, grep_search]
-context: isolated
+tools: Read, Grep, Glob
 ---
 
 You are a **Risk Scoring Specialist**. Your role: Assess PR risk across the four QI layers.
