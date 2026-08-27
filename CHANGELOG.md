@@ -125,6 +125,37 @@ brace list is unconfirmed in a live session — worth one manual check on a
 - `/assert-iq-tailor` Phase 3 now validates model IDs rather than trusting the
   shipped default, and records these two as the reason the check exists.
 
+### Fixed (Windows PowerShell 5.1 wrote a BOM into every merged JSON file)
+
+`Write-AtomicFile` in `scripts/bootstrap.ps1` -- the single writer behind the
+install manifest, `.claude/settings.json`, `.vscode/settings.json` and every
+marker-merged markdown file -- staged its temp file with
+`Set-Content -Encoding $Encoding`, `$Encoding` defaulting to `'UTF8'`. On
+Windows PowerShell 5.1 (the host on a stock Windows box, and one the pack
+declares supported and tested) `-Encoding UTF8` means UTF-8 **with** a BOM.
+PowerShell 7 means UTF-8 *without* one, which is why no pwsh-7 or macOS run
+ever surfaced this.
+
+Symptom: every install on 5.1 wrote `.assert-iq/.install-manifest.json`
+beginning `EF BB BF`, which `json.load(open(..., encoding="utf-8"))` rejects
+outright -- `Unexpected UTF-8 BOM (decode using utf-8-sig)` -- and which a
+strict `JSON.parse` refuses in `.claude/settings.json`, silently un-wiring the
+Dreaming hooks the installer had just finished writing.
+
+- `Write-AtomicFile` now stages through `Write-AiqUtf8` (.NET
+  `UTF8Encoding($false)`), like every other writer in the pack. Its unused
+  `-Encoding` parameter is gone. Byte output is otherwise unchanged -- one
+  trailing `[Environment]::NewLine` -- so the trailing-newline fixed point in
+  `Merge-MarkdownFile` still holds and re-merges stay idempotent.
+- **Why the existing guard missed it:** check 1b in
+  `unit-script-portability.py` matched the *literal* string `-Encoding UTF8`,
+  and this call site named the encoding through a variable. The check now
+  flags `Set-Content` / `Add-Content` / `Out-File` in shipped `.ps1` **by
+  cmdlet, regardless of arguments** -- no argument to those three is both
+  BOM-safe and ANSI-safe across 5.1 and 7, so the rule is now simply "shipped
+  PowerShell writes text through `Write-AiqUtf8`."
+
+
 
 ## [2.1.0] — 2026-08-27
 

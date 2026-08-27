@@ -40,6 +40,7 @@ PORTABILITY: stdlib only. Run from the repo root.
 
 import io
 import os
+import re
 import sys
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -123,7 +124,16 @@ else:
 # -- with json.JSONDecodeError "Expecting value: line 1 column 1" as the only
 # clue. `-Encoding utf8NoBOM` would fix it but exists only in PowerShell 6+, so
 # the pack writes through .NET UTF8Encoding($false) instead (Write-AiqUtf8).
+# This check used to match the LITERAL text '-Encoding UTF8', and so missed
+# scripts/bootstrap.ps1's Write-AtomicFile, which named the encoding through a
+# variable (`-Encoding $Encoding`, defaulting to 'UTF8'). That one call site
+# BOM-stamped the install manifest, .claude/settings.json and .vscode/
+# settings.json on every stock-5.1 install. Matching on the argument is
+# therefore not good enough: the rule is now the CMDLET, not its arguments.
+# Shipped PowerShell writes text through Write-AiqUtf8, full stop -- there is no
+# argument to these three that is BOM-safe AND ANSI-safe on both 5.1 and 7.
 SHIPPED_PS1_PREFIXES = ("install.ps1", "scripts/", ".assert-iq/")
+BOM_CMDLETS = ("Set-Content", "Add-Content", "Out-File")
 bom_writers = []
 for path in ps1_files:
     if not any(path.startswith(pre) for pre in SHIPPED_PS1_PREFIXES):
@@ -133,14 +143,18 @@ for path in ps1_files:
         stripped = line.strip()
         if stripped.startswith("#"):
             continue
-        if ("-Encoding UTF8" in line or "-Encoding utf8" in line) and any(
-                w in line for w in ("Set-Content", "Add-Content", "Out-File")):
-            bom_writers.append("%s:%d" % (path, lineno))
+        for cmdlet in BOM_CMDLETS:
+            if re.search(r"(?<![\w-])" + cmdlet + r"(?![\w-])", line):
+                bom_writers.append("%s:%d (%s)" % (path, lineno, cmdlet))
+                break
 if bom_writers:
-    bad("shipped PowerShell writes UTF-8 with a BOM under Windows PowerShell 5.1 "
-        "(use Write-AiqUtf8): %s" % ", ".join(bom_writers))
+    bad("shipped PowerShell writes text with Set-Content/Add-Content/Out-File; "
+        "under Windows PowerShell 5.1 -Encoding UTF8 adds a BOM and the default "
+        "is cp1252, either of which breaks the pack's JSON readers. "
+        "Use Write-AiqUtf8: %s" % ", ".join(bom_writers))
 else:
-    ok("no shipped .ps1 writes a BOM (Python JSON readers stay parseable on 5.1)")
+    ok("no shipped .ps1 writes text with Set-Content/Add-Content/Out-File "
+       "(Python and Node JSON readers stay parseable on 5.1)")
 
 # ---- 1c. `set -e` + top-level ((VAR++)) silently truncates a script -------
 # Under `set -e`, an arithmetic command's exit status is the FALSEness of its

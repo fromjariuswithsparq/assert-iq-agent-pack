@@ -405,8 +405,7 @@ function Write-AtomicFile {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)] [string] $Path,
-        [Parameter(Mandatory)] [string] $Content,
-        [string] $Encoding = 'UTF8'
+        [Parameter(Mandatory)] [string] $Content
     )
     if ([string]::IsNullOrWhiteSpace($Content)) {
         throw "Write-AtomicFile: refusing to write empty content to $Path"
@@ -417,7 +416,21 @@ function Write-AtomicFile {
     }
     $tmp = "$Path.$([guid]::NewGuid().ToString('N')).tmp"
     try {
-        Set-Content -LiteralPath $tmp -Value $Content -Encoding $Encoding
+        # Write-AiqUtf8, NOT Set-Content. This was
+        # `Set-Content -Encoding $Encoding` with $Encoding defaulting to 'UTF8',
+        # which on Windows PowerShell 5.1 means UTF-8 WITH A BOM -- the exact
+        # failure the header comment above exists to prevent. Every file that
+        # reaches disk through here is one a non-PowerShell reader has to parse:
+        # .assert-iq/.install-manifest.json (jq, via bootstrap.sh --upgrade),
+        # .claude/settings.json and .vscode/settings.json (the Claude Code and
+        # VS Code JSON parsers), and the marker-merged markdown. Naming the
+        # encoding through a VARIABLE is why check 1b in
+        # unit-script-portability.py -- which matched the literal text
+        # '-Encoding UTF8' -- never saw it; that check now flags these cmdlets
+        # outright. Write-AiqUtf8 keeps Set-Content's semantics (one trailing
+        # [Environment]::NewLine unless -NoNewline), so the trailing-newline
+        # fixed point described in Merge-MarkdownFile is unchanged.
+        Write-AiqUtf8 -Path $tmp -Value $Content
         # Use FileInfo for the size check: Get-Item skips hidden/dotfiles
         # without -Force, and the staged tmp basename can begin with '.'.
         $info = New-Object System.IO.FileInfo($tmp)
