@@ -25,8 +25,9 @@ inside each file.
 - @.github/instructions/qi-foundation.instructions.md — **always-on**;
   baseline reasoning order for any quality/testing/release/risk question.
 - @.github/instructions/qi-traceability.instructions.md — apply when adding
-  or modifying production C# / XAML code (`**/*.{cs,xaml}`) tied to a work
-  item.
+  or modifying **production source code in any language** tied to a work item.
+  The marker style comes from `.assert-iq/config.yaml >
+  traceability.marker_style`, not from the file's examples.
 - @.github/instructions/qi-test-design.instructions.md — apply when working
   with automated tests (`tests/**`, `*Test.*`, `*.test.*`, `*.spec.*`).
 - @.github/instructions/qi-manual-test-design.instructions.md — apply when

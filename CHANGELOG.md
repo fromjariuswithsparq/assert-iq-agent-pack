@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (qi-traceability.instructions.md is now language-agnostic)
+
+Run through `/eval-optimizer` as project instructions (TC 35% / OQ 35% /
+Eff 15% / Rob 15%) against five cases. Composite **52.7 → 83.7** against a
+43.4 baseline, converged in one iteration. The original scored **87 on .NET
+and 30–35 on every other stack**, and on two of the five cases it scored
+*below* baseline — applying it to a TypeScript or Go task was worse than
+having no instruction, because its only worked examples were C#/XAML.
+
+- **`applyTo` was `"**/*.{cs,xaml}"`** — the narrowest glob of all six
+  instruction files. In Copilot the file never loaded for `.ts`, `.py`, or
+  `.go`, so on most stacks its contribution was zero while the body
+  reinforced the limit ("production C# / XAML code"). Now 21 source
+  extensions. The default is deliberately **inclusive** so a fresh install is
+  never silently inert; `/assert-iq-tailor` narrows it. That inversion is the
+  actual fix — shipping exclusive meant the pack's traceability rule did not
+  apply to the majority of repos that install it.
+
+- **It never referenced its own configuration surface.** `config.yaml`
+  defines 10 `traceability.marker_style` values and designates this file as
+  `traceability.rules_path` — the config points at it. The file documented
+  **none of the ten by name**, describing seven language families in prose
+  instead, so `marker_style` could not be resolved by matching at all;
+  `generic` (the shipped default) had no counterpart, and
+  `python_decorator`, `rust_doc`, `ruby`, `swift_doc` had no coverage even in
+  prose. New §1 carries the table verbatim from config, adds the precedence
+  rule (**configured value wins over language idiom**, so a polyglot repo
+  that standardizes stays parseable), and a stated-substitution fallback.
+
+- **38 of 71 lines were MAUI / Xamarin.UITest specifics** — three
+  near-identical C# blocks anchoring the file to a stack that reached end of
+  support in May 2024. Generalized to §5 "markup paired with code-behind"
+  (MAUI/Xamarin XAML, Razor, Vue/Svelte SFCs) with the .NET examples kept as
+  instances and a JS/TS example added. The `[TestFixture]` example was
+  dropped: it traced *test* classes, which `qi-test-design.instructions.md`
+  owns. That costs the .NET case 2.5 points and buys ~50 on every other
+  stack.
+
+- **Added** the boundary that was missing entirely — what does *not* carry a
+  marker (private helpers, renames, refactors, generated code, tests), since
+  over-tagging makes the matrix noisy enough to be ignored — and a
+  no-fabrication rule for missing work-item IDs: emit
+  `work-item="TODO(qi-trace): unresolved"` and say what is missing. A guessed
+  ID produces a matrix that looks complete and audits false.
+
+- **Preserved verbatim:** the four required fields, and "never silently drop
+  or alter an existing trace — flag it and ask." Those were the original's
+  genuine strengths and carried cases 2 and 5.
+
+- **New guard:** `unit-traceability-marker-parity.py` asserts every
+  `marker_style` enum value in `config.yaml` appears in the instruction file,
+  that the active default specifically is documented, and that `applyTo` has
+  not been re-narrowed to the .NET-only glob. This drift survived the file's
+  entire life with nothing to catch it — the same shape as the generated
+  Copilot agents and `docs/html`: two artifacts that must agree, with no
+  check that they do. Negative-tested against the original file: 1 PASS / 3
+  FAIL.
+
+- `CLAUDE.md` and `/assert-iq-tailor` Phase 5 both described this as the
+  C#/XAML file; both corrected. Phase 5 now says to **narrow** the glob and
+  to prefer setting `marker_style` over editing the file's table.
+
+**Not verified:** Copilot's glob matcher was not executed, so a 21-extension
+brace list is unconfirmed in a live session — worth one manual check on a
+`.py` and a `.ts` file.
+
+
 ### Fixed (setup steps /assert-iq-tailor never asked about)
 
 - **`manual_test_management` was absent from the tailor pass entirely.** It

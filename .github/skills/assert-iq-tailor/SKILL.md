@@ -253,9 +253,14 @@ Snapshot each, then:
 
 Snapshot each, then tailor to the detected stack:
 
-- `qi-traceability.instructions.md` — align the `applyTo` glob and the
-  marker examples to the dominant language (e.g. keep `**/*.{cs,xaml}`
-  for .NET; switch to `**/*.{ts,tsx,js}` for a JS/TS repo).
+- `qi-traceability.instructions.md` — **narrow** the `applyTo` glob to the
+  languages this repo ships (it deliberately ships inclusive so a fresh
+  install is never silently inert), and set
+  `traceability.marker_style` in `config.yaml` to the detected idiom. The
+  file resolves its marker from that key, so prefer setting the key over
+  editing the file's style table. Leave the table itself intact: it must
+  keep listing every value `config.yaml` accepts, or a later
+  `marker_style` change will point at a style the file does not document.
 - `qi-signal-emission.instructions.md` — point the emission step at the
   detected CI system and the configured signal sink.
 - `qi-test-design.instructions.md` / `qi-manual-test-design.instructions.md`
