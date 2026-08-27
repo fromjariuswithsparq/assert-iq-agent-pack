@@ -228,21 +228,37 @@ else:
 
 ### Compute Memory Version (SHA256)
 
+**Call the library — do not reimplement this.** `memory_version` underpins the
+reproducibility contract, so it has to produce the same value on every platform
+the pack supports. Three details are easy to get wrong and were all wrong in an
+earlier version of this guide:
+
+- `sorted(Path(...).rglob("*"))` collates paths using the OS flavour —
+  case-sensitively on POSIX, case-folded on Windows — so a store holding
+  `MEMORY.md` and `apple.md` hashes in a different order on each platform.
+- `.gitattributes` marks `*.md` as `text` without pinning `eol`, so memory
+  topics check out CRLF on Windows and LF on macOS. Hashing raw bytes makes
+  identical content hash differently.
+- Opening the folder in Finder makes macOS drop a `.DS_Store` in it. It is
+  gitignored, so nothing looks amiss, but an unfiltered walk folds it into the
+  digest — browsing a directory silently moves `memory_version`.
+
 ```python
-import hashlib
+import importlib.util
 from pathlib import Path
 
-def compute_memory_hash(memory_path):
-    """Compute SHA256 hash of memory directory."""
-    sha256 = hashlib.sha256()
-    
-    for file in sorted(Path(memory_path).rglob("*")):
-        if file.is_file():
-            with open(file, 'rb') as f:
-                sha256.update(f.read())
-    
-    return f"sha256:{sha256.hexdigest()}"
+spec = importlib.util.spec_from_file_location(
+    "verdict_recorder", Path(".assert-iq/analysis/verdict-recorder.py"))
+verdict_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(verdict_module)
+
+memory_version = verdict_module.compute_memory_hash(".assert-iq/memory")
+# -> "sha256-v2:<hex>"
 ```
+
+The `sha256-v2` tag is part of the value. It keeps verdicts stamped by the
+older algorithm distinguishable from current ones, so an algorithm change
+never reads as memory drift.
 
 ### Layer State Determination
 
