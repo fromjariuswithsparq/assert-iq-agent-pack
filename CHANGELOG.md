@@ -5,7 +5,7 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.1] — 2026-08-27
 
 ### Changed (qi-traceability.instructions.md is now language-agnostic)
 
@@ -155,6 +155,96 @@ Dreaming hooks the installer had just finished writing.
   BOM-safe and ANSI-safe across 5.1 and 7, so the rule is now simply "shipped
   PowerShell writes text through `Write-AiqUtf8`."
 
+
+
+### Fixed (verdict recording was dead on a stock Python 3)
+
+`.assert-iq/analysis/verdict-recorder.py` imported `yaml` at module scope.
+PyYAML is declared nowhere in the pack -- no `requirements.txt`, no `pip` call
+in either installer -- and the README lists bare "Python 3" as the only Python
+requirement. On a stock interpreter the import took the whole module down,
+including `VerdictRecorder` and `compute_memory_hash`, neither of which touches
+YAML. Verdict recording was therefore inert on Windows, macOS, Claude Code and
+Copilot alike -- and with it the reproducibility contract and audit trail that
+`qi-foundation.instructions.md` promises.
+
+- `yaml` is now imported lazily inside `load_config`, with a stdlib fallback
+  reader for the block-mapping subset of `config.yaml`. Returning `{}` instead
+  would make `are_verdicts_enabled()` False and silently disable the audit
+  trail rather than failing loudly. The fallback omits block scalars and block
+  sequences rather than guessing at them, so it can never hand back a
+  plausible-looking wrong value. Cross-checked against PyYAML 6.0.3 over the
+  whole config: 0 disagreements, 0 invented values.
+- `VERDICT_INTEGRATION_GUIDE.md` shipped a copy-paste reimplementation of
+  `compute_memory_hash` carrying three of the hashing bugs below; it now points
+  at the library instead.
+- New guards: `unit-verdict-recorder-stdlib.py`.
+
+### Fixed (`memory_version` differed by platform on an unchanged memory store)
+
+`compute_memory_hash` is what makes a verdict reproducible -- it stamps the
+state of `.assert-iq/memory/` into every verdict record. Four defects made the
+same store hash differently depending on where it was hashed, which surfaces
+downstream as memory drift on a store nobody edited.
+
+- **Ordering depended on the host.** `sorted(Path.rglob("*"))` collates
+  case-sensitively on POSIX and case-folded on Windows, so a store holding
+  `MEMORY.md` and `apple.md` reached the digest in a different order per
+  platform. Now sorted on the relative POSIX path.
+- **Line endings depended on the checkout.** `.gitattributes` marks `*.md` as
+  `text` without pinning `eol`, so topics arrive CRLF on Windows and LF on
+  macOS. Text is newline-normalized before hashing; files containing NUL are
+  treated as binary and hashed verbatim, matching how git detects binary.
+- **Desktop metadata moved the hash.** Opening the memory store in Finder makes
+  macOS drop a `.DS_Store` there. It is gitignored, so the tree looks clean
+  while `memory_version` silently moves. Now skipped, along with AppleDouble
+  `._*` sidecars and Explorer's `Thumbs.db` / `desktop.ini` -- the list both
+  installers already skip.
+- **Contents were unframed.** Files were concatenated with nothing marking the
+  boundaries, so distinct stores collided (`"ab"+"c" == "a"+"bc"`), empty files
+  were invisible, and renames went undetected -- including a fact migrating
+  between topics, which is exactly what `/dream` does. Each file now
+  contributes a length-prefixed `(path, content)` record, with paths
+  NFC-normalized so macOS (which reports decomposed filenames) does not split
+  from Linux and Windows.
+
+The emitted value is tagged `sha256-v2` so verdicts stamped by the previous
+algorithm stay distinguishable; without the tag this change would itself read
+as memory drift rather than an algorithm change. Nothing validates the prefix
+(`signal-schema.json` types it as a plain string). New guards:
+`unit-memory-hash-portability.py`.
+
+### Fixed (calibration's rolling window and drift detection silently did nothing)
+
+`.assert-iq/analysis/calibration.py` parsed `issued_at` into a naive datetime
+and compared it against `datetime.utcnow()`. Where the timestamp carried an
+offset the comparison raised `TypeError`, which the surrounding
+`except (ValueError, TypeError): pass` swallowed -- so both failures were
+invisible:
+
+- `compute_brier_score` counted every verdict regardless of age, so
+  `--window-days` filtering never applied;
+- `drift_detection` appended nothing, leaving `windows` permanently empty, so
+  the >0.15 Brier degradation alarm could never fire at all.
+
+Both now route through `parse_issued_at()`, which pins parsed values to UTC and
+treats offset-free timestamps as UTC -- which is how `verdict-recorder` writes
+them. Unparseable timestamps are kept in the Brier window rather than dropped,
+and excluded from drift buckets, since neither can be placed in or out of a
+window. Covered by `unit-calibration-basic.py`.
+
+### Fixed (the version-history "Unreleased" row was never promoted at release)
+
+v2.1.0 published with the newest version-history row in `README.assert-iq.md`
+still labelled **Unreleased**, while every version banner on the same page read
+v2.1.0. `bump_doc_banners` deliberately leaves version-history rows alone -- it
+must not rewrite historical entries -- and nothing else renamed the row, so it
+was never going to update itself.
+
+- `make-release.sh` gains `promote_unreleased_row`, run right after
+  `bump_doc_banners`.
+- `e2e-version-consistency.sh` check E2E-17c asserts the version-history table
+  has no `Unreleased` row at the released version.
 
 
 ## [2.1.0] — 2026-08-27
@@ -1324,6 +1414,7 @@ change in incompatible ways without a major-version bump.
 
 See git history (`git log v0.8.0`). Releases prior to 1.0.0 are pre-stable.
 
+[2.1.1]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.0.2...v2.1.0
 [1.1.1]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v1.0.0...v1.1.0
