@@ -3,6 +3,7 @@
 
 import sys
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Windows consoles default to cp1252, which cannot encode the ✅/❌ markers
@@ -96,8 +97,86 @@ def test_layer_fidelity():
     return True
 
 
+def _iso_days_ago(days, suffix="Z"):
+    """Timestamp `days` in the past, written the way verdict-recorder writes them."""
+    stamp = datetime.now(timezone.utc) - timedelta(days=days)
+    if suffix == "Z":
+        return stamp.replace(tzinfo=None).isoformat() + "Z"
+    return stamp.astimezone(timezone(timedelta(hours=-5))).isoformat()
+
+
+def test_brier_window_excludes_old_verdicts():
+    """--window-days must actually filter. Regression: naive/aware datetime
+    comparison raised TypeError, which was swallowed, so every verdict was
+    counted regardless of age."""
+    from calibration import compute_brier_score
+
+    verdicts = [
+        {"verdict_band": "green", "verdict_score": 0.95, "linked_escape": None,
+         "issued_at": _iso_days_ago(5)},
+        {"verdict_band": "green", "verdict_score": 0.95,
+         "linked_escape": {"defect_id": "BUG-OLD"}, "issued_at": _iso_days_ago(400)},
+    ]
+
+    result = compute_brier_score(verdicts, window_days=90)
+    count = result["aggregate"]["count"]
+    escaped = result["per_band"]["green"]["escaped_count"]
+
+    assert count == 1, f"Expected 1 verdict inside the 90-day window, got {count}"
+    assert escaped == 0, f"400-day-old escape leaked into the window: {escaped}"
+    print("\u2705 Test 5: Brier window excludes out-of-window verdicts")
+    return True
+
+
+def test_brier_window_handles_offset_timestamps():
+    """Timestamps carrying a non-UTC offset are normalized, not dropped."""
+    from calibration import compute_brier_score
+
+    verdicts = [
+        {"verdict_band": "green", "verdict_score": 0.9, "linked_escape": None,
+         "issued_at": _iso_days_ago(2, suffix="offset")},
+        {"verdict_band": "green", "verdict_score": 0.9, "linked_escape": None,
+         "issued_at": _iso_days_ago(200, suffix="offset")},
+    ]
+
+    result = compute_brier_score(verdicts, window_days=30)
+    count = result["aggregate"]["count"]
+
+    assert count == 1, f"Expected 1 verdict inside the 30-day window, got {count}"
+    print("\u2705 Test 6: Brier window normalizes offset-bearing timestamps")
+    return True
+
+
+def test_drift_detection_buckets_verdicts():
+    """Drift detection must populate rolling windows. Regression: the same
+    datetime comparison failure left `windows` permanently empty, so drift
+    could never be detected."""
+    from calibration import drift_detection
+
+    def verdict(days, escaped):
+        return {
+            "verdict_band": "green", "verdict_score": 0.95,
+            "linked_escape": {"defect_id": "BUG-1"} if escaped else None,
+            "issued_at": _iso_days_ago(days),
+        }
+
+    # Recent window degraded (escapes); oldest window clean.
+    verdicts = [verdict(5, True), verdict(10, True),
+                verdict(70, False), verdict(75, False)]
+
+    result = drift_detection(verdicts, window_days=30)
+
+    assert len(result["windows"]) >= 2, f"Expected >=2 populated windows, got {result['windows']}"
+    assert result["drift_detected"] is True, "Expected drift on a degrading recent window"
+    print("\u2705 Test 7: Drift detection buckets verdicts into rolling windows")
+    return True
+
+
 if __name__ == "__main__":
-    tests = [test_brier_all_correct, test_brier_all_wrong, test_confusion_matrix, test_layer_fidelity]
+    tests = [test_brier_all_correct, test_brier_all_wrong, test_confusion_matrix,
+             test_layer_fidelity, test_brier_window_excludes_old_verdicts,
+             test_brier_window_handles_offset_timestamps,
+             test_drift_detection_buckets_verdicts]
     passed = 0
     failed = 0
     

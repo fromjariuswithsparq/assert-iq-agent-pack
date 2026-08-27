@@ -13,7 +13,7 @@ Usage:
 import json
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
 import statistics
@@ -37,6 +37,30 @@ def load_verdicts(archive_path: Path) -> List[Dict]:
     return verdicts
 
 
+def parse_issued_at(verdict: Dict) -> Optional[datetime]:
+    """
+    Parse a verdict's `issued_at` into a timezone-aware UTC datetime.
+
+    Verdicts are written as `datetime.utcnow().isoformat() + "Z"`, so the
+    parsed value must be pinned to UTC before it can be compared against
+    `utc_now()`. Timestamps that carry no offset are assumed to be UTC.
+    Returns None when the field is missing or unparseable.
+    """
+    raw = verdict.get("issued_at") or ""
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def utc_now() -> datetime:
+    """Current time as a timezone-aware UTC datetime."""
+    return datetime.now(timezone.utc)
+
+
 def compute_brier_score(verdicts: List[Dict], window_days: Optional[int] = None) -> Dict:
     """
     Compute Brier score per verdict band.
@@ -52,7 +76,7 @@ def compute_brier_score(verdicts: List[Dict], window_days: Optional[int] = None)
     Lower is better: a confident green verdict that held scores ~0.0, while a
     confident green verdict that escaped is penalized heavily.
     """
-    now = datetime.utcnow()
+    now = utc_now()
     cutoff = now - timedelta(days=window_days) if window_days else None
     
     verdicts_by_band = defaultdict(list)
@@ -60,12 +84,11 @@ def compute_brier_score(verdicts: List[Dict], window_days: Optional[int] = None)
     for verdict in verdicts:
         # Check if verdict is in time window
         if cutoff:
-            try:
-                verdict_time = datetime.fromisoformat(verdict.get("issued_at", "").replace("Z", "+00:00"))
-                if verdict_time < cutoff:
-                    continue
-            except (ValueError, TypeError):
-                pass
+            verdict_time = parse_issued_at(verdict)
+            # An unparseable timestamp cannot be placed in or out of the
+            # window, so keep the verdict rather than silently dropping it.
+            if verdict_time is not None and verdict_time < cutoff:
+                continue
         
         band = verdict.get("verdict_band", "ungraded")
         score = verdict.get("verdict_score", 0.5)
@@ -204,7 +227,7 @@ def drift_detection(verdicts: List[Dict], window_days: int = 30) -> Dict:
     Detect drift in calibration accuracy over rolling windows.
     Compares Brier score across multiple windows to detect degradation.
     """
-    now = datetime.utcnow()
+    now = utc_now()
     windows = []
     
     # Compute Brier score for each rolling window
@@ -213,12 +236,13 @@ def drift_detection(verdicts: List[Dict], window_days: int = 30) -> Dict:
         window_verdicts = []
         
         for verdict in verdicts:
-            try:
-                verdict_time = datetime.fromisoformat(verdict.get("issued_at", "").replace("Z", "+00:00"))
-                if window_cutoff <= verdict_time < (now - timedelta(days=i)):
-                    window_verdicts.append(verdict)
-            except (ValueError, TypeError):
-                pass
+            verdict_time = parse_issued_at(verdict)
+            # Verdicts with no usable timestamp cannot be bucketed into a
+            # rolling window, so they sit out of drift detection.
+            if verdict_time is None:
+                continue
+            if window_cutoff <= verdict_time < (now - timedelta(days=i)):
+                window_verdicts.append(verdict)
         
         if window_verdicts:
             brier = compute_brier_score(window_verdicts)
@@ -267,7 +291,7 @@ def main():
     
     # Compute calibration metrics
     report = {
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": utc_now().isoformat().replace("+00:00", "Z"),
         "verdicts_analyzed": len(verdicts),
         "brier_score": compute_brier_score(verdicts, args.window_days),
         "confusion_matrix": confusion_matrix(verdicts),
