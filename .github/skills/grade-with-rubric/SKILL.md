@@ -132,7 +132,7 @@ Verdict JSON (stored in `.assert-iq/oracles/outcomes/<artifact_id>/latest.json`)
   "summary": "Test structure and independence solid. Assertion comments incomplete on line 25. Recommend: add message to bare assert().",
   "recommended_action": "Fix artifact",
   "graded_at": "2026-08-11T12:34:56Z",
-  "grader_model": "claude-3-5-sonnet"
+  "grader_model": "claude-opus-5"
 }
 ```
 

@@ -126,7 +126,7 @@ dreaming:
   background_service:
     enabled: false
     requires_env: "ANTHROPIC_API_KEY"
-    model: "claude-Opus-4-8"
+    model: "claude-opus-5"
 
 
 # =============================================================================
@@ -145,7 +145,7 @@ oracle:
   enabled: true                          # master switch (env: AIQ_ORACLE_ENABLED)
   
   grader:
-    model: "claude-3-5-sonnet"           # grader model for all verdicts
+    model: "claude-opus-5"               # grader model for all verdicts
     timeout_seconds: 60                  # grading timeout
   
   # Default rubric ID per artifact type (used when --rubric-id not specified)

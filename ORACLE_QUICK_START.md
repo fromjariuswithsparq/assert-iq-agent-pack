@@ -182,7 +182,7 @@ login.test.ts artifact v3 + test-unit-v1.1 = PASS (1.0)
 oracle:
   enabled: true
   grader:
-    model: "claude-3-5-sonnet"
+    model: "claude-opus-5"
     timeout_seconds: 60
   defaults_by_artifact_type:
     test: "test-unit-v1.0"

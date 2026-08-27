@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (setup steps /assert-iq-tailor never asked about)
+
+- **`manual_test_management` was absent from the tailor pass entirely.** It
+  ships as a working default (`tool: "markdown"`), not a `<PLACEHOLDER>`, so
+  "fill every placeholder" never caught it and no phase asked. It drives
+  `/generate-manual-test-case`, `/generate-exploratory-charter`, and the import
+  format `qi-manual-test-design.instructions.md` expects — a team on ADO Test
+  Plans, Xray, Zephyr, or TestRail silently kept generating markdown into
+  `./tests/_qi/manual/`. Working defaults that are wrong for most teams are
+  worse than placeholders: they satisfy every "unfilled value" check.
+  Now detected in Phase 1, asked in Phase 2, and set in Phase 3.
+
+- **`signals.sink` and `dreaming` were dangling forward references.** Phase 5
+  told the agent to point CI emission at "the configured signal sink" and
+  Phase 6 read `dreaming.*`, but Phase 3 configured neither. Both are now set
+  in Phase 3, where every other key is.
+
+- **`client.account_id`** was missing from Phase 3's client list while shipping
+  as a live `<Engagement or project ID>` placeholder, so it survived the pass.
+
+- **The generated Copilot specialist agents were unguarded.** The skill did not
+  mention agents at all, and no skill in the pack mentioned `sync-agents`.
+  Phase 6's opt-in deep mode invites body rewrites, with nothing to stop that
+  from reaching `.github/agents/specialists/*.agent.md` — which is GENERATED
+  from `.claude/agents/specialists/*.md`. Editing the generated side is
+  reverted by the next sync; editing the source without syncing fails parity
+  checks P5/P6. Now an explicit out-of-scope note plus an anti-pattern.
+
+- **The environment doctor was referenced by no skill.**
+  `scripts/check-environment.{sh,ps1}` shipped in 2.1.0 unreferenced. Phase 0
+  now runs it and calls out the two failures that make a tailoring pass
+  actively misleading: no working Python 3 (the calibration, memory-sanity and
+  verdict tooling the config points at cannot run) and `.claude/skills` present
+  as a copy rather than a symlink (Claude reads a stale snapshot, so
+  skill-facing config changes appear to do nothing).
+
+### Changed (model IDs default to claude-opus-5)
+
+- `oracle.grader.model` was `"claude-3-5-sonnet"` and
+  `dreaming.background_service.model` was `"claude-Opus-4-8"` — the second is
+  not a valid model ID at all (note the capital O). Neither key is read by any
+  code, so nothing ever failed and nothing surfaced the error; a wrong ID in
+  config appears only at the first real call. Both now default to
+  `claude-opus-5`, as does the one value that IS consumed at runtime, the
+  hardcoded `DreamConfig.model` in `dreaming/service/dreaming_service.py`
+  (previously `claude-sonnet-4-6`, valid but older-generation).
+- Documented examples updated to match: `/grade-with-rubric`'s sample verdict,
+  `ORACLE_QUICK_START.md`, and `oracles-readme.html`.
+- `/assert-iq-tailor` Phase 3 now validates model IDs rather than trusting the
+  shipped default, and records these two as the reason the check exists.
+
+
 ## [2.1.0] — 2026-08-27
 
 **Windows is now a first-class, verified platform for both harnesses.** All four

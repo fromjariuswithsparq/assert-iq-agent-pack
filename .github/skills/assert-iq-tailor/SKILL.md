@@ -82,6 +82,18 @@ stop and route the user to `/assert-iq-bootstrap` first.
 3. Confirm the working tree is under version control and reviewable
    (so every edit shows up in `git diff`). If not, warn the user that
    changes will be harder to review and ask to proceed.
+3b. Run the environment doctor and report anything it flags:
+   `bash scripts/check-environment.sh` (macOS/Linux) or
+   `pwsh -File scripts\check-environment.ps1` (Windows). Tailoring only
+   edits text, so a warning is not a hard stop — but a config that reads
+   perfectly while the environment cannot run the pack is the worst
+   outcome of this skill. Two failures in particular make later phases
+   misleading: **no working Python 3** (the calibration, memory-sanity
+   and verdict tooling this config points at will not run) and
+   **`.claude/skills` present as a copy rather than a symlink** (Claude
+   then reads a stale snapshot, so skill-facing config changes appear to
+   do nothing until the installer is re-run). Surface these before
+   Phase 2, not after the user has approved a plan.
 4. Note whether this is a first run (placeholders present) or a re-run
    (snapshots already exist). On a re-run, treat existing
    `*.assert-iq.pre-tailor` snapshots as the baseline — do not
@@ -103,6 +115,7 @@ large repos, run the independent scans in parallel. Detect:
 | API contracts | `openapi*.y?ml`, `swagger*.json`, `asyncapi*.y?ml`, `*.proto`, Pact files |
 | Topology | one repo with code+tests (monorepo) vs split prod/tests |
 | Sensitive paths | dirs matching `payment*`, `billing`, `auth`, `checkout`, `export*`, `migrations`, PII/PCI hints |
+| Manual test tooling | ADO Test Plans (tracker is ADO), Xray / Zephyr (Jira apps), TestRail (links, `testrail` in CI or scripts), else markdown |
 | Data factories | AutoFixture, Bogus, Faker, factory_boy, FactoryBot present in deps |
 | Traceability idiom | dominant language → marker style (C#/XAML → `qi_trace_xml`, JS/TS → `jsdoc`, Python → `python_doc`, Go → `go_comment`, etc.) |
 
@@ -134,6 +147,17 @@ value, the evidence, and the proposed config key it will set. Then:
      shipped placeholder with a `TODO(tailor):` rather than inventing
      numbers.
 2. Confirm the proposed marker style and test commands.
+2b. Confirm the two settings that ship as **working defaults rather than
+   placeholders**. Nothing else will ever prompt for them, and both fail
+   silently when wrong:
+   - `manual_test_management.tool` — ships as `markdown`. A team on ADO
+     Test Plans, Xray, Zephyr or TestRail otherwise keeps generating
+     markdown into `./tests/_qi/manual/` forever. It works, which is
+     exactly why nobody notices.
+   - `signals.sink` — ships as `type: file` writing to
+     `./.assert-iq/runs/`. Ask where QI outcome payloads should actually
+     land (file artifact, webhook, telemetry endpoint), because
+     `qi-signal-emission.instructions.md` makes CI publish there.
 3. Get explicit go-ahead before writing anything. This is the mandatory
    human-review gate.
 
@@ -143,7 +167,7 @@ Snapshot, then fill **every** `<PLACEHOLDER>` you have evidence or an
 answer for. If you're unsure, ask the user. Leave a clearly-marked `TODO(tailor):` only where a secret
 or human-only value is required.
 
-- `client.name`, `client.embedded_team`, `client.context` (1–3 sentence
+- `client.name`, `client.account_id`, `client.embedded_team`, `client.context` (1–3 sentence
   domain/stack summary from the Stack Profile).
 - `tracker.type` **and** `tracker.system` (keep the alias in sync); fill
   the matching sub-block (github/ado/jira/linear); comment out the rest.
@@ -153,6 +177,24 @@ or human-only value is required.
   `targeted_test_command` / `coverage_command` / `test_root`; plus
   `unit`, `api`, `api_contract`, `api_auth`, `data_factory` where known.
 - `traceability.marker_style` to the detected idiom.
+- `client.account_id` ships as a live `<Engagement or project ID>`
+  placeholder — do not skip it.
+- `manual_test_management.tool` / `output_path` / `charter_path` — set
+  from the Phase 2 answer, plus the matching `project_key` sub-block for
+  Xray / Zephyr / TestRail. **Never leave this on the shipped `markdown`
+  default without asking.** It is a working default, not a placeholder,
+  so it never shows up as an unfilled value, and it drives
+  `/generate-manual-test-case`, `/generate-exploratory-charter`, and the
+  import format `qi-manual-test-design.instructions.md` expects.
+- `signals.emit_on_ci` / `signals.sink.type` / `signals.sink.path` (or
+  `webhook_url`) / `signals.schema_path` — set from the Phase 2 answer.
+  Phase 5 points the CI emission step at "the configured signal sink";
+  this is where that sink actually gets configured.
+- `dreaming.enabled` and `dreaming.gate.*` — confirm rather than assume.
+  The gate thresholds (`min_hours_between_dreams`,
+  `min_sessions_between_dreams`) decide how often `/dream` is nudged.
+  Leave `dreaming.background_service.enabled: false` unless the team has
+  an `ANTHROPIC_API_KEY` available and wants autonomous consolidation.
 - `pr.risk_thresholds.sensitive_paths` — add the detected sensitive
   dirs to the shipped defaults.
 - `workspace.role` + `companion_repo` when split-repo was detected.
@@ -163,6 +205,19 @@ or human-only value is required.
   — confirm the rubric IDs referenced actually exist under
   `.assert-iq/oracles/rubrics/`; `maturity_gating` already mirrors
   `maturity.tier` by default and rarely needs a manual edit.
+- **Validate every model ID against the current model list**, even when
+  the shipped default looks plausible. Model IDs are lowercase and carry
+  no date suffix; as of v2.1.0 the pack ships `claude-opus-5` in both
+  `oracle.grader.model` and `dreaming.background_service.model`. Other
+  current IDs are `claude-opus-4-8`, `claude-sonnet-5`, and
+  `claude-haiku-4-5`. Do not reconstruct an ID from memory — if unsure,
+  ask the user or check the provider's published model list.
+  This check exists because the pack shipped
+  `"claude-3-5-sonnet"` and `"claude-Opus-4-8"` for several releases: the
+  second is not a valid ID at all (note the capital O), and neither key
+  is read by any code, so nothing failed and nobody noticed. A wrong
+  model ID in config surfaces only at the first real call — long after
+  the tailoring pass that should have caught it.
 - `verdicts.track_in_git` — set per the Phase 2 compliance answer.
 - `business_metrics.escape_incident_cost` / `engineer_burden_rate` —
   fill with the real figures from Phase 2, and tailor
@@ -236,6 +291,19 @@ to rewrite skill bodies AND `maturity.tier` is `mid` or `higher`. Below
 `mid`, decline deep rewrites and explain that config-driving keeps the
 pack upgradable. Warn that deep edits complicate future pack upgrades.
 
+**Agents are out of scope for this skill — and one half of them is
+generated.** Deep mode covers skill bodies only. `.github/agents/` and
+`.claude/agents/` are not tailoring surfaces: they carry reasoning
+prose, not per-client values. If the user insists on editing a
+specialist agent, the source of truth is
+`.claude/agents/specialists/*.md`; the Copilot side
+(`.github/agents/specialists/*.agent.md`) is **generated** from it by
+`scripts/sync-agents.sh` (`sync-agents.ps1` on Windows). Editing the
+generated side is silently reverted by the next sync, and editing the
+source without re-running the sync puts the two harnesses out of parity
+— checks P5 and P6 in `e2e-agent-parity.sh` fail. Re-run the sync, then
+the parity check.
+
 ## Phase 7 — Tailor `mcp.json`
 
 Snapshot `.vscode/mcp.json`, then:
@@ -286,4 +354,14 @@ Snapshot `.vscode/mcp.json`, then:
 - Do **not** let `maturity.tier` differ between `config.yaml` and
   `maturity-profile.md`.
 - Do **not** inline secrets into `mcp.json`; keep `${input:...}`.
+- Do **not** leave `manual_test_management.tool` or `signals.sink` on
+  their shipped defaults without asking. They are working defaults, not
+  placeholders, so they satisfy every "unfilled value" check while being
+  wrong for most teams.
+- Do **not** leave a model ID unvalidated because it looks plausible.
+  `config.yaml` shipped `claude-Opus-4-8` for several releases, which is
+  not a valid ID.
+- Do **not** edit `.github/agents/specialists/*.agent.md` — they are
+  generated from `.claude/agents/specialists/*.md`. Edit the source and
+  re-run `scripts/sync-agents.sh`.
 - Do **not** skip the snapshot step — every edit must be reversible.

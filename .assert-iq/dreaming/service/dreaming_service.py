@@ -83,7 +83,7 @@ class DreamConfig:
     min_hours_between_dreams: int = 24
     min_sessions_between_dreams: int = 5
     index_max_lines: int = 200
-    model: str = "claude-sonnet-4-6"
+    model: str = "claude-opus-5"
     max_tokens: int = 8000
 
     @property
