@@ -97,10 +97,45 @@ test_doc_counts_match_reality() {
     fi
 }
 
+# The version-history table in README.assert-iq.md must carry a row for the
+# CURRENT version.
+#
+# bump_doc_banners in make-release.sh deliberately leaves version-history rows
+# alone -- it must not rewrite historical entries -- so the row describing the
+# work being shipped stayed labelled "**Unreleased**" indefinitely. v2.1.0
+# published that way: the table's newest row said "Unreleased" while every
+# banner on the page said v2.1.0.
+#
+# Keyed on "a row exists for $VERSION", NOT on "no Unreleased row exists", so an
+# Unreleased row is still perfectly legal while work accumulates between
+# releases. It only becomes a failure once VERSION names a release the table
+# does not describe -- which is exactly release time.
+test_version_history_has_current_row() {
+    local version
+    version="$(tr -d ' \t\r\n' < VERSION)"
+    if [ ! -f README.assert-iq.md ]; then
+        echo "❌ E2E-17c FAILED: README.assert-iq.md not found"
+        FAILED=$((FAILED+1))
+        return
+    fi
+    if grep -qF "| **$version** |" README.assert-iq.md; then
+        echo "✅ E2E-17c: version-history table has a row for $version"
+        PASSED=$((PASSED+1))
+    else
+        echo "❌ E2E-17c FAILED: README.assert-iq.md version-history table has no"
+        echo "   '| **$version** |' row. If the work is described by an"
+        echo "   '**Unreleased**' row, rename it to **$version** (and the matching"
+        echo "   <strong> row in README.assert-iq.html), then re-run"
+        echo "   scripts/generate-documentation-html.py."
+        FAILED=$((FAILED+1))
+    fi
+}
+
 echo "=== E2E: Version Consistency ==="
 test_version_file
 test_version_is_semver
 test_version_matches_changelog_head
+test_version_history_has_current_row
 test_changelog_has_alpha_entry
 test_changelog_documents_features
 test_doc_counts_match_reality

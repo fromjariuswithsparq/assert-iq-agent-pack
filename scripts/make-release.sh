@@ -25,6 +25,39 @@
 
 set -euo pipefail
 
+# Promote the version-history table's "Unreleased" row to the version being
+# released. bump_doc_banners deliberately does NOT touch version-history rows
+# (it must not rewrite the historical ones), which left the row for the work
+# being shipped reading "Unreleased" forever -- v2.1.0 published with it.
+# Nothing else renames it, so do it here where the version is known.
+promote_unreleased_row() {
+  local new="$1" f tmp
+  for f in "README.assert-iq.md" "README.assert-iq.html"; do
+    [[ -f "$f" ]] || continue
+    tmp="$(mktemp)"
+    # BRE (no -E) with an '@' delimiter, deliberately.
+    #
+    # Do NOT write this as `sed -E "s|\| \*\*Unreleased\*\* \||...|"`. GNU sed
+    # treats `\|` inside an ERE as ALTERNATION, not as an escaped literal pipe,
+    # so that pattern degrades to `empty | " **Unreleased** " | empty` -- which
+    # matches the empty string at the start of every line and prepends the
+    # replacement to all 827 lines of README.assert-iq.md. Caught only because
+    # the round-trip check compared the result byte-for-byte.
+    #
+    # Anchored at line start so it can only ever touch a table row.
+    sed \
+      -e "s@^| \*\*Unreleased\*\* @| **$new** @" \
+      -e "s@<td><strong>Unreleased</strong></td>@<td><strong>$new</strong></td>@" \
+      "$f" > "$tmp"
+    if ! cmp -s "$f" "$tmp"; then
+      mv "$tmp" "$f"
+      echo "  promoted Unreleased row -> $new in $f"
+    else
+      rm -f "$tmp"
+    fi
+  done
+}
+
 # Bump every "current version" banner across the doc set in-place.
 # Anchored on the surrounding text so version-history rows and CHANGELOG
 # link refs are not rewritten.
@@ -145,6 +178,9 @@ echo "$VERSION" > VERSION
 
 echo ">> Bumping doc banners"
 bump_doc_banners "$VERSION"
+
+echo ">> Promoting version-history 'Unreleased' row"
+promote_unreleased_row "$VERSION"
 
 # Resolve a working Python by EXECUTING candidates, not by testing a name.
 # Windows has no python3.exe from the python.org installer, and the Microsoft
