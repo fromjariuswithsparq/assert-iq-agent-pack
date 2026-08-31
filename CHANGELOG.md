@@ -107,19 +107,76 @@ Fixed twice over: `.gitattributes` pins the three generated trees to
 `eol=lf`, and both bash scripts strip CR before comparing (which also
 covers a hand-copied tree whose attributes never applied).
 
+### Fixed — a full install wrote a 0-byte manifest on Windows
+
+Also pre-existing, also latent until the Kiro surfaces crossed the
+threshold. `manifest_write` passed the whole entry array to `jq` via
+`--argjson`, which puts it on the **command line**: 138 entries of absolute
+paths is 36,503 bytes against MSYS/Windows' ~32KB argv limit. `jq` died with
+*"Argument list too long"*, but the shell had already truncated the target
+via `>`, so the install **reported success and left a 0-byte manifest**.
+
+That is the worst possible shape. The manifest is what uninstall reads to
+know what to remove and what upgrade diffs against — an empty one means the
+pack has silently lost track of everything it installed, uninstall becomes a
+no-op that claims to have worked, and the next upgrade sees a fresh install.
+
+Now uses `--slurpfile` (same JSON, read from disk, no argv cost at any
+count), and both branches stage to a temp and `mv` only on success, so a
+failed write leaves the previous manifest intact and returns non-zero.
+`bootstrap.ps1` was never affected — it builds JSON natively.
+
+### Fixed — 3 skills had no frontmatter and were invisible to Kiro
+
+`assert-iq-bootstrap`, `define-quality-rubric` and `grade-with-rubric`
+opened straight at `# /skill-name` with no YAML frontmatter. The Agent
+Skills standard requires `name` + `description`, so Kiro rejected all three
+(`skill.frontmatter.missing`) and they were simply absent — no slash
+command, no auto-routing, no error. 27 of 30 skills worked; 3 did not,
+invisibly.
+
+Pre-existing, and it survived because the other two harnesses are lenient:
+Claude Code fell back to the H1 heading, so the skills listed with a
+description of literally `/assert-iq-bootstrap`. Degraded but present, and
+nothing enforced the standard. Adding a strict harness surfaced it in the
+first live run. `unit-kiro-schema.py` now asserts frontmatter on all 30.
+
+### Verified against a running Kiro
+
+Kiro 1.0.337 was opened on this repo and its logs read back:
+
+- `v2 hooks loaded 2 standalone hooks from .kiro/hooks/` — the v1 hook
+  schema is accepted as written.
+- `skill.validation.failed` count went **6 → 0** after the frontmatter fix;
+  all 30 skills now validate.
+- `hooks.v2.executionDisabledUntrustedWorkspace` — the untrusted-workspace
+  behaviour documented in the contract, confirmed live. Hooks *load* but do
+  not *execute* until the folder is trusted.
+
+Full bootstrap install **and uninstall** now verified end to end on
+`bootstrap.ps1`: 7s install, 14s uninstall, 138 manifest paths (21 Kiro),
+**0 leftover files**, and `.github/skills` intact afterwards — the
+symlink-delete trap does not fire.
+
 ### Known gaps
 
-- The full bootstrap **uninstall** end-to-end was not run to completion on
-  the development machine: git there degraded to ~80s per invocation
-  mid-session and the uninstall's git calls hung. The `.kiro` additions to
-  the uninstall lists mirror the `.claude` entries exactly and are correct
-  by inspection, but this should be re-run on a healthy box before release.
+- **Dreaming hook execution under Kiro is not yet observed.** The hooks are
+  parsed and loaded, and the rendered commands were executed directly under
+  both `/bin/sh` and `cmd.exe` with their side effects confirmed
+  (`sessions_since_dream` incremented, daily log written) — but Kiro itself
+  has not been allowed to fire them, because that requires trusting the
+  workspace.
+- The `bootstrap.sh` uninstall completes its `.kiro`, `.claude` and
+  `.github` removal correctly but its `.assert-iq` sweep is very slow under
+  MSYS. That is the documented MSYS penalty `bootstrap.sh` already refuses
+  to run into by default (it must be overridden with `AIQ_ALLOW_MSYS=1`);
+  Windows users are directed to `bootstrap.ps1`, which is clean and fast.
 - Brace expansion in Kiro's `fileMatchPattern` is unverified, so
   `sync-kiro` expands braces into explicit array entries rather than
   betting on it.
-- No live in-IDE smoke test yet: steering loading, agent delegation, and
-  hook firing were verified by schema and by executing the rendered hook
-  commands under the same shells Kiro uses, not by observing Kiro itself.
+- Steering *content* reaching the model, and specialist sub-agent
+  delegation, were verified structurally (schema + Kiro's own loader logs)
+  rather than by inspecting a live conversation.
 
 ## [2.1.1] — 2026-08-27
 
