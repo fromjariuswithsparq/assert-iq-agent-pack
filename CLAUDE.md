@@ -98,10 +98,41 @@ inside each file.
 
 Configure in `.assert-iq/config.yaml` → `business_metrics` section. Baseline metrics in `.assert-iq/business-metrics/baseline.json`. Reports output to `.assert-iq/business-metrics/reports/` (excluded from git).
 
+## Kiro (third harness)
+
+Kiro reads none of `.github/*`, none of `.claude/*`, and no `CLAUDE.md`.
+Its surfaces live under `.kiro/`:
+
+| Surface | Path | Source |
+|---|---|---|
+| Instructions | `.kiro/steering/*.md` | generated from `.github/instructions/` |
+| Entrypoint | `.kiro/steering/00-assert-iq.md` | hand-authored |
+| Agents | `.kiro/agents/*.md` | specialists generated from `.claude/agents/specialists/`; lead + planner hand-authored |
+| Skills | `.kiro/skills` | symlink to `../.github/skills` |
+| Dreaming | `.kiro/hooks/assert-iq-dreaming.json` | rendered by the installer |
+| MCP | `.kiro/settings/mcp.json` | hand-maintained |
+
+**After editing `.github/instructions/*` or `.claude/agents/specialists/*`,
+re-run `bash scripts/sync-kiro.sh` (`sync-kiro.ps1` on Windows) as well as
+`sync-agents`.** Checks P7/P8 in
+`.assert-iq/tests/_qi/automated/e2e-agent-parity.sh` fail while the Kiro
+side is stale, exactly as P5/P6 do for Copilot. Never edit a generated
+file under `.kiro/` — its header says so and the next sync reverts it.
+
+The verified schema contract is `.assert-iq/kiro-harness.md`. Read it
+before changing anything under `.kiro/`: Kiro's public docs are wrong
+about the agent file format, about `allowedTools`/`toolsSettings`, and
+about the hook schema, and the contract records what was checked against
+the shipped binary versus what remains unverified.
+
 ## Companion files
 
 - `.github/copilot-instructions.md` — the Copilot-side equivalent of this
-  file. If you change behavior here, update the Copilot file too (or vice
-  versa) to keep tools in lockstep.
-- `AGENTS.md` — generic agent-spec pointer for non-Copilot, non-Claude
-  tooling (Codex CLI, Cursor, Aider).
+  file.
+- `.kiro/steering/00-assert-iq.md` — the Kiro-side equivalent.
+- `AGENTS.md` — generic agent-spec pointer for other tooling (Codex CLI,
+  Cursor, Aider). Kiro also reads it natively as always-on steering.
+
+If you change behavior in one entrypoint, update the other two. Three
+harnesses drift silently otherwise — which is exactly how v2.0 shipped
+with Copilot stuck on v1.x routing for a whole release.

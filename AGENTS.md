@@ -5,8 +5,20 @@ AI agent operating here (Codex CLI, Cursor, Aider, or other
 `AGENTS.md`-aware tooling) must follow the rules below.
 
 Tool-specific entry points: Claude Code → `CLAUDE.md`; GitHub Copilot
-Chat → `.github/copilot-instructions.md`. Both delegate the operating
-contract to `.github/instructions/qi-foundation.instructions.md`.
+Chat → `.github/copilot-instructions.md`; Kiro → `.kiro/steering/`. All
+three delegate the operating contract to
+`.github/instructions/qi-foundation.instructions.md`.
+
+**If you are Kiro, read this section.** Kiro discovers this file natively
+as always-on steering, but every path above is one Kiro does not read.
+Your own surfaces are `.kiro/steering/` (instructions — `00-assert-iq.md`
+is the entrypoint), `.kiro/agents/` (lead, planner, 8 specialists),
+`.kiro/skills/` (30 QI skills, invoked as `/<name>`),
+`.kiro/hooks/` (Dreaming), and `.kiro/settings/mcp.json`. If
+`.kiro/steering/` is absent, this workspace has the pack installed
+without the Kiro surfaces — run `/assert-iq-bootstrap`, or
+`bash scripts/sync-kiro.sh` from the pack checkout. The verified schema
+contract is `.assert-iq/kiro-harness.md`.
 
 ## Core principles
 
@@ -43,11 +55,13 @@ is `qi-foundation.instructions.md`.
 
 ## Skills
 
-30 QI skills under `.github/skills/`. Each `SKILL.md` carries a
-`description` field that triggers auto-routing in compatible agents.
-Key skills: `code-review`, `risk-assess-pr`, `release-confidence`,
-`generate-automated-unit-test`, `generate-traceability-matrix`,
-`generate-hotspot-map`, `agentic-heal`, `measure-qi-impact` (v2.0+).
+30 QI skills under `.github/skills/` — the single canonical tree, linked
+into `.claude/skills` and `.kiro/skills` so all three harnesses run
+byte-identical skills. Each `SKILL.md` carries a `description` field that
+triggers auto-routing in compatible agents. Key skills: `code-review`,
+`risk-assess-pr`, `release-confidence`, `generate-automated-unit-test`,
+`generate-traceability-matrix`, `generate-hotspot-map`, `agentic-heal`,
+`measure-qi-impact` (v2.0+).
 
 ## v2.0+ Multi-Agent Orchestration & Commercial Instrumentation
 

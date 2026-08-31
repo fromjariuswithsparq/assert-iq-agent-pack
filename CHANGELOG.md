@@ -5,6 +5,122 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added — Kiro (Amazon's agentic IDE) as a third harness
+
+The pack previously supported Claude Code and VS Code Copilot. A Kiro user
+got exactly one thing: the root `AGENTS.md`, which Kiro discovers natively
+as always-on steering — and whose every pointer aimed at `.github/*` or
+`.claude/*`, paths Kiro never reads. A table of contents for a book that
+wasn't there.
+
+Every schema fact below was verified against a real **Kiro 1.0.337**
+install by reading the zod schemas and bundled system prompts inside the
+shipped `kiro-agent` extension, **not** from kiro.dev. The docs are wrong
+in three places that would each have shipped a silently-broken file:
+
+- Agent files are documented as `.kiro/agents/*.json`. The binary requires
+  **markdown with YAML frontmatter** — Kiro's own bundled authoring
+  guidance says *"Agent files MUST be markdown files with .md extension"*.
+- `allowedTools` and `toolsSettings` are recommended by the docs but sit in
+  the parser's `hasCliOnlyFields` list, so the IDE **ignores both**.
+- The hook schema shipped at `extension-resources/hook.json` is the
+  **deprecated** `when`/`then` format, which has no shell-command action at
+  all. The live format is `{"version":"v1", hooks:[…]}`.
+
+`.assert-iq/kiro-harness.md` records the whole contract, including what
+remains unverified, so the next person doesn't re-derive it.
+
+**Surfaces.** `.kiro/steering/` (instructions), `.kiro/agents/` (lead,
+planner, 8 specialists), `.kiro/skills` (symlink to the one canonical
+`.github/skills` tree — all three harnesses now run byte-identical
+skills), `.kiro/hooks/` (Dreaming), `.kiro/settings/mcp.json`.
+
+**Generated, not hand-maintained.** `scripts/sync-kiro.{sh,ps1}` renders
+steering from `.github/instructions/` (mapping `applyTo` →
+`inclusion`/`fileMatchPattern`) and the specialists from
+`.claude/agents/specialists/` (mapping Claude tool names → Kiro capability
+**tags**, per Kiro's own guidance that tags survive tool renames while
+names do not). Hand-maintaining the QI rulebook across three harnesses is
+what failed at v2.0; two was already one too many.
+
+The rejected alternative was thin steering files pointing at
+`.github/instructions/` via Kiro's `#[[file:…]]` reference. A Kiro-only
+consumer who never installed `.github/` gets a dangling reference that
+degrades **silently** — the exact failure shape this pack keeps hitting.
+Generation plus `--check` fails loudly.
+
+**Dreaming ports** because Kiro's v1 hooks support `SessionStart` and
+`Stop` with `action.type: "command"`. Two new templates, rendered by the
+installer. Kiro substitutes `${WORKSPACE_ROOT}` (its only substitution,
+and its `CLAUDE_PLUGIN_ROOT` equivalent); the installer-baked
+`__PACK_ROOT__` is the fallback. Commands name their interpreter
+explicitly because Kiro spawns with `shell:true` — `/bin/sh` on POSIX,
+`cmd.exe` on Windows.
+
+**New `AIQ_HOOK_OUTPUT` protocol switch** in `dream-utils.{sh,ps1}`.
+Claude Code and Copilot read hook stdout as a JSON envelope; Kiro forwards
+`SessionStart` stdout **verbatim**, so the Claude envelope would be pasted
+into the user's chat at every session start. `plain` emits the nudge text
+alone and nothing when there is no nudge. Default is unchanged
+(`claude`) — adding a third harness must not change what the first two
+receive.
+
+**MCP** translated to `.kiro/settings/mcp.json`: `mcpServers` not
+`servers`, no `type` field (transport inferred), `${ENV_VAR}` instead of
+`${input:…}` (Kiro cannot prompt), and `${AIQ_REPO_PATH}` instead of
+`${workspaceFolder}`. All 20 servers ship `disabled: true`. The gotcha
+`.kiro/settings/MCP.md` documents: exporting the variable is **not
+enough** — Kiro expands `${VAR}` only for names approved in
+`kiroAgent.mcpApprovedEnvVars`, and an unapproved one stays literal, so the
+server starts, sends `Bearer ${ADO_PAT}`, and fails to authenticate with no
+hint that no substitution occurred.
+
+**Installers.** `install.{sh,ps1}` render the hook file and link
+`.kiro/skills`; `scripts/bootstrap.{sh,ps1}` gain `--kiro=workspace|skip`
+(`-Kiro`) with manifest, uninstall and trial-mode coverage. No `user`
+scope: Kiro does resolve `~/.kiro/`, but global-vs-workspace precedence per
+file name is unverified, and shipping an unverified scope would be the
+quiet half-support this release removes.
+
+**Tests.** New `unit-kiro-schema.py` (40 assertions) validates all four
+surfaces against the schema the binary enforces; mutation-tested to confirm
+it catches a missing agent resource glob, a `fileMatch` with no pattern, a
+reintroduced `type` field, and a hook that loses the plain output protocol.
+New parity checks **P7** (generated Kiro files current) and **P8** (the two
+sync implementations' tool maps agree), mirroring P5/P6.
+
+### Fixed — generated-file `--check` was line-ending dependent
+
+Pre-existing, found while adding the Kiro syncs and reproduced on both. On
+Windows with `core.autocrlf=true` (the **default**), a clean clone checks
+the generated markdown out as CRLF, because `.gitattributes` had `*.md
+text`. The bash `--check` modes compared LF-rendered output against raw
+bytes, so **every generated file came back STALE** — telling a maintainer
+on a fresh Windows clone that their generated agents were out of date when
+they were byte-correct, and failing parity check P5 for a reason unrelated
+to parity. Only the bash side was affected; both `.ps1` syncs have always
+normalized on read.
+
+Fixed twice over: `.gitattributes` pins the three generated trees to
+`eol=lf`, and both bash scripts strip CR before comparing (which also
+covers a hand-copied tree whose attributes never applied).
+
+### Known gaps
+
+- The full bootstrap **uninstall** end-to-end was not run to completion on
+  the development machine: git there degraded to ~80s per invocation
+  mid-session and the uninstall's git calls hung. The `.kiro` additions to
+  the uninstall lists mirror the `.claude` entries exactly and are correct
+  by inspection, but this should be re-run on a healthy box before release.
+- Brace expansion in Kiro's `fileMatchPattern` is unverified, so
+  `sync-kiro` expands braces into explicit array entries rather than
+  betting on it.
+- No live in-IDE smoke test yet: steering loading, agent delegation, and
+  hook firing were verified by schema and by executing the rendered hook
+  commands under the same shells Kiro uses, not by observing Kiro itself.
+
 ## [2.1.1] — 2026-08-27
 
 ### Changed (qi-traceability.instructions.md is now language-agnostic)

@@ -24,7 +24,7 @@
 # function, not a formality. If a divergence is a deliberate product decision,
 # encode that decision here explicitly rather than loosening the check.
 #
-# WHY P5/P6 SKIP OFF-PACK
+# WHY P5/P6/P7/P8 SKIP OFF-PACK
 #
 # This suite used to ship in the install payload while `scripts/` did not. P5
 # and P6 drive scripts/sync-agents.{sh,ps1}, so in an INSTALLED workspace they
@@ -246,6 +246,63 @@ else
 fi
 
 echo ""
+
+# ---------------------------------------------------------------------------
+# P7: generated Kiro surfaces must be current w.r.t. their sources
+# ---------------------------------------------------------------------------
+# Kiro is the third harness. Two of its surfaces are generated:
+#   .github/instructions/*.instructions.md -> .kiro/steering/*.md
+#   .claude/agents/specialists/*.md        -> .kiro/agents/*.md
+# The same staleness trap as P5, one harness over: edit the source, forget the
+# sync, and Kiro users silently run last week's rules.
+echo "--- P7: Generated Kiro surface freshness ---"
+if [ "$PACK_CHECKOUT" -eq 0 ]; then
+  skip "P7: not the pack checkout — no scripts/ tree, so there is nothing to"
+  echo "        regenerate here. The .kiro files in this workspace are install"
+  echo "        output, not a build product. This is NOT a broken install."
+elif [ ! -f scripts/sync-kiro.sh ]; then
+  fail "P7: scripts/sync-kiro.sh is missing (Kiro surfaces cannot be generated)"
+else
+  if sync_out="$(bash scripts/sync-kiro.sh --check 2>&1)"; then
+    pass "P7: generated Kiro steering + agents are current"
+  else
+    fail "P7: generated Kiro files are STALE — re-run: bash scripts/sync-kiro.sh"
+    printf '%s\n' "$sync_out" | sed 's/^/        /'
+  fi
+fi
+
+echo ""
+
+# ---------------------------------------------------------------------------
+# P8: sync-kiro tool map agrees across implementations
+# ---------------------------------------------------------------------------
+# Same rationale as P6, for the Kiro map. A drift here means the Kiro
+# specialists get different capability tags depending on whether a Mac or a
+# Windows box ran the sync.
+echo "--- P8: sync-kiro tool map agrees across implementations ---"
+if [ "$PACK_CHECKOUT" -eq 0 ]; then
+  skip "P8: not the pack checkout — the sync implementations live in the pack"
+  echo "        and are correctly absent from an installed workspace."
+elif [ ! -f scripts/sync-kiro.ps1 ]; then
+  fail "P8: scripts/sync-kiro.ps1 is missing (no Windows-native sync)"
+else
+  k_sh_map="$(bash scripts/sync-kiro.sh --print-map | tr -d '\r')"
+  k_ps_map="$(grep -oE "'[A-Za-z]+' *= *'[^']*'" scripts/sync-kiro.ps1 | tr -d " '" | tr -d '\r' | sort -u)"
+  k_count="$(echo "$k_sh_map" | grep -c .)"
+  if [ -z "$k_sh_map" ] || [ -z "$k_ps_map" ]; then
+    fail "P8: could not extract a tool map from one or both implementations (sh=$k_count entries, ps=$(echo "$k_ps_map" | grep -c .))"
+  elif [ "$k_sh_map" = "$k_ps_map" ]; then
+    pass "P8: tool map identical in sync-kiro.sh and sync-kiro.ps1 ($k_count entries)"
+  else
+    fail "P8: tool map DIVERGES between sync-kiro.sh and sync-kiro.ps1"
+    echo "        only in .sh:"
+    comm -23 <(echo "$k_sh_map") <(echo "$k_ps_map") | sed 's/^/          /'
+    echo "        only in .ps1:"
+    comm -13 <(echo "$k_sh_map") <(echo "$k_ps_map") | sed 's/^/          /'
+  fi
+fi
+
+echo ""
 echo "=== Results: $PASSED PASS, $FAILED FAIL, $SKIPPED SKIP ==="
 
 # Exit codes are three-valued so run-all.sh can tell "checked and clean" from
@@ -255,7 +312,7 @@ if [ $FAILED -eq 0 ] && [ $SKIPPED -gt 0 ]; then
   cat <<'EOF'
 ⏭️  Parity NOT fully checked — this is an installed workspace, not the pack
    checkout. The structural checks above passed; the generator-backed checks
-   (P5/P6) do not apply here because scripts/ is pack-only by design.
+   (P5/P6/P7/P8) do not apply here because scripts/ is pack-only by design.
 
    Nothing is wrong with this install. To run the full parity check, run this
    script from the pack checkout.
