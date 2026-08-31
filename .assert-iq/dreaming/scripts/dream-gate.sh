@@ -39,7 +39,9 @@ PY
 )"
 
 if [ -n "$NUDGE" ]; then
-  $AIQ_PY -c "import json,sys; print(json.dumps({'continue':True,'systemMessage':sys.argv[1]}))" "$NUDGE"
+  # Protocol-aware: JSON envelope for Claude Code / Copilot, bare text for
+  # Kiro, which forwards SessionStart stdout verbatim into the conversation.
+  aiq_emit_nudge "$NUDGE"
   trap - EXIT
 fi
 exit 0

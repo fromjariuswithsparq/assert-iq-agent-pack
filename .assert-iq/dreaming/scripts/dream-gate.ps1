@@ -21,7 +21,9 @@ if ($last) {
 
 if ($sessionsOk -and $timeOk) {
     $msg = "Assert.IQ Dreaming: $sessions sessions since the last consolidation (gate: $minS sessions AND ${minH}h). Consider running /dream to consolidate memory."
-    @{ continue = $true; systemMessage = $msg } | ConvertTo-Json -Compress
+    # Protocol-aware: JSON envelope for Claude Code / Copilot, bare text for
+    # Kiro, which forwards SessionStart stdout verbatim into the conversation.
+    Aiq-EmitNudge $msg
 } else {
     Aiq-EmitContinue
 }

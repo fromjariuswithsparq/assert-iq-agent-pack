@@ -37,6 +37,16 @@ __pycache__/
 .claude/settings.json
 .claude/skills
 
+# Generated Kiro artifacts (created by install.sh / install.ps1 / scripts/bootstrap.*).
+# .kiro/hooks/assert-iq-dreaming.json is rendered from
+# .assert-iq/dreaming/kiro-hooks.{posix,windows}.template.json with the absolute
+# pack root baked in as the ${WORKSPACE_ROOT} fallback.
+# .kiro/skills is a symlink to ../.github/skills (or a copy where symlinks are
+# unavailable), exactly like .claude/skills.
+# Everything else under .kiro/ IS committed: steering, agents, settings/mcp.json.
+.kiro/hooks/assert-iq-dreaming.json
+.kiro/skills
+
 # Bootstrap install manifest (per-workspace, contains absolute paths).
 .assert-iq/.install-manifest.json
 

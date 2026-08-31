@@ -1,0 +1,27 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Assert.IQ Dreaming - session start gate",
+      "description": "If the dual gate is met (>= min_hours AND >= min_sessions since the last dream), nudge the user to run /dream. Never blocks.",
+      "trigger": "SessionStart",
+      "action": {
+        "type": "command",
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$r='${WORKSPACE_ROOT}'; $s=Join-Path $r '.assert-iq\\dreaming\\scripts\\dream-gate.ps1'; if (-not (Test-Path $s)) { $r='__PACK_ROOT__'; $s=Join-Path $r '.assert-iq\\dreaming\\scripts\\dream-gate.ps1' }; if (-not (Test-Path $s)) { exit 0 }; $env:AIQ_PACK_ROOT=$r; $env:AIQ_HOOK_OUTPUT='plain'; & $s\""
+      },
+      "timeout": 30,
+      "enabled": true
+    },
+    {
+      "name": "Assert.IQ Dreaming - record session",
+      "description": "Increment the session counter and append a line to the daily memory log when a turn ends.",
+      "trigger": "Stop",
+      "action": {
+        "type": "command",
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$r='${WORKSPACE_ROOT}'; $s=Join-Path $r '.assert-iq\\dreaming\\scripts\\dream-record-session.ps1'; if (-not (Test-Path $s)) { $r='__PACK_ROOT__'; $s=Join-Path $r '.assert-iq\\dreaming\\scripts\\dream-record-session.ps1' }; if (-not (Test-Path $s)) { exit 0 }; $env:AIQ_PACK_ROOT=$r; $env:AIQ_HOOK_OUTPUT='plain'; & $s\""
+      },
+      "timeout": 30,
+      "enabled": true
+    }
+  ]
+}

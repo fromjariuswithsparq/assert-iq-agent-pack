@@ -13,7 +13,43 @@ $script:AiqConfig     = Join-Path $script:AiqPackRoot '.assert-iq\config.yaml'
 New-Item -ItemType Directory -Force -Path (Join-Path $script:AiqMemoryDir '.dream') | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $script:AiqMemoryDir 'logs') | Out-Null
 
-function Aiq-EmitContinue { '{"continue":true}' }
+# --- hook output protocol --------------------------------------------------
+# Claude Code consumes hook stdout as JSON: {"continue":true} to proceed, plus
+# an optional "systemMessage" it surfaces to the user. VS Code Copilot's
+# session-events consumer accepts the same shape.
+#
+# Kiro does NOT. Its bundled hook contract is:
+#   exit 0  -- success; stdout FORWARDED for SessionStart/UserPromptSubmit/PreToolUse
+#   exit 2  -- block the action; stderr forwarded
+#   other   -- silent failure, no block
+# ...and the only JSON it parses is a PreToolUse permissionDecision (plus a
+# Stop-hook {"decision":"block"}). So on Kiro the Claude-shaped envelope is not
+# understood as a protocol -- it is forwarded VERBATIM, and the user sees
+# `{"continue":true}` pasted into their chat at the start of every session.
+#
+# AIQ_HOOK_OUTPUT selects the protocol:
+#   unset | "claude"  -> JSON envelope (default; Claude Code + Copilot)
+#   "plain"           -> the nudge text alone, and NOTHING when there is no
+#                        nudge, so a quiet session start stays quiet.
+# The default is deliberately the old behaviour: adding a third harness must
+# not change what the first two receive.
+# Keep in step with aiq_emit_* in dream-utils.sh.
+function Aiq-HookOutputMode {
+    if ($env:AIQ_HOOK_OUTPUT) { return $env:AIQ_HOOK_OUTPUT } else { return 'claude' }
+}
+
+function Aiq-EmitContinue {
+    if ((Aiq-HookOutputMode) -eq 'plain') { return }
+    '{"continue":true}'
+}
+
+# Emit a user-visible nudge in whichever protocol this harness speaks.
+function Aiq-EmitNudge {
+    param([string]$Message)
+    if (-not $Message) { return }
+    if ((Aiq-HookOutputMode) -eq 'plain') { $Message; return }
+    @{ continue = $true; systemMessage = $Message } | ConvertTo-Json -Compress
+}
 
 function Aiq-Enabled {
     if ($env:AIQ_DREAMING_DISABLED -eq '1') { return $false }

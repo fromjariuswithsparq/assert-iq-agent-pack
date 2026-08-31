@@ -20,7 +20,44 @@ export AIQ_PACK_ROOT AIQ_MEMORY_DIR AIQ_DREAM_STATE AIQ_DREAM_LOCK AIQ_CONFIG
 mkdir -p "$AIQ_MEMORY_DIR/.dream" "$AIQ_MEMORY_DIR/logs" 2>/dev/null
 
 # Always emit continue so the agent is never blocked.
-aiq_emit_continue() { echo '{"continue":true}'; }
+# --- hook output protocol --------------------------------------------------
+# Claude Code consumes hook stdout as JSON: {"continue":true} to proceed, plus
+# an optional "systemMessage" it surfaces to the user. VS Code Copilot's
+# session-events consumer accepts the same shape.
+#
+# Kiro does NOT. Its bundled hook contract is:
+#   exit 0  -- success; stdout FORWARDED for SessionStart/UserPromptSubmit/PreToolUse
+#   exit 2  -- block the action; stderr forwarded
+#   other   -- silent failure, no block
+# ...and the only JSON it parses is a PreToolUse permissionDecision (plus a
+# Stop-hook {"decision":"block"}). So on Kiro the Claude-shaped envelope is not
+# understood as a protocol -- it is forwarded VERBATIM, and the user sees
+# `{"continue":true}` pasted into their chat at the start of every session.
+#
+# AIQ_HOOK_OUTPUT selects the protocol:
+#   unset | "claude"  -> JSON envelope (default; Claude Code + Copilot)
+#   "plain"           -> the nudge text alone, and NOTHING when there is no
+#                        nudge, so a quiet session start stays quiet.
+# The default is deliberately the old behaviour: adding a third harness must
+# not change what the first two receive.
+aiq_hook_output_mode() { printf '%s' "${AIQ_HOOK_OUTPUT:-claude}"; }
+
+aiq_emit_continue() {
+  [ "$(aiq_hook_output_mode)" = "plain" ] && return 0
+  echo '{"continue":true}'
+}
+
+# Emit a user-visible nudge in whichever protocol this harness speaks.
+aiq_emit_nudge() {
+  # $1 = message text (may be empty, in which case this is a no-op)
+  [ -n "${1:-}" ] || return 0
+  if [ "$(aiq_hook_output_mode)" = "plain" ]; then
+    printf '%s\n' "$1"
+    return 0
+  fi
+  aiq_resolve_python || { printf '%s\n' "$1"; return 0; }
+  $AIQ_PY -c "import json,sys; print(json.dumps({'continue':True,'systemMessage':sys.argv[1]}))" "$1"
+}
 
 # Resolve a working Python 3 into AIQ_PY. `python3` is not a reliable name:
 # Windows ships a Microsoft Store STUB called python3 that resolves on PATH and
