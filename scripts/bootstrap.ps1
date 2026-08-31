@@ -59,6 +59,13 @@ param(
     [ValidateSet('workspace', 'skip', '')]
     [string]$ClaudeSettings = '',
 
+    # No 'user' scope: Kiro does resolve ~/.kiro/steering and ~/.kiro/agents,
+    # but global-vs-workspace precedence per file NAME is unverified against a
+    # real Kiro (see .assert-iq/kiro-harness.md section 8), and shipping an
+    # unverified scope is exactly the quiet half-support this avoids.
+    [ValidateSet('workspace', 'skip', '')]
+    [string]$Kiro = '',
+
     [ValidateSet('workspace', 'user', 'both', '')]
     [string]$SkillsScope = '',
 
@@ -1111,7 +1118,9 @@ function Invoke-Uninstall {
     foreach ($d in @(
             (Join-Path $Workspace '.assert-iq'),
             (Join-Path $Workspace '.github\instructions'),
-            (Join-Path $Workspace '.vscode'))) {
+            (Join-Path $Workspace '.vscode'),
+            (Join-Path $Workspace '.kiro\steering'),
+            (Join-Path $Workspace '.kiro\settings'))) {
         if (Test-Path -LiteralPath $d -PathType Container) {
             foreach ($snap in (Get-ChildItem -LiteralPath $d -Recurse -File -Filter '*.assert-iq.pre-tailor' -ErrorAction SilentlyContinue)) {
                 Remove-PathOrDir $snap.FullName
@@ -1126,6 +1135,9 @@ function Invoke-Uninstall {
             (Join-Path $Workspace '.github\skills'),
             (Join-Path $Workspace '.github\agents'),
             (Join-Path $Workspace '.claude\agents'),
+            (Join-Path $Workspace '.kiro\agents'),
+            (Join-Path $Workspace '.kiro\steering'),
+            (Join-Path $Workspace '.kiro\settings'),
             (Join-Path $Workspace '.assert-iq\dreaming'),
             (Join-Path $Workspace '.assert-iq\oracles'),
             (Join-Path $Workspace '.assert-iq\verdicts'),
@@ -1163,6 +1175,12 @@ function Invoke-Uninstall {
             (Join-Path $Workspace '.claude\agents'),
             (Join-Path $Workspace '.claude\skills'),
             (Join-Path $Workspace '.claude'),
+            (Join-Path $Workspace '.kiro\hooks'),
+            (Join-Path $Workspace '.kiro\skills'),
+            (Join-Path $Workspace '.kiro\agents'),
+            (Join-Path $Workspace '.kiro\steering'),
+            (Join-Path $Workspace '.kiro\settings'),
+            (Join-Path $Workspace '.kiro'),
             (Join-Path $Workspace '.github\instructions'),
             (Join-Path $Workspace '.github\agents'),
             (Join-Path $Workspace '.github\skills'),
@@ -1657,6 +1675,7 @@ switch ($Preset) {
         if (-not $VSCode)          { $VSCode          = 'workspace' }
         if (-not $Dreaming)        { $Dreaming        = 'workspace' }
         if (-not $ClaudeSettings)  { $ClaudeSettings  = 'workspace' }
+        if (-not $Kiro)            { $Kiro            = 'workspace' }
         if (-not $SkillsScope)     { $SkillsScope     = 'workspace' }
     }
     'portable' {
@@ -1674,6 +1693,7 @@ switch ($Preset) {
         if (-not $VSCode)          { $VSCode          = 'skip' }
         if (-not $Dreaming)        { $Dreaming        = 'skip' }
         if (-not $ClaudeSettings)  { $ClaudeSettings  = 'skip' }
+        if (-not $Kiro)            { $Kiro            = 'skip' }
         if (-not $SkillsScope)     { $SkillsScope     = 'user' }
     }
     default {
@@ -1686,6 +1706,7 @@ switch ($Preset) {
         if (-not $VSCode)          { $VSCode          = 'workspace' }
         if (-not $Dreaming)        { $Dreaming        = 'workspace' }
         if (-not $ClaudeSettings)  { $ClaudeSettings  = 'workspace' }
+        if (-not $Kiro)            { $Kiro            = 'workspace' }
         if (-not $SkillsScope)     { $SkillsScope     = 'workspace' }
     }
 }
@@ -2150,6 +2171,43 @@ function Step-Dreaming {
     }
 }
 
+function Get-RenderedKiroHooksJson {
+    # Renders the KIRO-shaped hook template (Windows variant) with
+    # __PACK_ROOT__ -> $PackRoot. Returns the temp file path; caller removes it.
+    #
+    # A THIRD shape, not a variant of the other two. Kiro's contract:
+    #   { "version": "v1", "hooks": [ { name, trigger, action:{type,command}, ... } ] }
+    # Flat array with PascalCase trigger names on each entry -- no matcher-group
+    # wrapper (Claude), no per-event arrays with platform overrides (Copilot), no
+    # "shell" field.
+    #
+    # The WINDOWS variant matters here: Kiro spawns hook commands with
+    # shell:true, which is cmd.exe on Windows, and the command shells out to
+    # powershell from there. Render-EventsTemplate also JSON-escapes the
+    # backslashes -- required, because a raw Windows path inside a JSON string
+    # produces invalid escapes (\U, \d) and Kiro rejects the whole hook file.
+    #
+    # See .assert-iq\kiro-harness.md section 4 for the verified schema.
+    param([string]$PackRoot)
+    $template = Join-Path $Source '.assert-iq\dreaming\kiro-hooks.windows.template.json'
+    if (-not (Test-Path -LiteralPath $template)) { return $null }
+    # Same dot-source-into-THIS-function requirement as
+    # Get-RenderedClaudeHooksJson: a dot-source inside a sibling function does
+    # not reach here, and the catch below would swallow the resulting
+    # CommandNotFound into a silent 'missing-template'.
+    $lib = Join-Path $Source '.assert-iq\dreaming\scripts\lib\render-events.ps1'
+    if (-not (Test-Path -LiteralPath $lib)) { return $null }
+    . $lib
+    $tmp = [System.IO.Path]::GetTempFileName()
+    try {
+        Render-EventsTemplate -Template $template -Out $tmp -PackRoot $PackRoot
+    } catch {
+        Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+        return $null
+    }
+    return $tmp
+}
+
 function Get-RenderedClaudeHooksJson {
     # Renders the CLAUDE-shaped hook template (Windows variant) with
     # __PACK_ROOT__ -> $PackRoot. Returns the temp file path; caller removes it.
@@ -2294,7 +2352,24 @@ function Step-ClaudeSkillsLink {
     if ($SkillsScope -eq 'user') {
         return
     }
-    $dst       = Join-Path $Workspace '.claude\skills'
+    Link-WorkspaceSkills -Dst (Join-Path $Workspace '.claude\skills') -Label '.claude/skills'
+}
+
+function Link-WorkspaceSkills {
+    # Link <Dst> -> ..\.github\skills, preferring a relative symlink and falling
+    # back to a recursive copy. Shared by .claude\skills and .kiro\skills so the
+    # sidecar rules -- never overwrite a path the user owns -- are identical for
+    # both rather than duplicated and drifting.
+    #
+    # The relative target is load-bearing: `unchanged (pack-owned symlink)` is
+    # decided by comparing the stored target against this exact string, and that
+    # is what makes re-running the bootstrap idempotent instead of
+    # sidecar-spamming.
+    param(
+        [Parameter(Mandatory)][string]$Dst,
+        [Parameter(Mandatory)][string]$Label
+    )
+    $dst       = $Dst
     $targetRel = '..\.github\skills'
     $targetAbs = Join-Path $Workspace '.github\skills'
 
@@ -2308,7 +2383,7 @@ function Step-ClaudeSkillsLink {
                        (@($targets | Where-Object { $matchTargets -contains $_ }).Count -gt 0)
         if ($isPackOwned) {
             Add-ManifestEntry 'unchanged_owned' $dst 'workspace'
-            Record '.claude/skills' 'unchanged (pack-owned symlink)' $dst
+            Record $Label 'unchanged (pack-owned symlink)' $dst
             return
         }
         # Anything else -- sidecar.
@@ -2332,7 +2407,7 @@ function Step-ClaudeSkillsLink {
             }
         }
         Add-ManifestEntry 'sidecar' $side 'workspace'
-        Record '.claude/skills' 'sidecar -> .assert-iq-new' $side
+        Record $Label 'sidecar -> .assert-iq-new' $side
         return
     }
 
@@ -2355,15 +2430,81 @@ function Step-ClaudeSkillsLink {
             Pop-Location
         }
         Add-ManifestEntry 'created' $dst 'workspace'
-        Record '.claude/skills' "linked -> $targetRel" $dst
+        Record $Label "linked -> $targetRel" $dst
     } catch {
         if (Test-Path -LiteralPath $targetAbs -PathType Container) {
             Copy-Item -LiteralPath $targetAbs -Destination $dst -Recurse -Force
             Add-ManifestEntry 'created' $dst 'workspace'
-            Record '.claude/skills' 'copied (symlink unavailable; enable Developer Mode then re-run)' $dst
+            Record $Label 'copied (symlink unavailable; enable Developer Mode then re-run)' $dst
         } else {
-            Record '.claude/skills' 'missing-source' $targetAbs
+            Record $Label 'missing-source' $targetAbs
         }
+    }
+}
+
+function Step-Kiro {
+    # Kiro is the third harness. It reads none of .github\* or .claude\*, so all
+    # of its surfaces need installing separately:
+    #
+    #   .kiro\steering\      generated + hand-authored instructions (committed source)
+    #   .kiro\agents\        lead, planner, 8 specialists (committed source)
+    #   .kiro\settings\      mcp.json + MCP.md (committed source)
+    #   .kiro\hooks\         Dreaming wiring (RENDERED here, pack root baked in)
+    #   .kiro\skills         symlink -> ..\.github\skills
+    #
+    # The first three are plain trees: sync-kiro.ps1 generated them at authoring
+    # time, so at install time they are ordinary payload. Only the hook file is
+    # rendered, and only the skills link is special-cased.
+    switch ($Kiro) {
+        'workspace' { }
+        'skip' {
+            Record '.kiro/' 'skipped (user choice)' '-'
+            return
+        }
+        default { throw "Invalid -Kiro: '$Kiro' (workspace|skip)" }
+    }
+
+    $kiroSrc = Join-Path $Source '.kiro'
+    if (-not (Test-Path -LiteralPath $kiroSrc)) {
+        Record '.kiro/' 'missing-source' $kiroSrc
+        return
+    }
+
+    foreach ($d in @('steering', 'agents', 'settings')) {
+        $src = Join-Path $kiroSrc $d
+        if (Test-Path -LiteralPath $src) {
+            Copy-TreeScoped -Label ".kiro/$d" `
+                -SrcDir $src `
+                -DstDir (Join-Path $Workspace ".kiro\$d") `
+                -Scope 'workspace'
+        }
+    }
+
+    # Dreaming hooks. Rendered with __PACK_ROOT__ = workspace, matching
+    # Step-Dreaming: the hook falls back to that path when Kiro's runtime
+    # ${WORKSPACE_ROOT} does not resolve to an installed pack.
+    $rendered = Get-RenderedKiroHooksJson -PackRoot $Workspace
+    if (-not $rendered) {
+        Record '.kiro/hooks/assert-iq-dreaming.json' 'missing-template' `
+            (Join-Path $Source '.assert-iq\dreaming\kiro-hooks.windows.template.json')
+    } else {
+        $hooksDir = Join-Path $Workspace '.kiro\hooks'
+        if (-not (Test-Path -LiteralPath $hooksDir)) {
+            New-Item -ItemType Directory -Force -Path $hooksDir | Out-Null
+        }
+        Copy-FileScoped -Label '.kiro/hooks/assert-iq-dreaming.json' `
+            -Src $rendered `
+            -Dst (Join-Path $hooksDir 'assert-iq-dreaming.json') `
+            -Scope 'workspace'
+        Remove-Item -LiteralPath $rendered -Force -ErrorAction SilentlyContinue
+    }
+
+    # Skills link. Gated on SkillsScope like the Claude one: with
+    # -SkillsScope user the user-global copy is already handled by
+    # Step-GithubSkills / Step-ClaudeSkillsLink, and a workspace symlink would
+    # contradict the "minimal workspace footprint" that scope asks for.
+    if ($SkillsScope -in @('workspace', 'both')) {
+        Link-WorkspaceSkills -Dst (Join-Path $Workspace '.kiro\skills') -Label '.kiro/skills'
     }
 }
 
@@ -2379,6 +2520,7 @@ Step-GithubSkills
 Step-GithubAgents
 Step-ClaudeAgents
 Step-ClaudeSkillsLink
+Step-Kiro
 
 # =============================================================================
 # Finalize: manifest + git-exclude wiring (trial mode only)
