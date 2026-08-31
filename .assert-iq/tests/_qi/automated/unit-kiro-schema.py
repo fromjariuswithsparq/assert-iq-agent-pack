@@ -477,8 +477,80 @@ def check_mcp():
 
 
 # ---------------------------------------------------------------------------
+# Skills
+# ---------------------------------------------------------------------------
+SKILLS_DIR = ".github/skills"
+
+
+def check_skills():
+    """Every SKILL.md needs name + description frontmatter, or Kiro drops it.
+
+    Kiro is the strictest consumer of the Agent Skills standard the pack ships
+    to. It REJECTS a skill whose SKILL.md has no YAML frontmatter --
+    `skill.validation.failed {"event":"skill.frontmatter.missing"}` -- and the
+    skill is then simply absent: no slash command, no auto-routing, no error
+    the user ever sees.
+
+    Found live: 3 of 30 skills (assert-iq-bootstrap, define-quality-rubric,
+    grade-with-rubric) started straight at `# /skill-name` with no frontmatter
+    at all. Claude Code tolerated that and fell back to the H1 heading, so it
+    looked fine on two harnesses for as long as those skills have existed --
+    which is exactly why it survived: nothing enforced the standard, and the
+    lenient harnesses hid it.
+
+    The tree lives at .github/skills and is symlinked to .claude/skills and
+    .kiro/skills, so checking it once covers all three harnesses.
+    """
+    if not os.path.isdir(SKILLS_DIR):
+        bad("%s: missing" % SKILLS_DIR)
+        return
+    names = sorted(d for d in os.listdir(SKILLS_DIR)
+                   if os.path.isfile(os.path.join(SKILLS_DIR, d, "SKILL.md")))
+    if not names:
+        bad("%s: no skills" % SKILLS_DIR)
+        return
+
+    broken = []
+    for name in names:
+        path = "%s/%s/SKILL.md" % (SKILLS_DIR, name)
+        try:
+            text = io.open(path, encoding="utf-8").read()
+        except Exception as e:
+            bad("%s: unreadable (%s)" % (path, e))
+            continue
+        lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+        if not lines or lines[0].strip() != "---":
+            broken.append((name, "no YAML frontmatter"))
+            continue
+        fm = []
+        for line in lines[1:]:
+            if line.strip() == "---":
+                break
+            fm.append(line)
+        fm_name = fm_scalar(fm, "name")
+        fm_desc = fm_scalar(fm, "description")
+        if not fm_name:
+            broken.append((name, "no name"))
+        elif unquote(fm_name) != name:
+            # Kiro requires name to match the folder.
+            broken.append((name, "name '%s' does not match folder" % unquote(fm_name)))
+        elif not fm_desc:
+            broken.append((name, "no description"))
+
+    if broken:
+        for name, why in broken:
+            bad("skill %s: %s -- Kiro drops it silently (no slash command, "
+                "no auto-routing, no error)" % (name, why))
+    else:
+        ok("skills: all %d have name + description frontmatter" % len(names))
+
+
+# ---------------------------------------------------------------------------
 def main():
     print("=== Kiro harness schema ===")
+    print("")
+    print("--- skills ---")
+    check_skills()
     print("")
     print("--- steering ---")
     check_steering()

@@ -1,3 +1,8 @@
+---
+name: grade-with-rubric
+description: "Grade an artifact independently against a pre-authored rubric in an isolated grader context — evidence-cited per-dimension verdicts, appended to .assert-iq/oracles/outcomes/ for lineage. Feeds the Outcome signal layer. WHEN: grade with rubric, evaluate this test against a rubric, apply an acceptance contract, oracle grade, score this artifact."
+---
+
 # /grade-with-rubric
 
 **Grade artifacts independently** — evaluate against a pre-authored rubric in isolated grader context.
