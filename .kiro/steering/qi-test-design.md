@@ -11,10 +11,12 @@ description: "Assert.IQ test generation and design rules."
 <!-- ------------------------------------------------------------------
      GENERATED FILE - DO NOT EDIT.
      Rendered from .github/instructions/qi-test-design.instructions.md
-     by scripts/sync-kiro.sh (applyTo -> inclusion/fileMatchPattern).
-     To change this steering file, edit the instruction source and
-     re-run:
-       bash scripts/sync-kiro.sh
+     by the Kiro sync (applyTo -> inclusion/fileMatchPattern).
+     To change this steering file, edit that instruction source and
+     re-run the sync FROM THE PACK CHECKOUT. scripts/ is pack-only and
+     is deliberately not installed, so `scripts/sync-kiro.sh` (or the
+     .ps1) does not resolve in an installed workspace. That is
+     expected -- it is not a broken install.
      Staleness is enforced by check P7 in
      .assert-iq/tests/_qi/automated/e2e-agent-parity.sh
      Contract: .assert-iq/kiro-harness.md

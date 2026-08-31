@@ -33,8 +33,9 @@ already in your context. **Do not duplicate its rules here.**
 
 That file is generated from `.github/instructions/qi-foundation.instructions.md`,
 which is the single source of truth shared with Claude Code and Copilot. If you
-need to change a rule, change the instruction source and re-run
-`bash scripts/sync-kiro.sh` — never edit the generated steering file.
+need to change a rule, change the instruction source and re-run the Kiro sync
+from the pack checkout — never edit the generated steering file. `scripts/` is
+pack-only and is never installed, so that sync does not run from here.
 
 Client-specific configuration is read from `.assert-iq/`: `config.yaml`,
 `governance.md`, `maturity-profile.md`, `signal-schema.json`. Read
@@ -87,10 +88,12 @@ harness will silently misbehave if you ignore them.
    error message.
 
 2. **Never edit a generated file.** `.kiro/steering/qi-*.md` and the 8
-   specialist agents are rendered by `scripts/sync-kiro.sh`. Their headers say
-   so. Edits are reverted by the next sync, and check P7 in
+   specialist agents are rendered by the Kiro sync. Their headers say so.
+   Edits are reverted by the next sync, and check P7 in
    `.assert-iq/tests/_qi/automated/e2e-agent-parity.sh` fails while they are
-   stale.
+   stale. The sync runs from the pack checkout — `scripts/` is pack-only and
+   is never installed, so it will not resolve in this workspace. That is
+   expected, not a broken install.
 
 3. **Hooks do not run in an untrusted workspace.** If Dreaming is not
    recording sessions, check workspace trust before anything else — Kiro

@@ -113,8 +113,8 @@ Its surfaces live under `.kiro/`:
 | MCP | `.kiro/settings/mcp.json` | hand-maintained |
 
 **After editing `.github/instructions/*` or `.claude/agents/specialists/*`,
-re-run `bash scripts/sync-kiro.sh` (`sync-kiro.ps1` on Windows) as well as
-`sync-agents`.** Checks P7/P8 in
+re-run `scripts/sync-kiro.sh` (`sync-kiro.ps1` on Windows) as well as
+`sync-agents` — from the pack checkout, where `scripts/` exists.** Checks P7/P8 in
 `.assert-iq/tests/_qi/automated/e2e-agent-parity.sh` fail while the Kiro
 side is stale, exactly as P5/P6 do for Copilot. Never edit a generated
 file under `.kiro/` — its header says so and the next sync reverts it.

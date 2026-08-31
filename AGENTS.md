@@ -16,8 +16,9 @@ is the entrypoint), `.kiro/agents/` (lead, planner, 8 specialists),
 `.kiro/skills/` (30 QI skills, invoked as `/<name>`),
 `.kiro/hooks/` (Dreaming), and `.kiro/settings/mcp.json`. If
 `.kiro/steering/` is absent, this workspace has the pack installed
-without the Kiro surfaces — run `/assert-iq-bootstrap`, or
-`bash scripts/sync-kiro.sh` from the pack checkout. The verified schema
+without the Kiro surfaces — run `/assert-iq-bootstrap`, or run
+`scripts/sync-kiro.sh` from the pack checkout (`scripts/` is pack-only and
+is never installed, so it will not resolve here). The verified schema
 contract is `.assert-iq/kiro-harness.md`.
 
 ## Core principles
