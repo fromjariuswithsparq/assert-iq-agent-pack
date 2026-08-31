@@ -621,6 +621,25 @@ upgrade_three_way() {
   rm -f "$base_tmp" "$merged_tmp"
 }
 
+# Workspace-relative prefixes that still EXIST in the pack source but are
+# deliberately never installed. Keep in step with the tests/_qi/automated/ entry
+# in process_assert_iq (and $NonPayloadPrefixes in bootstrap.ps1).
+#
+# This is NOT the same list as process_assert_iq's $_ex. Most entries there --
+# dreaming/, memory/ -- are still shipped, just by process_dreaming rather than
+# copy_tree, so they must never be treated as orphans. Only paths the pack has
+# genuinely stopped installing belong here.
+AIQ_NONPAYLOAD_PREFIXES=".assert-iq/tests/_qi/automated/"
+
+nonpayload_path() {
+  # 0 if $1 (workspace-relative) is deliberately not installed by this version.
+  local rel="$1" pre
+  for pre in $AIQ_NONPAYLOAD_PREFIXES; do
+    case "$rel" in "$pre"*) return 0 ;; esac
+  done
+  return 1
+}
+
 upgrade_orphans() {
   # Remove files the OLD install placed that the new pack no longer ships.
   # Prompt each; never touch the memory store; report-only when non-interactive.
@@ -642,8 +661,13 @@ upgrade_orphans() {
     esac
     # Touched this run -> current, not an orphan.
     printf '%s\n' "$this_run" | grep -qxF "$p" && continue
-    # Still shipped by the new pack -> not an orphan.
-    [[ -e "$SOURCE/$rel" ]] && continue
+    # Still shipped by the new pack -> not an orphan. "Exists in SOURCE" and
+    # "is in the payload" are different questions: a path the new pack
+    # deliberately stopped installing IS an orphan even though it is still
+    # present upstream. Conflating the two stranded all 34 pack test files in
+    # every workspace upgrading past the version that stopped shipping them --
+    # never reported, never removed, and never updated again either.
+    if [[ -e "$SOURCE/$rel" ]] && ! nonpayload_path "$rel"; then continue; fi
     [[ -e "$p" ]] || continue
 
     local decision="$bulk"
@@ -1908,7 +1932,22 @@ process_assert_iq() {
   # exclude them here so the rendered session-events.json and the user's
   # memory content are never double-handled. Per-workspace tracking files
   # (gitignored) are excluded defensively.
-  local _ex="dreaming/ memory/ .install-manifest.json .merge-result-shas .skip-worktree-paths .base/"
+  #
+  # tests/_qi/automated/ is the PACK'S OWN test suite — it validates the pack
+  # (doc parity, version consistency, installer behaviour, cross-harness agent
+  # parity) and has no bearing on the user's code. Shipping it did active harm:
+  #   * it sits one directory from tests/_qi/manual/ and tests/_qi/exploratory/,
+  #     where the pack tells users their GENERATED QI tests live, so the two
+  #     read as one suite when they are unrelated;
+  #   * 9 of its 28 tests reach for pack-only files (README.html, VERSION,
+  #     CHANGELOG.md, .gitattributes) that are correctly absent from an install,
+  #     so running run-all.sh in a consumer workspace reported 9 failures and
+  #     made a healthy install look broken.
+  # tests/_qi/regression/ is NOT excluded: golden-corpus.jsonl is a consumer
+  # runtime artifact (config.yaml > calibration.golden_corpus_path) that the
+  # post-dream regression gate reads, and the uninstaller already treats that
+  # directory as a runtime sink.
+  local _ex="dreaming/ memory/ tests/_qi/automated/ .install-manifest.json .merge-result-shas .skip-worktree-paths .base/"
   case "$ASSERT_IQ" in
     workspace) copy_tree ".assert-iq" "$SOURCE/.assert-iq" "$WORKSPACE/.assert-iq" "workspace" "$_ex" ;;
     user)      copy_tree ".assert-iq" "$SOURCE/.assert-iq" "$USER_ASSERT_IQ"       "user"      "$_ex" ;;

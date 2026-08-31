@@ -82,12 +82,34 @@ stop and route the user to `/assert-iq-bootstrap` first.
 3. Confirm the working tree is under version control and reviewable
    (so every edit shows up in `git diff`). If not, warn the user that
    changes will be harder to review and ask to proceed.
-3b. Run the environment doctor and report anything it flags:
-   `bash scripts/check-environment.sh` (macOS/Linux) or
-   `pwsh -File scripts\check-environment.ps1` (Windows). Tailoring only
-   edits text, so a warning is not a hard stop — but a config that reads
-   perfectly while the environment cannot run the pack is the worst
-   outcome of this skill. Two failures in particular make later phases
+3b. Run the environment doctor and report anything it flags. **The doctor
+   lives in the pack, not in this workspace** — `scripts/` is never part
+   of the install payload, so a bare `scripts/check-environment.sh` will
+   not resolve here. Resolve the pack root first:
+
+   ```bash
+   # macOS / Linux — $CLAUDE_PLUGIN_ROOT is set for installed packs;
+   # fall back to the cloned checkout only if you are running inside it.
+   bash "${CLAUDE_PLUGIN_ROOT:-.}/scripts/check-environment.sh"
+   ```
+
+   ```powershell
+   # Windows
+   pwsh -File "$env:CLAUDE_PLUGIN_ROOT\scripts\check-environment.ps1"
+   ```
+
+   If `$CLAUDE_PLUGIN_ROOT` is unset and this workspace is not the pack
+   checkout, the doctor is genuinely unreachable. That is **expected for
+   a normal install — not a sign of a broken or partial one.** Say so
+   plainly, note the checks you could not run, and continue to Phase 1.
+   Do not tell the user their install is missing files or predates the
+   scripts; `.assert-iq/.install-manifest.json` lists exactly what was
+   installed, and `scripts/` is correctly absent from it.
+
+   When the doctor *does* run, tailoring only edits text, so a warning
+   is not a hard stop — but a config that reads perfectly while the
+   environment cannot run the pack is the worst outcome of this skill.
+   Two failures in particular make later phases
    misleading: **no working Python 3** (the calibration, memory-sanity
    and verdict tooling this config points at will not run) and
    **`.claude/skills` present as a copy rather than a symlink** (Claude
@@ -303,11 +325,16 @@ prose, not per-client values. If the user insists on editing a
 specialist agent, the source of truth is
 `.claude/agents/specialists/*.md`; the Copilot side
 (`.github/agents/specialists/*.agent.md`) is **generated** from it by
-`scripts/sync-agents.sh` (`sync-agents.ps1` on Windows). Editing the
-generated side is silently reverted by the next sync, and editing the
-source without re-running the sync puts the two harnesses out of parity
-— checks P5 and P6 in `e2e-agent-parity.sh` fail. Re-run the sync, then
-the parity check.
+`scripts/sync-agents.sh` (`sync-agents.ps1` on Windows).
+
+**Where that sync can run depends on where you are.** In the pack
+checkout, edit the Claude source, re-run the sync, then the parity
+check (P5/P6 in `e2e-agent-parity.sh`). In an installed workspace
+`scripts/` does not exist — both agent trees there are install *output*,
+not a build product, so there is nothing to regenerate. Edit both sides
+by hand to keep them consistent and tell the user the change is local:
+the next pack upgrade overwrites it unless the same edit lands in the
+pack source.
 
 ## Phase 7 — Tailor `mcp.json`
 
@@ -366,7 +393,8 @@ Snapshot `.vscode/mcp.json`, then:
 - Do **not** leave a model ID unvalidated because it looks plausible.
   `config.yaml` shipped `claude-Opus-4-8` for several releases, which is
   not a valid ID.
-- Do **not** edit `.github/agents/specialists/*.agent.md` — they are
-  generated from `.claude/agents/specialists/*.md`. Edit the source and
-  re-run `scripts/sync-agents.sh`.
+- Do **not** edit `.github/agents/specialists/*.agent.md` in the pack
+  checkout — they are generated from `.claude/agents/specialists/*.md`.
+  Edit the source and re-run `scripts/sync-agents.sh`. In an installed
+  workspace that script is absent by design; see Phase 6.
 - Do **not** skip the snapshot step — every edit must be reversible.

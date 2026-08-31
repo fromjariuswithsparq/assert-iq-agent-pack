@@ -59,10 +59,19 @@ The bootstrap supports **three install modes**:
 | `committed` | Drops files into the workspace as normal, visible to git. User commits when ready. | Team has decided to adopt; pack should be in the repo for everyone. |
 | `ask` (default in TTY) | Interactive prompt at install time. Non-TTY falls back to `committed`. | Default when no flag is passed. |
 
-**Graduating from trial → committed** is one command:
+**Graduating from trial → committed** is one command, run **from the
+installed workspace** against the pack's copy of the script (`scripts/`
+is not part of the install payload, so a bare `scripts/bootstrap.sh`
+will not resolve there):
 ```bash
-scripts/bootstrap.sh --graduate    # or -Graduate on Windows
+cd /path/to/installed/workspace
+bash "${CLAUDE_PLUGIN_ROOT:-/path/to/pack}/scripts/bootstrap.sh" --graduate
+# or -Graduate on Windows
 ```
+The working directory matters: `--workspace` defaults to `$PWD`, so
+running this from the pack root targets the pack instead of the
+workspace you meant. Pass `--workspace=` explicitly if you cannot `cd`.
+
 This removes the managed block from `.git/info/exclude` and updates
 `.assert-iq/.install-manifest.json` so `mode: committed`. Files on
 disk are untouched.
@@ -138,7 +147,7 @@ disk are untouched.
    Or with per-surface flags overriding the preset:
 
    ```bash
-   bash scripts/bootstrap.sh \
+   bash "${CLAUDE_PLUGIN_ROOT:-.}/scripts/bootstrap.sh" \
      --mode=committed \
      --preset=pod \
      --skills-scope=both \
@@ -146,19 +155,30 @@ disk are untouched.
      --claude=skip
    ```
 
+   > **Every command below runs against an already-installed workspace,
+   > where `scripts/` does not exist** — it is not part of the install
+   > payload. Always resolve the script through `$CLAUDE_PLUGIN_ROOT`
+   > (or the pack checkout path), and run it with the **installed
+   > workspace as the working directory**: `--workspace` defaults to
+   > `$PWD`, so invoking from the pack root silently targets the pack.
+   > Pass `--workspace=` explicitly when you cannot `cd`.
+
    **Graduating from trial → committed later:**
    ```bash
-   bash scripts/bootstrap.sh --graduate
+   cd /path/to/installed/workspace
+   bash "${CLAUDE_PLUGIN_ROOT:-/path/to/pack}/scripts/bootstrap.sh" --graduate
    # or:
-   pwsh -File scripts/bootstrap.ps1 -Graduate
+   pwsh -File "$env:CLAUDE_PLUGIN_ROOT\scripts\bootstrap.ps1" -Graduate
    ```
 
    **Removing the pack from a workspace:**
    ```bash
-   bash scripts/bootstrap.sh --uninstall              # macOS / Linux
-   bash scripts/bootstrap.sh --uninstall --user       # also remove user-global copies
-   bash scripts/bootstrap.sh --uninstall --dry-run    # preview without changes
-   pwsh -File scripts/bootstrap.ps1 -Uninstall        # Windows
+   cd /path/to/installed/workspace
+   P="${CLAUDE_PLUGIN_ROOT:-/path/to/pack}"
+   bash "$P/scripts/bootstrap.sh" --uninstall              # macOS / Linux
+   bash "$P/scripts/bootstrap.sh" --uninstall --user       # also remove user-global copies
+   bash "$P/scripts/bootstrap.sh" --uninstall --dry-run    # preview without changes
+   pwsh -File "$env:CLAUDE_PLUGIN_ROOT\scripts\bootstrap.ps1" -Uninstall   # Windows
    ```
    The uninstall reads `.assert-iq/.install-manifest.json`, restores
    any pre-existing files from their `<file>.assert-iq.pre-install`

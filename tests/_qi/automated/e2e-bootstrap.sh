@@ -916,6 +916,89 @@ case_39_upgrade_tag_fallback_retroactive() {
   cleanup_fixture "$pair"
 }
 
+case_43_upgrade_orphans_depayloaded_path() {
+  # Regression: orphan detection asked "does this still exist in the pack
+  # SOURCE?" when the real question is "is this still in the PAYLOAD?".
+  # tests/_qi/automated/ is still in the repo but is deliberately no longer
+  # installed, so every workspace upgrading past that change kept all 34 pack
+  # test files -- never reported, never removed, and (being excluded from
+  # copy_tree) never updated again either. They sit one directory from
+  # tests/_qi/manual/, where the user's OWN QI tests live, so the two read as
+  # one suite. The upgrade reported success and bumped the version while
+  # leaving the whole stale tree behind.
+  #
+  # Simulates a pre-exclusion install by placing one such file and recording it
+  # in the manifest the way the old installer would have, then upgrading.
+  # (Twin of case 44 in e2e-bootstrap.ps1.)
+  local src; src="$(mk_tagged_source)"
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  run_boot "$pair" --preset=pod --mode=committed --yes --source="$src" >/dev/null
+
+  # A path that still EXISTS in the source but is no longer payload.
+  local legacy=".assert-iq/tests/_qi/automated/run-all.sh"
+  assert_file_exists 43 "$src/$legacy" || { rm -rf "$src"; cleanup_fixture "$pair"; return; }
+  mkdir -p "$ws/$(dirname "$legacy")"
+  cp "$src/$legacy" "$ws/$legacy"
+  local mf="$ws/.assert-iq/.install-manifest.json"
+  jq --arg p "$ws/$legacy" \
+     '.paths += [{"action":"created","path":$p,"scope":"workspace","sha":"x"}]' \
+     "$mf" > "$mf.tmp" && mv "$mf.tmp" "$mf"
+
+  echo "99.0.0" > "$src/VERSION"
+  local out; out="$(run_boot "$pair" --upgrade --yes --source="$src")"
+
+  if ! printf '%s' "$out" | grep -q "orphan from a previous version.*tests/_qi/automated"; then
+    fail 43 "de-payloaded path was not reported as an orphan"
+  fi
+  # Negative control: the regression corpus IS still payload. Reporting it would
+  # mean the prefix had been widened to .assert-iq/tests/, which would strand
+  # golden-corpus.jsonl and break the post-dream regression gate.
+  if printf '%s' "$out" | grep -q "orphan.*tests/_qi/regression"; then
+    fail 43 "golden corpus wrongly treated as an orphan"
+  fi
+  assert_file_exists 43 "$ws/.assert-iq/tests/_qi/regression/golden-corpus.jsonl"
+  # Negative control: a still-shipped file must never be reported.
+  if printf '%s' "$out" | grep -q "orphan.*config\.yaml"; then
+    fail 43 "still-shipped config.yaml reported as an orphan"
+  fi
+  rm -rf "$src"
+  cleanup_fixture "$pair"
+}
+
+case_44_upgrade_preserves_trial_mode() {
+  # --upgrade must never flip trial <-> committed, and every file it ADDS must
+  # be hidden from git too. Otherwise the first upgrade after a trial install
+  # starts leaking pack files into the user's git status -- the one thing trial
+  # mode exists to prevent. All three shipped upgrade cases (37/38/39) install
+  # with --mode=committed, so nothing covered the trial path.
+  # (Twin of case 45 in e2e-bootstrap.ps1.)
+  local src; src="$(mk_tagged_source)"
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  run_boot "$pair" --preset=pod --mode=trial --yes --source="$src" >/dev/null
+  assert_contains 44 "$ws/.assert-iq/.install-manifest.json" '"mode": "trial"'
+  assert_contains 44 "$ws/.git/info/exclude" "assert-iq trial mode"
+
+  # A surface the upgraded pack adds that the old one did not have.
+  local newskill=".github/skills/aiq-e2e-probe/SKILL.md"
+  mkdir -p "$src/$(dirname "$newskill")"
+  printf -- '---\nname: aiq-e2e-probe\ndescription: probe\n---\nprobe\n' > "$src/$newskill"
+  echo "99.0.0" > "$src/VERSION"
+  run_boot "$pair" --upgrade --yes --source="$src" >/dev/null
+
+  assert_file_exists 44 "$ws/$newskill"
+  assert_contains    44 "$ws/.assert-iq/.install-manifest.json" '"mode": "trial"'
+  assert_contains    44 "$ws/.git/info/exclude" "assert-iq trial mode"
+  assert_contains    44 "$ws/.git/info/exclude" "$newskill"
+  # Belt and braces: ask git itself, not just the exclude file.
+  if [[ -n "$(cd "$ws" && git status --porcelain -- "$newskill" 2>/dev/null)" ]]; then
+    fail 44 "upgrade-added file is visible to git in trial mode"
+  fi
+  rm -rf "$src"
+  cleanup_fixture "$pair"
+}
+
 # ============================================================================
 # RUN
 # ============================================================================
@@ -980,6 +1063,8 @@ run_case "39 upgrade tag fallback (retroactive)"     case_39_upgrade_tag_fallbac
 run_case "40 uninstall leaves zero orphans"           case_40_uninstall_zero_orphans
 run_case "41 uninstall preserves sink content"        case_41_uninstall_preserves_sink_content
 run_case "42 uninstall removes un-consolidated memory" case_42_uninstall_removes_unconsolidated_memory
+run_case "43 upgrade orphans de-payloaded path"  case_43_upgrade_orphans_depayloaded_path
+run_case "44 upgrade preserves trial mode"       case_44_upgrade_preserves_trial_mode
 
 echo ""
 echo "Summary: $(grn $CASES_PASS pass)  $(red $CASES_FAIL fail)  $(ylw $CASES_SKIP skip)"

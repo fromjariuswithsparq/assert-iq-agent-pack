@@ -140,7 +140,10 @@ cat .assert-iq/verdicts/index.json | jq .
 1. Copy the `load_verdict_recorder()` pattern into your skill
 2. Follow the build-and-record pattern above
 3. Run the example to see it in action
-4. Run the test suite: `bash .assert-iq/tests/_qi/automated/e2e-comprehensive-validation.sh`
+4. Verify against the pack's own suite — **from the pack checkout, not
+   this workspace**. `tests/_qi/automated/` validates the pack itself and
+   is deliberately not installed, so it is absent here:
+   `bash .assert-iq/tests/_qi/automated/e2e-comprehensive-validation.sh`
 5. Commit and deploy
 
 ## Questions?

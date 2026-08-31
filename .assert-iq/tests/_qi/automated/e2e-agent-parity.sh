@@ -24,15 +24,50 @@
 # function, not a formality. If a divergence is a deliberate product decision,
 # encode that decision here explicitly rather than loosening the check.
 #
+# WHY P5/P6 SKIP OFF-PACK
+#
+# This suite used to ship in the install payload while `scripts/` did not. P5
+# and P6 drive scripts/sync-agents.{sh,ps1}, so in an INSTALLED workspace they
+# failed with "scripts/sync-agents.sh is missing (specialists cannot be
+# generated)" — telling a consumer their install was broken when it was
+# perfect, the same false alarm /assert-iq-tailor used to raise about
+# check-environment.sh.
+#
+# The root fix is upstream: process_assert_iq in bootstrap.sh now excludes
+# tests/_qi/automated/ from the payload, so this file no longer lands in a
+# consumer workspace at all. The skip below is the belt to that braces — it
+# still matters for a pre-exclusion install, a hand-copied tree, or a run from
+# somewhere that is not the pack root.
+#
+# Regenerating the Copilot specialists is a PACK-MAINTENANCE concern. Off-pack
+# there is nothing to regenerate: both agent trees are install output, and the
+# sync scripts are correctly absent. So P5/P6 SKIP there — they are not
+# applicable, which is different from passing and different from failing.
+#
+# On-pack the checks stay strict: a MISSING sync script is still a hard failure,
+# because in the pack it means someone deleted the generator. The two worlds are
+# told apart by the top-level `scripts/` directory, which only the pack has.
+#
 # Run from the repo root.
 # ============================================================================
 
 PASSED=0
 FAILED=0
+SKIPPED=0
 DIVERGENCES=()
 
 pass() { echo "✅ $1"; PASSED=$((PASSED + 1)); }
 fail() { echo "❌ $1"; FAILED=$((FAILED + 1)); DIVERGENCES+=("$1"); }
+skip() { echo "⏭️  SKIP $1"; SKIPPED=$((SKIPPED + 1)); }
+
+# The pack checkout ships a top-level scripts/ tree; an installed workspace
+# never does (bootstrap.sh copies .assert-iq, .github/skills, .github/agents
+# and .claude/agents — never scripts/).
+if [ -d scripts ]; then
+  PACK_CHECKOUT=1
+else
+  PACK_CHECKOUT=0
+fi
 
 CLAUDE_DIR=".claude/agents"
 COPILOT_DIR=".github/agents"
@@ -160,7 +195,11 @@ echo ""
 # P5: generated Copilot specialists must be current w.r.t. their Claude sources
 # ---------------------------------------------------------------------------
 echo "--- P5: Generated specialist freshness ---"
-if [ ! -f scripts/sync-agents.sh ]; then
+if [ "$PACK_CHECKOUT" -eq 0 ]; then
+  skip "P5: not the pack checkout — no scripts/ tree, so there is nothing to"
+  echo "        regenerate here. The specialists in this workspace are install"
+  echo "        output, not a build product. This is NOT a broken install."
+elif [ ! -f scripts/sync-agents.sh ]; then
   fail "P5: scripts/sync-agents.sh is missing (specialists cannot be generated)"
 else
   if sync_out="$(bash scripts/sync-agents.sh --check 2>&1)"; then
@@ -184,7 +223,10 @@ echo ""
 # The PowerShell table is text-extracted so this check still runs on machines
 # without pwsh; CR is stripped because PowerShell would emit CRLF.
 echo "--- P6: sync-agents tool map agrees across implementations ---"
-if [ ! -f scripts/sync-agents.ps1 ]; then
+if [ "$PACK_CHECKOUT" -eq 0 ]; then
+  skip "P6: not the pack checkout — the sync implementations live in the pack"
+  echo "        and are correctly absent from an installed workspace."
+elif [ ! -f scripts/sync-agents.ps1 ]; then
   fail "P6: scripts/sync-agents.ps1 is missing (no Windows-native sync)"
 else
   sh_map="$(bash scripts/sync-agents.sh --print-map | tr -d '\r')"
@@ -204,7 +246,22 @@ else
 fi
 
 echo ""
-echo "=== Results: $PASSED PASS, $FAILED FAIL ==="
+echo "=== Results: $PASSED PASS, $FAILED FAIL, $SKIPPED SKIP ==="
+
+# Exit codes are three-valued so run-all.sh can tell "checked and clean" from
+# "never checked". Reporting a skipped run as parity would be a quiet lie.
+#   0 = in parity   1 = divergence   2 = not applicable (off-pack)
+if [ $FAILED -eq 0 ] && [ $SKIPPED -gt 0 ]; then
+  cat <<'EOF'
+⏭️  Parity NOT fully checked — this is an installed workspace, not the pack
+   checkout. The structural checks above passed; the generator-backed checks
+   (P5/P6) do not apply here because scripts/ is pack-only by design.
+
+   Nothing is wrong with this install. To run the full parity check, run this
+   script from the pack checkout.
+EOF
+  exit 2
+fi
 
 if [ $FAILED -eq 0 ]; then
   echo "✅ Harnesses are in parity."

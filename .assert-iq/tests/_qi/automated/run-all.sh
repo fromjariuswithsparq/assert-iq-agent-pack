@@ -79,11 +79,15 @@ done
 
 echo ""
 echo "── Cross-harness parity (reported separately) ──"
-if bash "$SCRIPT_DIR/$PARITY" >/dev/null 2>&1; then
-  parity_status="IN PARITY"
-else
-  parity_status="DIVERGENT — run: bash .assert-iq/tests/_qi/automated/$PARITY"
-fi
+# Three-valued: 0 in parity, 2 not applicable (installed workspace — the
+# generator-backed checks need the pack's scripts/), anything else divergent.
+# "IN PARITY" for a run that never checked would be a quiet lie.
+bash "$SCRIPT_DIR/$PARITY" >/dev/null 2>&1
+case $? in
+  0) parity_status="IN PARITY" ;;
+  2) parity_status="NOT APPLICABLE — installed workspace, not the pack checkout" ;;
+  *) parity_status="DIVERGENT — run: bash .assert-iq/tests/_qi/automated/$PARITY" ;;
+esac
 echo "  $parity_status"
 
 echo ""

@@ -821,6 +821,103 @@ Run-Case "43 uninstall removes un-consolidated memory" $Pattern {
     Invoke-CleanupFixture $pair $Keep
 }
 
+Run-Case "44 upgrade orphans de-payloaded path" $Pattern {
+    # Regression: orphan detection asked "does this still exist in the pack
+    # Source?" when the real question is "is this still in the PAYLOAD?".
+    # tests/_qi/automated/ is still in the repo but is deliberately no longer
+    # installed, so every workspace upgrading past that change kept all 34 pack
+    # test files -- never reported, never removed, and (being excluded from
+    # Copy-TreeScoped) never updated again either. They sit one directory from
+    # tests/_qi/manual/, where the user's OWN QI tests live. The upgrade
+    # reported success and bumped the version while leaving the stale tree.
+    #
+    # Simulates a pre-exclusion install by placing one such file and recording
+    # it in the manifest the way the old installer would have, then upgrading.
+    # (Twin of case 43 in e2e-bootstrap.sh.)
+    $src = Invoke-MkSource -Tagged
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    try {
+        Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes", "--source=$src") | Out-Null
+
+        # A path that still EXISTS in the source but is no longer payload.
+        $legacyRel = '.assert-iq/tests/_qi/automated/run-all.sh'
+        $legacySrc = Join-Path $src $legacyRel
+        if (-not (Test-Path -LiteralPath $legacySrc)) { Fail 44 "fixture source lacks $legacyRel"; return }
+        $legacyDst = Join-Path $ws ($legacyRel -replace '/','\')
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $legacyDst) | Out-Null
+        Copy-Item -LiteralPath $legacySrc -Destination $legacyDst -Force
+
+        $mfPath = Join-Path $ws '.assert-iq\.install-manifest.json'
+        $mf = Get-Content -Raw -LiteralPath $mfPath | ConvertFrom-Json
+        $mf.paths = @($mf.paths) + @([pscustomobject]@{
+            action = 'created'; path = $legacyDst; scope = 'workspace'; sha = 'x' })
+        Set-Content -LiteralPath $mfPath -Value ($mf | ConvertTo-Json -Depth 10)
+
+        Set-Content -LiteralPath "$src\VERSION" -Value "99.0.0"
+        Invoke-RunBoot $pair @("--upgrade", "--yes", "--source=$src") | Out-Null
+        $out = Get-LastBootOutput
+
+        if ($out -notmatch 'orphan from a previous version.*tests/_qi/automated') {
+            Fail 44 "de-payloaded path was not reported as an orphan"
+        }
+        # Negative control: the regression corpus IS still payload. Reporting it
+        # would mean the prefix had been widened to .assert-iq/tests/, stranding
+        # golden-corpus.jsonl and breaking the post-dream regression gate.
+        if ($out -match 'orphan.*tests/_qi/regression') {
+            Fail 44 "golden corpus wrongly treated as an orphan"
+        }
+        Assert-FileExists 44 "$ws\.assert-iq\tests\_qi\regression\golden-corpus.jsonl"
+        # Negative control: a still-shipped file must never be reported.
+        if ($out -match 'orphan.*config\.yaml') {
+            Fail 44 "still-shipped config.yaml reported as an orphan"
+        }
+    } finally {
+        Remove-Item -LiteralPath $src -Recurse -Force -ErrorAction SilentlyContinue
+        Invoke-CleanupFixture $pair $Keep
+    }
+}
+
+Run-Case "45 upgrade preserves trial mode" $Pattern {
+    # -Upgrade must never flip trial <-> committed, and every file it ADDS must
+    # be hidden from git too. Otherwise the first upgrade after a trial install
+    # starts leaking pack files into the user's git status -- the one thing
+    # trial mode exists to prevent. All three shipped upgrade cases (37/38/39)
+    # install with --mode=committed, so nothing covered the trial path.
+    # (Twin of case 44 in e2e-bootstrap.sh.)
+    $src = Invoke-MkSource -Tagged
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    try {
+        Invoke-RunBoot $pair @("--preset=pod", "--mode=trial", "--yes", "--source=$src") | Out-Null
+        Assert-JsonField 45 "$ws\.assert-iq\.install-manifest.json" "mode" "trial"
+        Assert-Contains  45 "$ws\.git\info\exclude" "assert-iq trial mode"
+
+        # A surface the upgraded pack adds that the old one did not have.
+        $newRel = '.github/skills/aiq-e2e-probe/SKILL.md'
+        $newSrc = Join-Path $src ($newRel -replace '/','\')
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $newSrc) | Out-Null
+        Set-Content -LiteralPath $newSrc -Value "---`nname: aiq-e2e-probe`ndescription: probe`n---`nprobe"
+        Set-Content -LiteralPath "$src\VERSION" -Value "99.0.0"
+
+        Invoke-RunBoot $pair @("--upgrade", "--yes", "--source=$src") | Out-Null
+
+        Assert-FileExists 45 (Join-Path $ws ($newRel -replace '/','\'))
+        Assert-JsonField  45 "$ws\.assert-iq\.install-manifest.json" "mode" "trial"
+        Assert-Contains   45 "$ws\.git\info\exclude" "assert-iq trial mode"
+        Assert-Contains   45 "$ws\.git\info\exclude" $newRel
+        # Belt and braces: ask git itself, not just the exclude file.
+        Push-Location $ws
+        try {
+            $st = (git status --porcelain -- $newRel 2>$null)
+            if ($st) { Fail 45 "upgrade-added file is visible to git in trial mode" }
+        } finally { Pop-Location }
+    } finally {
+        Remove-Item -LiteralPath $src -Recurse -Force -ErrorAction SilentlyContinue
+        Invoke-CleanupFixture $pair $Keep
+    }
+}
+
 echo "`nSummary: $($global:CASES_PASS) pass, $($global:CASES_FAIL) fail"
 if ($global:CASES_FAIL -gt 0) {
     echo "Failures:"

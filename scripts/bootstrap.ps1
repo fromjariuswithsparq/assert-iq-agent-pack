@@ -1506,6 +1506,23 @@ function Invoke-UpgradeThreeWay {
     Remove-Item -LiteralPath $mergedTmp -Force -ErrorAction SilentlyContinue
 }
 
+# Workspace-relative prefixes that still EXIST in the pack source but are
+# deliberately never installed. Keep in step with the 'tests/_qi/automated/'
+# entry in Step-AssertIq (and AIQ_NONPAYLOAD_PREFIXES in bootstrap.sh).
+#
+# This is NOT the same list as $aiqExclude. Most entries there -- dreaming/,
+# memory/ -- are still shipped, just by Step-Dreaming rather than
+# Copy-TreeScoped, so they must never be treated as orphans. Only paths the pack
+# has genuinely stopped installing belong here.
+$script:NonPayloadPrefixes = @('.assert-iq/tests/_qi/automated/')
+
+function Test-NonPayloadPath([string]$RelUnix) {
+    foreach ($pre in $script:NonPayloadPrefixes) {
+        if ($RelUnix -like "$pre*") { return $true }
+    }
+    return $false
+}
+
 function Invoke-UpgradeOrphans {
     # Remove files the OLD install placed that the new pack no longer ships.
     # Prompt each; never touch the memory store; report-only when non-interactive.
@@ -1523,7 +1540,11 @@ function Invoke-UpgradeOrphans {
         if ($relUnix -like '.assert-iq/memory/*') { continue }
         if ($relUnix -like '*.assert-iq.pre-install' -or $relUnix -like '*.assert-iq-new' -or $relUnix -like '*.assert-iq.uninstall-saved' -or $relUnix -like '*.assert-iq.pre-tailor') { continue }
         if ($thisRun.ContainsKey($abs)) { continue }
-        if (Test-Path -LiteralPath (Join-Path $Source $relUnix)) { continue }
+        # "Exists in Source" and "is in the payload" are different questions: a
+        # path the new pack deliberately stopped installing IS an orphan even
+        # though it is still present upstream. Conflating the two stranded all
+        # 34 pack test files in every upgrading workspace.
+        if ((Test-Path -LiteralPath (Join-Path $Source $relUnix)) -and -not (Test-NonPayloadPath $relUnix)) { continue }
         if (-not (Test-Path -LiteralPath $abs)) { continue }
 
         $decision = $bulk
@@ -1969,7 +1990,16 @@ function Step-AssertIq {
     # dreaming/ and memory/ are owned by Step-Dreaming (clean-slate seed +
     # rendered session-events.json); per-workspace tracking files are
     # gitignored. Exclude them here so nothing is double-handled.
-    $aiqExclude = @('dreaming/','memory/','.install-manifest.json','.merge-result-shas','.skip-worktree-paths','.base/')
+    #
+    # tests/_qi/automated/ is the PACK'S OWN test suite -- it validates the pack,
+    # not the user's code, and it sits one directory from tests/_qi/manual/ and
+    # tests/_qi/exploratory/ where the user's GENERATED QI tests live, so the two
+    # read as one suite when they are unrelated. 9 of its tests also reach for
+    # pack-only files absent from an install, making a healthy install look
+    # broken. tests/_qi/regression/ IS still installed: golden-corpus.jsonl is a
+    # consumer runtime artifact (config.yaml > calibration.golden_corpus_path).
+    # Keep this list in step with process_assert_iq in bootstrap.sh.
+    $aiqExclude = @('dreaming/','memory/','tests/_qi/automated/','.install-manifest.json','.merge-result-shas','.skip-worktree-paths','.base/')
     switch ($AssertIq) {
         'workspace' { Copy-TreeScoped '.assert-iq' (Join-Path $Source '.assert-iq') (Join-Path $Workspace '.assert-iq') 'workspace' -Exclude $aiqExclude }
         'user'      { Copy-TreeScoped '.assert-iq' (Join-Path $Source '.assert-iq') $userAssertIq 'user' -Exclude $aiqExclude }

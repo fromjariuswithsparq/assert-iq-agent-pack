@@ -270,16 +270,22 @@ def get_layer_state(score):
 
 ## Testing
 
+These are the **pack's own** tests. `tests/_qi/automated/` validates the pack,
+not your code, so it is deliberately not installed into a workspace — run these
+from the pack checkout. They are plain scripts, not pytest cases, and the `.py`
+one runs under whichever interpreter your box resolves (`python3` does not exist
+on Windows even when Python is installed correctly).
+
 Unit tests for verdict recording:
 
 ```bash
-python3 -m pytest .assert-iq/tests/_qi/automated/unit-verdict-recorder.py
+python3 .assert-iq/tests/_qi/automated/unit-verdict-recorder-stdlib.py
 ```
 
 Integration tests for skill-level recording:
 
 ```bash
-bash .assert-iq/tests/_qi/automated/integration-verdict-skills.sh
+bash .assert-iq/tests/_qi/automated/integration-verdict-recording.sh
 ```
 
 ## Non-Blocking Guarantee
