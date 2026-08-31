@@ -2587,3 +2587,8 @@ Write-Host ''
 Write-Host 'Reload your editor window so the new instructions and config are picked up:'
 Write-Host '  - VS Code:     Ctrl+Shift+P -> "Developer: Reload Window"'
 Write-Host '  - Claude Code: restart the session'
+if ($Kiro -ne 'skip') {
+    Write-Host '  - Kiro:        Ctrl+Shift+P -> "Developer: Reload Window"'
+    Write-Host '                 Kiro will not run the Dreaming hooks until you TRUST'
+    Write-Host '                 this folder -- it disables them silently otherwise.'
+}

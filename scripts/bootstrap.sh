@@ -398,11 +398,28 @@ manifest_write() {
       IFS='|' read -r a p s <<< "$e"
       new_json="$(jq --arg a "$a" --arg p "$p" --arg s "$s" --arg sha "$(sha256_of "$p")" '. + [{action:$a, path:$p, scope:$s, sha:$sha}]' <<< "$new_json")"
     done
+    # The entry array goes to jq through a FILE, never --argjson.
+    #
+    # --argjson puts the whole array on the COMMAND LINE. A pod install is ~138
+    # entries of absolute paths, which is tens of KB -- comfortably past the
+    # ~32KB argv limit on MSYS/Windows. Adding the Kiro surfaces (+21 entries)
+    # crossed it, and the failure was ugly: execve returned "Argument list too
+    # long", but `> "$MANIFEST_PATH"` had ALREADY truncated the file, so the
+    # install printed success and left a 0-BYTE MANIFEST. An empty manifest
+    # means uninstall removes nothing and upgrade cannot diff -- the pack
+    # silently loses track of everything it installed.
+    #
+    # --slurpfile reads the same JSON from disk with no argv cost. It wraps the
+    # file's contents in an array, so the single array we wrote is $new[0].
+    local njf="$MANIFEST_PATH.entries.tmp"
+    printf '%s' "$new_json" > "$njf" || { rm -f "$njf"; return 1; }
+    local mtmp="$MANIFEST_PATH.tmp"
     if [[ -f "$MANIFEST_PATH" ]]; then
       # Merge: prefer new entry for same path, keep older paths not touched this run.
       jq --arg v "$pack_version" --arg t "$now" --arg m "$MODE" \
-         --argjson new "$new_json" \
-         '{
+         --slurpfile new "$njf" \
+         '($new[0]) as $new |
+          {
             version:$v,
             installed_at:$t,
             mode:$m,
@@ -410,11 +427,22 @@ manifest_write() {
               ([.paths[]? | select((.path) as $p | ($new | map(.path) | index($p)) == null)])
               + $new
             )
-          }' "$MANIFEST_PATH" > "$MANIFEST_PATH.tmp" && mv "$MANIFEST_PATH.tmp" "$MANIFEST_PATH"
+          }' "$MANIFEST_PATH" > "$mtmp"
     else
-      jq -n --arg v "$pack_version" --arg t "$now" --arg m "$MODE" --argjson new "$new_json" \
-        '{version:$v, installed_at:$t, mode:$m, paths:$new}' > "$MANIFEST_PATH"
+      jq -n --arg v "$pack_version" --arg t "$now" --arg m "$MODE" --slurpfile new "$njf" \
+        '{version:$v, installed_at:$t, mode:$m, paths:$new[0]}' > "$mtmp"
     fi
+    # Only replace the real manifest if jq actually produced something. Both
+    # branches now stage first, so a jq failure can no longer leave a truncated
+    # or empty manifest behind.
+    if [[ -s "$mtmp" ]]; then
+      mv "$mtmp" "$MANIFEST_PATH"
+    else
+      rm -f "$mtmp" "$njf"
+      echo "ERROR: manifest write failed (jq produced no output); $MANIFEST_PATH left unchanged" >&2
+      return 1
+    fi
+    rm -f "$njf"
   else
     # No jq: write a simple, valid JSON ourselves (replace, no merge — best we can do).
     json_escape() {
@@ -2483,3 +2511,8 @@ fi
 echo "Reload your editor window so the new instructions and config are picked up:"
 echo "  - VS Code:    Cmd/Ctrl + Shift + P -> 'Developer: Reload Window'"
 echo "  - Claude Code: restart the session"
+if [[ "${KIRO:-skip}" != "skip" ]]; then
+  echo "  - Kiro:       Cmd/Ctrl + Shift + P -> 'Developer: Reload Window'"
+  echo "                Kiro will not run the Dreaming hooks until you TRUST"
+  echo "                this folder — it disables them silently otherwise."
+fi
