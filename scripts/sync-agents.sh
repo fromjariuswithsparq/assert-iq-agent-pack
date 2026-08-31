@@ -174,7 +174,16 @@ for src in "$SRC_DIR"/*.md; do
       stale="$stale
   MISSING  ${dst#$ROOT/}"
       rc=1
-    elif [ "$rendered" != "$(cat "$dst")" ]; then
+    # Strip CR before comparing. Line endings are a CHECKOUT artifact, not a
+    # content difference: on Windows with core.autocrlf=true (the default) a
+    # clean clone lands .agent.md as CRLF, and a byte comparison against
+    # LF-rendered output then reports every file STALE -- so check P5 failed on
+    # a clean Windows clone and told the maintainer their generated agents were
+    # out of date when they were correct. .gitattributes now pins this tree to
+    # LF as well; this is the belt to that braces, and it also covers a
+    # hand-edited or hand-copied tree. sync-agents.ps1 has always normalized on
+    # read, so only the bash side was wrong.
+    elif [ "$rendered" != "$(tr -d '\r' < "$dst")" ]; then
       stale="$stale
   STALE    ${dst#$ROOT/}"
       rc=1

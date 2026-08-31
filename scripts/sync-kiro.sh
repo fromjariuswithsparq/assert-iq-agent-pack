@@ -348,7 +348,15 @@ emit() {
       stale="$stale
   MISSING  ${dst#"$ROOT"/}"
       rc=1
-    elif [ "$rendered" != "$(cat "$dst")" ]; then
+    # Strip CR before comparing. Line endings are a CHECKOUT artifact, not a
+    # content difference: on Windows with core.autocrlf=true (the default) a
+    # clean clone lands these files as CRLF, and a byte comparison against
+    # LF-rendered output then reports every file STALE -- telling a maintainer
+    # their generated files are out of date when they are correct. .gitattributes
+    # now pins these trees to LF as well; this is the belt to that braces, and
+    # it also covers a hand-edited or hand-copied tree. sync-kiro.ps1 has always
+    # normalized on read, so only the bash side was wrong.
+    elif [ "$rendered" != "$(tr -d '\r' < "$dst")" ]; then
       stale="$stale
   STALE    ${dst#"$ROOT"/}"
       rc=1
