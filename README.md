@@ -172,23 +172,15 @@ Enable in `.assert-iq/config.yaml` — set `business_metrics.enabled: true` and 
 
 ## Environment requirements
 
-Run the environment check first. It reports every requirement, what it found, and the exact fix for anything missing — so a bad environment surfaces here instead of as a confusing failure mid-install.
-
-```bash
-# macOS / Linux / WSL
-bash scripts/check-environment.sh
-
-# Windows
-pwsh -File scripts/check-environment.ps1
-```
+Here's what the pack needs on your machine. You don't have to check these by hand — **[step 3 of the install](#get-started) runs an environment check for you** and prints the exact fix for anything missing, so a bad environment surfaces before install rather than as a confusing failure midway through.
 
 | | macOS / Linux / WSL | Windows |
 |---|---|---|
-| **Installer to run** | `bash install.sh`, `bash scripts/bootstrap.sh` | `install.ps1`, `scripts\bootstrap.ps1` |
+| **Installer to run** | `bash scripts/bootstrap.sh` | `scripts\bootstrap.ps1` |
 | **Host** | bash 3.2+ (macOS's `/bin/bash` qualifies) | **PowerShell 7+ (`pwsh`) recommended.** Windows PowerShell 5.1 is supported and tested — see below |
 | **git** | Required | Required |
 | **Python 3** | Required for calibration, memory sanity, verdict recording | Same — the pack resolves `python3` → `python` → `py -3` itself |
-| **jq** | Optional for install; **required** for `bootstrap.sh --upgrade` | Not used — the PowerShell path parses JSON natively |
+| **jq** | Not needed for the install below. Only required by advanced flows in the [full docs](README.assert-iq.md#installation) | Not used — the PowerShell path parses JSON natively |
 | **Symlinks** | Native | Developer Mode for a live `.claude/skills`; otherwise it is copied |
 
 **Why PowerShell 7 is the recommendation.** Both hosts pass the full suite, so 5.1 is a real fallback, not a warning label — install nothing if you'd rather not. PowerShell 7 is simply the better default: it creates a live `.claude/skills` symlink where 5.1 usually falls back to a copy, and it avoids a family of .NET Framework quirks (native stderr promoted to terminating errors, `-Encoding UTF8` writing a byte-order mark) that the pack now works around explicitly rather than relies on.
@@ -220,103 +212,70 @@ These four are the only Windows behaviors that differ enough to matter:
 >
 > The suites print which host they ran under for exactly this reason.
 
-## Get started in three steps
+## Get started
 
 ### 1 · Install the pack
 
-There are exactly two install paths. Pick the one that matches how comfortable you are dropping the pack into your team's codebase.
+**What this does.** It copies Assert.IQ into a project you already have, then tells git to ignore those files. Nothing gets committed. Your teammates see nothing. Your project's `.gitignore` is never touched. This is called **trial mode**, and it's the safe way to start — you can undo it completely at any time.
 
-**Path A — Try it on the pack repo itself.** Best if you want to play with Assert.IQ before touching your team's repository. Clone the pack, run the installer, and open the **pack folder** as your VS Code / Claude Code workspace. Everything runs against the pack's own files — your team's codebase is never modified.
+It's four commands, run once. **Step 3 checks that your machine is set up correctly before anything gets installed — please don't skip it.**
 
-```bash
-git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack
-cd assert-iq-agent-pack
-bash install.sh                      # macOS / Linux / WSL
-# or
-pwsh -File install.ps1               # Windows (also works on macOS/Linux)
-# Windows PowerShell 5.1 works too:  powershell -File install.ps1
-```
+#### On a Mac
 
-The installer renders the session-events wiring for the pack's own root, scaffolds the `.assert-iq/memory/` store, wires `.claude/settings.json`, and creates the `.claude/skills` symlink — all inside the pack folder. Re-runnable. Reverse it with `bash install.sh --uninstall` (or `pwsh ./install.ps1 -Uninstall`).
-
-**Path B — Install it into your codebase.** This is the real deployment path. **Run the bootstrap script from a terminal in your target repo** — no editor required:
+Open **Terminal** and run these one at a time:
 
 ```bash
-# 1. Clone the pack somewhere on your machine (one time, anywhere)
+# 1. Download the pack. Do this once — it can live anywhere on your machine.
 git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack ~/assert-iq-agent-pack
 
-# 2. cd into YOUR repo (the one you want Copilot/Claude to load the pack in)
+# 2. Go to the project you want to use Assert.IQ in.
 cd ~/code/my-app
 
-# 3. Run the bootstrap script from the clone
-# macOS / Linux / WSL:
+# 3. Check your machine is ready. Run this from inside your project.
+bash ~/assert-iq-agent-pack/scripts/check-environment.sh
+
+# 4. Install it into that project.
 bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
-# Windows — use PowerShell, NOT Git Bash (see Environment requirements above):
-pwsh -File $HOME/assert-iq-agent-pack/scripts/bootstrap.ps1 -Mode trial
-# Windows PowerShell 5.1 works too, if you don't have pwsh:
-#   powershell -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
 ```
 
-The script is fully standalone — it accepts `--preset=solo|pod`, prompts interactively when run in a TTY, and writes everything Copilot and Claude need into your workspace. **There is no chicken-and-egg.** You do not need to open VS Code or Claude Code first, and you do not need the `/assert-iq-bootstrap` skill loaded — the script is what the skill calls under the hood.
-> **Where does `--preset=solo` put the QI instructions?** Solo is
-> designed for a single developer who wants the QI rules to apply to
-> *every* repo they open, not just this one. The instruction files
-> (`qi-foundation`, `qi-test-design`, etc.) and `CLAUDE.md` install to
-> your VS Code user prompts folder
-> (`~/Library/Application Support/Code/User/prompts/` on macOS,
-> `~/.config/Code/User/prompts/` on Linux,
-> `%APPDATA%\Code\User\prompts\` on Windows) and `~/.claude/CLAUDE.md`
-> respectively — **not** to `.github/instructions/` in the workspace.
-> Use `--preset=pod` if you want the instructions checked into this
-> repo for the whole team.
+#### On Windows
 
+Open **PowerShell**. Not Command Prompt, and not Git Bash — those will fail. Then run these one at a time:
 
-> **Already have the pack loaded** (e.g. you opened the cloned pack itself in your editor, or you've installed the skills user-globally to `~/.agents/skills/`)? You can also run `/assert-iq-bootstrap` from chat — same outcome, chat-driven prompts.
+```powershell
+# 1. Download the pack. Do this once — it can live anywhere on your machine.
+git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack $HOME\assert-iq-agent-pack
 
-`--mode=trial` is the safe default for the first install: every pack file lands in your workspace, but the path is added to `.git/info/exclude`. Your team sees nothing — your codebase's `.gitignore` is **never** touched. Once you're ready for the team to see it, run `bash scripts/bootstrap.sh --graduate` (or use `--mode=committed` from the start).
+# 2. Go to the project you want to use Assert.IQ in.
+cd $HOME\code\my-app
 
-Bootstrap writes twelve surfaces into the workspace: `.assert-iq/`, `.github/instructions/`, `.github/copilot-instructions.md`, `.github/skills/`, `.github/agents/`, `.claude/agents/`, `.claude/skills` (symlink to `../.github/skills` on macOS/Linux; copy fallback on Windows without Developer Mode), `.claude/settings.json`, `CLAUDE.md`, `AGENTS.md`, `.vscode/settings.json` + `.vscode/mcp.json`, and the `.assert-iq/dreaming/` machinery + `.assert-iq/memory/` store. Pre-existing user files are snapshotted to `<file>.assert-iq.pre-install` before any modification, so a later `bash scripts/bootstrap.sh --uninstall` can restore them byte-for-byte. Safe to re-run.
+# 3. Check your machine is ready. Run this from inside your project.
+pwsh -File $HOME\assert-iq-agent-pack\scripts\check-environment.ps1
 
-> **Already have a `copilot-instructions.md`, `CLAUDE.md`, or `AGENTS.md` in your repo?** The interactive resolver offers `[m]erge (recommended)` for those three files. Merge wraps the pack content in idempotent HTML-comment markers (`<!-- assert-iq:begin v=... -->` … `<!-- assert-iq:end -->`) at the top of the file and leaves your existing content below the markers untouched. Re-installing replaces only the marker block, so the merge stays clean across upgrades and your team-authored content is never rewritten. Other files keep the existing `[k]eep / [o]verwrite / [s]idecar` choices.
+# 4. Install it into that project.
+pwsh -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
+```
 
-> **Don't want trial mode? Want skills available in every workspace?**
-> Use `--preset=portable` instead. Skills install user-globally to
-> `~/.agents/skills/` (VS Code Copilot Chat) and `~/.claude/skills/`
-> (Claude Code), so every repo you open has the 30 QI skills available.
-> Workspace footprint is minimal: just the Assert-IQ chat agent files
-> (`.github/agents/`, `.claude/agents/`) and the manifest — no
-> instructions, dreaming, settings, or MCP config touch your repo.
-> ```bash
-> bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --preset=portable
-> ```
-> Reverse with `bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --uninstall --user`.
+If Windows says `pwsh` isn't recognized, use `powershell` instead — the older version works too.
 
-| | Path A — pack-as-workspace | Path B — install into codebase |
-|---|---|---|
-| **Command** | `bash install.sh` | `bash <pack>/scripts/bootstrap.sh --mode=trial` (or `/assert-iq-bootstrap` if the pack is already loaded) |
-| **Workspace** | The pack folder itself | Your team's repo |
-| **Touches your codebase?** | No — the pack is the workspace | Yes — files go into your repo (hidden from git in trial mode) |
-| **Hides from team git?** | N/A | Yes via `.git/info/exclude` (trial mode) |
-| **Reverse with** | `bash install.sh --uninstall` | `bash scripts/bootstrap.sh --uninstall` |
-| **Best for** | Evaluating the pack, demos, the curious | Real adoption — solo, then team |
+#### Reading the environment check
 
-#### Compare the Presets
+Step 3 prints one line per requirement, then a verdict at the bottom:
 
-To avoid confusion regarding what files land globally versus locally, here is a breakdown of the three installation presets:
+- **`Ready to install.`** — everything passed. Go to step 4.
+- **`Ready to install, with N warning(s)`** — safe to continue. A `[WARN]` means reduced functionality, not a broken install (for example, no Developer Mode on Windows, so `.claude/skills` gets copied instead of symlinked).
+- **`Not ready: N blocking issue(s)`** — stop. Each `[FAIL]` line prints the exact command to fix it. Fix them, run step 3 again, and continue once it says ready.
 
-| Preset | Instructions & Rules | Skills / Commands | Workspace Footprint | Best used for... |
-|---|---|---|---|---|
-| `--preset=pod` (default) | **Workspace** (`.github/instructions/`) | **Workspace** (`.github/skills/`) | Full (12 configuration surfaces) | The entire team adopting Assert.IQ simultaneously in a shared repository. |
-| `--preset=solo` | **User-global** (`~/Library/..`) | **Workspace** (`.github/skills/`) | High (Skills & config, no instructions) | A single developer who wants the core QI reasoning rules active *everywhere*, but skills isolated strictly to this project. |
-| `--preset=portable` | *(Not installed)* | **User-global** (`~/.agents/skills/`) | Minimal (Chat agents & manifest only) | A developer who wants the 30 QI skills available in *any* repository without writing configs into the codebase. |
+Run it from **inside your project**, as shown above. It checks the folder you're standing in — that it's a git repo, and that the pack isn't already installed there — so running it from somewhere else reports on the wrong folder.
 
-> **Presets vs. Modes: What's the difference?**
-> - **Presets (`--preset`) control _Placement_:** Where do the files physically go on your hard drive? (Global OS directories vs. local workspace folders).
-> - **Modes (`--mode`) control _Git Visibility_:** For the files that *do* land in your workspace, how does git treat them?
-> 
-> You mix and match them. For example, `--preset=pod --mode=trial` means *"Put everything in my workspace (`pod`), but hide them in `.git/info/exclude` so I can evaluate them locally without bothering my team (`trial`)."* 
-> Once you're ready to share with the team, you use `--mode=committed` (or run `--graduate`), meaning *"Keep the files in the workspace, but now let git track them so my team sees them."*
+**Then, on either platform,** reload your editor so it picks up the new files:
 
+- **VS Code** — press `Cmd/Ctrl + Shift + P`, then pick **Developer: Reload Window**
+- **Claude Code** — restart the session
+
+That's it. Skip to step 2.
+
+> **Just want to poke at Assert.IQ without involving a project of your own?** You can open the pack folder itself as your workspace instead. That, plus every other way to install — sharing with your team, installing skills globally, air-gapped setups — is covered in [detailed install options →](README.assert-iq.md#installation).
 
 ---
 
@@ -361,6 +320,62 @@ The agent pulls context from your connected tools and reasons through all four s
 
 ---
 
+### Update to a newer version
+
+Two steps: refresh your copy of the pack, then run the same install command again. Re-installing is safe — it replaces the pack's own files and leaves your edits to `config.yaml`, `governance.md`, and `maturity-profile.md` alone.
+
+Worth a look first: the [Releases page](https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases) says what changed.
+
+#### On a Mac
+
+```bash
+# 1. Get the newest version of the pack.
+cd ~/assert-iq-agent-pack
+git pull
+
+# 2. Go back to your project and re-run the install.
+cd ~/code/my-app
+bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
+```
+
+#### On Windows
+
+```powershell
+# 1. Get the newest version of the pack.
+cd $HOME\assert-iq-agent-pack
+git pull
+
+# 2. Go back to your project and re-run the install.
+cd $HOME\code\my-app
+pwsh -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
+```
+
+Reload your editor afterwards, the same way you did after installing.
+
+---
+
+### Uninstall
+
+One command, run inside your project. It removes every file the pack added and puts back anything of yours it had replaced. If you had your own `CLAUDE.md` or `AGENTS.md` before installing, you get your original file back.
+
+#### On a Mac
+
+```bash
+cd ~/code/my-app
+bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --uninstall
+```
+
+#### On Windows
+
+```powershell
+cd $HOME\code\my-app
+pwsh -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Uninstall
+```
+
+You can delete the `~/assert-iq-agent-pack` folder too if you're done with it entirely.
+
+---
+
 ## What's inside
 
 ```
@@ -389,21 +404,9 @@ scripts/
 
 ---
 
-## Upgrade
-
-Upgrades are explicit and intentional:
-
-1. Read the [Releases page](https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases) for what changed and any migration notes.
-2. Uninstall the current version where you installed it:
-   - **Path A** (pack-as-workspace): `bash install.sh --uninstall` (or `pwsh ./install.ps1 -Uninstall`).
-   - **Path B** (codebase install): `bash scripts/bootstrap.sh --uninstall` (or `pwsh scripts/bootstrap.ps1 -Uninstall`) in each target repo.
-3. `git pull` (or re-clone) to the new tag, then re-run the same path to refresh.
-
----
-
 ## Go deeper
 
-The three steps above are the fast path. When you're ready for the full picture:
+The steps above are the fast path. When you're ready for the full picture — including every other way to install, how to share the pack with your team, and the full skill reference:
 
 **[README.assert-iq.md →](README.assert-iq.md)** — detailed install options (drop-in / air-gapped / trial vs. committed), full skill reference, maturity tier matrix, MCP server inventory, Dreaming architecture, and full release history.
 
