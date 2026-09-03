@@ -49,6 +49,35 @@ new checks fail against the previous state.
   stamp is second-resolution and a duplicate id would make the log ambiguous
   and let the second run overwrite the first one's archive.
 
+### Fixed (uninstall left a stranded block in `.git/info/exclude`)
+
+Found on a real project after a manual uninstall: `.github/`, `.vscode/`,
+`.claude/`, `CLAUDE.md` and `AGENTS.md` were **still ignored by git** with the
+pack long gone. `git check-ignore` confirmed a new `.github/workflows/ci.yml`
+would have been silently invisible to git — a CI workflow that never gets
+committed, with no error to explain why.
+
+`strip_exclude_block` only ever matched the exact managed marker pair
+(`# >>> assert-iq trial mode (managed) >>>` … `<<<`). The block in that
+workspace had a human-worded header and no delimiters, so uninstall could not
+see it, printed *"No Assert.IQ managed block found — nothing to remove"*, and
+exited successfully. That header string appears nowhere in this repo or in any
+commit in its history, so no version of the scripts wrote it — most likely an
+agent hand-rolled it from the bootstrap skill's prose instead of running the
+script. The same blind spot affected `--graduate`.
+
+Both installers now fall back to an unmarked-block sweep before reporting
+nothing to remove. It is allowlist-driven and deliberately conservative: it
+starts only at a comment naming Assert.IQ, swallows the explanatory comments
+that follow, then removes only paths a trial install is known to write. The
+first unrecognized line ends the block — a blank line, an unowned path, or a
+comment once the paths have started, so a user comment written directly beneath
+the pack entries is kept. An exclude file with no pack content is left
+byte-identical.
+
+Covered by `unit-legacy-exclude-strip.sh`, which fails 5 checks against the
+previous installer, including the original symptom.
+
 ### Added (`/calibration-report`)
 
 The skill tracked as "Phase 6, not yet created" since v1.7.0. `calibration.py`

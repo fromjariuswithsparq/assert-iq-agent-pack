@@ -720,6 +720,71 @@ exclude_file_path() {
   fi
 }
 
+# Lines an Assert.IQ trial-mode install has ever written into
+# .git/info/exclude. Used ONLY as an allowlist when clearing an unmarked
+# legacy block: a line that is not on this list is never removed, so a
+# user's own exclude entries can never be eaten by the heuristic.
+_AIQ_EXCLUDE_OWNED='.assert-iq/|.github/|.claude/|.vscode/|AGENTS.md|CLAUDE.md|.github/instructions/|.github/skills/|.github/agents/|.github/copilot-instructions.md|.claude/agents/|.claude/skills|.claude/settings.json|.vscode/settings.json|.vscode/mcp.json'
+
+# Strip an UNMARKED Assert.IQ block from $1 in place. Sets _STRIP_REMOVED=1
+# if anything was removed.
+#
+# WHY THIS EXISTS
+#
+# _strip_managed_block only matches the exact `# >>> assert-iq trial mode
+# (managed) >>>` … `<<<` pair. Installs that predate those markers -- and
+# agents that hand-rolled the block from the bootstrap skill's prose
+# description instead of running this script -- wrote a section with a
+# human-worded header and no machine-readable delimiters. Uninstall could not
+# see it, so it reported "No Assert.IQ managed block found -- nothing to
+# remove" and exited successfully while leaving the block in place.
+#
+# That is not cosmetic. A stranded block keeps `.github/`, `.vscode/` and
+# `.claude/` excluded forever, so the user's OWN files at those paths -- a
+# GitHub Actions workflow, say -- are silently invisible to git long after the
+# pack is gone. Found in the wild on a real project.
+#
+# Conservative by construction: it only starts at a comment line that names
+# Assert.IQ, and from there removes only comment lines and paths on the
+# allowlist above. The first unrecognized line ends the block.
+_strip_legacy_block() {
+  local file="$1"
+  local tmp="$file.tmp"
+  if awk -v owned="$_AIQ_EXCLUDE_OWNED" '
+    BEGIN {
+      n = split(owned, o, "|")
+      for (i = 1; i <= n; i++) own[o[i]] = 1
+      inblk = 0; removed = 0
+    }
+    function trim(s) { sub(/^[ \t]+/, "", s); sub(/[ \t]+$/, "", s); return s }
+    {
+      line = trim($0)
+      if (!inblk) {
+        # A comment naming Assert.IQ opens a candidate block.
+        if (line ~ /^#/ && tolower(line) ~ /assert[.-]?iq/) {
+          inblk = 1; inpaths = 0; removed = 1; next
+        }
+        print; next
+      }
+      # Header phase: the explanatory comments of the block, before any path.
+      if (!inpaths && line ~ /^#/) next
+      # Path phase: owned entries only.
+      if (line in own) { inpaths = 1; next }
+      # Anything else ends the block -- a blank line, an unowned path, or a
+      # comment once the paths have started. That last case matters: a user
+      # comment written directly beneath the pack entries is theirs, not ours.
+      inblk = 0
+      print
+    }
+    END { exit (removed ? 0 : 1) }
+  ' "$file" > "$tmp"; then
+    _STRIP_REMOVED=1
+  else
+    _STRIP_REMOVED=0
+  fi
+  mv "$tmp" "$file"
+}
+
 # Strip the managed begin..end block from $1 in place. Sets global
 # _STRIP_REMOVED=1 if a block was found, 0 otherwise. Used by both
 # write_exclude_block (to clear stale block before re-append) and
@@ -959,8 +1024,18 @@ strip_exclude_block() {
   _strip_managed_block "$excl"
   if [[ "${_STRIP_REMOVED:-0}" -eq 1 ]]; then
     echo "Removed Assert.IQ managed block from $excl"
+    return
+  fi
+  # No managed block. Before reporting "nothing to remove" -- which is what
+  # stranded a real project's .github/ and .vscode/ behind a legacy block --
+  # look for an unmarked Assert.IQ section too.
+  _strip_legacy_block "$excl"
+  if [[ "${_STRIP_REMOVED:-0}" -eq 1 ]]; then
+    echo "Removed an unmarked (legacy or hand-written) Assert.IQ block from $excl"
+    echo "  It had no managed markers, so earlier versions could not see it."
+    echo "  Paths like .github/ and .vscode/ are visible to git again."
   else
-    echo "No Assert.IQ managed block found in $excl — nothing to remove."
+    echo "No Assert.IQ block found in $excl — nothing to remove."
   fi
 }
 
