@@ -4,12 +4,38 @@
 > instructions, modes, and tools that turn GitHub Copilot Chat **and**
 > Claude Code into a QI-aware delivery partner inside the IDE.
 
-**Version**: v2.1.1
+**Version**: v2.1.2
 **Status**: Internal Sparq asset — Intelligence Studio
 **Owner**: Jarius Hayes
 **Repo**: <https://github.com/fromjariuswithsparq/assert-iq-agent-pack>
 
 **What's New in v2.0**: Multi-agent orchestration (8 specialists), commercial business metrics dashboard (/measure-qi-impact), and quarterly ROI reporting for executive stakeholders.
+
+---
+
+## New here? Start with these words
+
+This page is the deep reference, so it uses a few terms throughout. If any
+of them are unfamiliar, read this once and the rest will make sense.
+
+| Term | What it means here |
+|---|---|
+| **Your project** (also "repo", "codebase", "workspace") | The folder of code you already work in, the one with a `.git` folder inside it. This is where the pack gets installed. |
+| **The pack folder** | The copy of Assert.IQ you download with `git clone`. It lives somewhere separate, like your home folder. You install *from* it *into* your project. |
+| **Terminal / PowerShell** | The app where you type commands. On a Mac it's **Terminal**. On Windows it's **PowerShell** — not Command Prompt, and not Git Bash. |
+| **Trial mode** | An install that git is told to ignore. The files are really there and everything works, but nobody else on your team sees them and nothing gets committed. The safe way to start. |
+| **Committed mode** | The opposite: git tracks the pack files, so when you commit and push, your team gets them too. |
+| **User-global** | Installed into your home folder instead of into one project, so it's available in *every* project you open. |
+| **Symlink** | A shortcut file that points at another folder. The installer uses one so Claude Code and Copilot can share a single copy of the skills instead of keeping two. |
+| **Surface** | One place the pack writes files that a tool reads — for example `.github/skills/` is the surface Copilot reads skills from. |
+| **Skill** | One command you can run in chat, like `/risk-assess-pr`. The pack ships 30. |
+
+Two things worth knowing before you run anything:
+
+1. **Commands run from inside your project**, not from the pack folder. You
+   `cd` into your project first, then point at the pack by its full path.
+2. **Re-running the installer is safe.** It does not duplicate anything, and
+   it leaves your own edits to the config files alone.
 
 ---
 
@@ -57,14 +83,22 @@ short installer that wires `.claude/settings.json` and the skills symlink.
 | Per-client config | `.assert-iq/*` | yes | yes |
 | Generic agent pointer | `AGENTS.md` | n/a | n/a (read by Codex CLI / Cursor / Aider) |
 
-**After dropping the pack into a repo, run the installer once:**
+**After dropping the pack into a repo, run the installer once.**
+
+On a Mac (or Linux / WSL), in Terminal:
 
 ```bash
-bash install.sh        # macOS / Linux
-.\install.ps1          # Windows PowerShell
+bash install.sh
 ```
 
-The installer is idempotent. It (1) renders and syncs the session-events
+On Windows, in PowerShell:
+
+```powershell
+pwsh -File install.ps1
+```
+
+The installer is safe to run as many times as you like — running it twice
+changes nothing the second time. It (1) renders and syncs the session-events
 wiring into `.claude/settings.json` (merging — it preserves any other settings
 keys you have), (2) scaffolds the `.assert-iq/memory/` store, and (3) creates
 `.claude/skills` as a symlink to `../.github/skills`
@@ -96,13 +130,23 @@ repository. You clone the pack, run the installer, and open the **pack
 folder** as your VS Code / Claude Code workspace. Everything runs
 against the pack's own files.
 
+On a Mac (or Linux / WSL), in Terminal:
+
 ```bash
 git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack
 cd assert-iq-agent-pack
-bash install.sh        # macOS / Linux / WSL
-# or
-pwsh ./install.ps1     # Windows PowerShell 7+
+bash install.sh
 ```
+
+On Windows, in PowerShell:
+
+```powershell
+git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack
+cd assert-iq-agent-pack
+pwsh -File install.ps1
+```
+
+If Windows says `pwsh` isn't recognized, use `powershell` instead.
 
 What it does (all inside the pack folder):
 
@@ -117,7 +161,8 @@ What it does (all inside the pack folder):
    copy on Windows without Developer Mode — re-run after edits in that
    case).
 
-Idempotent on every platform — safe to re-run any time. Reverse it
+Safe to re-run any time, on every platform: running it again does not
+duplicate or damage anything. Reverse it
 cleanly with `bash install.sh --uninstall` (or `pwsh ./install.ps1
 -Uninstall`).
 
@@ -131,22 +176,47 @@ from that codebase.
 **Run the bootstrap script from a terminal in your target repo.** No
 editor required, nothing to install in chat first:
 
+On a Mac (or Linux / WSL), in Terminal:
+
 ```bash
-# 1. Clone the pack somewhere on your machine (one time, anywhere)
+# 1. Download the pack. Once, anywhere on your machine.
 git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack ~/assert-iq-agent-pack
 
-# 2. cd into YOUR repo
+# 2. Go to YOUR project.
 cd ~/code/my-app
 
-# 3. Run the bootstrap script from the clone
+# 3. Check your machine is ready (run from inside your project).
+bash ~/assert-iq-agent-pack/scripts/check-environment.sh
+
+# 4. Install into your project.
 bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
-# Windows PowerShell:
-pwsh -File ~\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
 ```
 
+On Windows, in PowerShell:
+
+```powershell
+# 1. Download the pack. Once, anywhere on your machine.
+git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack $HOME\assert-iq-agent-pack
+
+# 2. Go to YOUR project.
+cd $HOME\code\my-app
+
+# 3. Check your machine is ready (run from inside your project).
+pwsh -File $HOME\assert-iq-agent-pack\scripts\check-environment.ps1
+
+# 4. Install into your project.
+pwsh -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
+```
+
+**Every bootstrap command runs from inside your project, not from the pack
+folder.** The script acts on whatever directory you are standing in, so `cd`
+to your project first and point at the pack by its full path — the way every
+example here does.
+
 The script is fully standalone — it accepts `--preset=solo|pod`,
-prompts interactively when run in a TTY, and writes everything Copilot
-and Claude need into your workspace. **There is no chicken-and-egg.**
+asks you questions when you run it by hand in a terminal, and writes
+everything Copilot and Claude need into your workspace. **You do not need
+Assert.IQ already working in order to install it.**
 You do not need to open VS Code or Claude Code first, and the
 `/assert-iq-bootstrap` skill does not need to be loaded — the script
 is what the skill calls under the hood.
@@ -186,17 +256,63 @@ agent files (`.github/agents/`, `.claude/agents/`) and the install
 manifest — no instructions, dreaming, settings, MCP config, or `CLAUDE.md`
 are written into the repo.
 
+On a Mac (or Linux / WSL):
+
 ```bash
+cd ~/code/my-app
 bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --preset=portable
-# Reverse with: --uninstall --user
 ```
 
-You can also opt in à la carte with `--skills-scope=user` (default is
+On Windows:
+
+```powershell
+cd $HOME\code\my-app
+pwsh -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Preset portable
+```
+
+To reverse it, add `--uninstall --user` (Mac) or `-Uninstall -User`
+(Windows) — the `user` part is what removes the copies from your home
+folder, not just from the project.
+
+You can also pick this one behavior on its own with `--skills-scope=user` (default is
 `workspace`; `both` puts skills in both places).
+
+### Presets vs modes — placement vs git visibility
+
+These two flags are easy to confuse. They answer different questions and
+you mix and match them:
+
+- **Presets (`--preset`) control _placement_** — where do the files
+  physically land? Global OS directories, or this workspace?
+- **Modes (`--mode`) control _git visibility_** — for the files that
+  *do* land in the workspace, how does git treat them?
+
+For example, `--preset=pod --mode=trial` means *"put everything in my
+workspace, but hide it in `.git/info/exclude` so I can evaluate it
+without bothering my team."* When you're ready to share, switch to
+`--mode=committed` (or run `--graduate`): *"keep the files where they
+are, but let git track them so my team sees them."*
+
+The three presets, side by side:
+
+| Preset | Instructions & rules | Skills / commands | Workspace footprint | Best used for |
+|---|---|---|---|---|
+| `--preset=pod` (default) | **Workspace** (`.github/instructions/`) | **Workspace** (`.github/skills/`) | Full (12 configuration surfaces) | A whole team adopting Assert.IQ at once in a shared repo. |
+| `--preset=solo` | **User-global** (OS config dir) | **Workspace** (`.github/skills/`) | High (skills & config, no instructions) | One developer who wants the QI reasoning rules active *everywhere*, but skills scoped to this project. |
+| `--preset=portable` | *(not installed)* | **User-global** (`~/.agents/skills/`) | Minimal (chat agents & manifest only) | A developer who wants the 30 QI skills in *any* repo without writing config into the codebase. |
+
+Where `--preset=solo` puts the instructions: the instruction files
+(`qi-foundation`, `qi-test-design`, etc.) go to your VS Code user
+prompts folder — `~/Library/Application Support/Code/User/prompts/` on
+macOS, `~/.config/Code/User/prompts/` on Linux,
+`%APPDATA%\Code\User\prompts\` on Windows — and `CLAUDE.md` goes to
+`~/.claude/CLAUDE.md`. Neither lands in `.github/instructions/` in the
+workspace. Use `--preset=pod` if you want them checked into the repo for
+the whole team.
 
 ### Pinning to a tag
 
-Use `git checkout v2.1.1` (or `git clone --branch v2.1.1`) on the cloned
+Use `git checkout v2.1.2` (or `git clone --branch v2.1.2`) on the cloned
 copy. Use any stable tag from the
 [Releases page](https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases).
 The pack is on the stable `1.x` line — bootstrap CLI flags, manifest
@@ -233,21 +349,22 @@ Three install modes, all driven by the bootstrap script
 |---|---|---|
 | `--mode=trial` | Files land in workspace; their paths added to `.git/info/exclude` (local-only). `.gitignore` untouched. | `--graduate` (promote) or `--uninstall` (remove) |
 | `--mode=committed` | Files land in workspace and are visible to git. | `--uninstall` |
-| `--mode=ask` (default in TTY) | Prompts interactively. Non-TTY falls back to `committed`. | — |
+| `--mode=ask` (the default when you run it by hand) | Asks you which mode you want. When run by a script or CI, where nobody can answer, it falls back to `committed`. | — |
 
 **Pre-existing files are preserved.** The script SHA256-compares each
 file. If the destination matches the pack version, it's silently
 recorded as `unchanged_owned`. If the user has a different file at that
 path, the script falls back to an interactive resolver:
 `[k]eep` / `[o]verwrite` / `[m]erge` / `[s]idecar (writes .assert-iq-new)` /
-`[d]iff` / `[K/O/M/S]all` / `[a]bort`. Non-TTY runs auto-keep.
+`[d]iff` / `[K/O/M/S]all` / `[a]bort`. When run by a script or CI, where
+nobody can answer, it keeps your existing files automatically.
 
 For the three Markdown allowlist files — `.github/copilot-instructions.md`,
 `CLAUDE.md`, and `AGENTS.md` — the resolver shows `[m]erge (recommended)`
-as an extra choice. Merge wraps the pack content in idempotent HTML-comment
+as an extra choice. Merge wraps the pack content in HTML-comment
 markers (`<!-- assert-iq:begin v=... -->` / `<!-- assert-iq:end -->`) at the
 top of the file, leaving everything below untouched. Re-installing replaces
-only the marker block in place, so re-runs are fully idempotent and your
+only the marker block in place, so re-running is always safe and your
 team-authored content outside the markers is never rewritten. Other files
 (JSON settings, session events, skills, etc.) keep the existing K / O / S behavior
 — the `m` option is hidden for them, and a JSON deep-merge still applies
@@ -270,29 +387,67 @@ on `--graduate`). Uninstall reads the same manifest.
 
 #### Graduating from trial → committed
 
+Run this from inside your project, not from the pack folder.
+
+On a Mac (or Linux / WSL):
+
 ```bash
-# macOS / Linux
-scripts/bootstrap.sh --graduate
+cd ~/code/my-app
+bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --graduate
+```
 
-# Windows
-pwsh -File scripts/bootstrap.ps1 -Graduate
+On Windows:
 
-# Then commit the pack files when ready:
+```powershell
+cd $HOME\code\my-app
+pwsh -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Graduate
+```
+
+Then, on either platform, commit the pack files when you're ready for the
+team to see them:
+
+```bash
 git add .assert-iq .claude .github CLAUDE.md AGENTS.md
 git commit -m "chore: adopt Assert.IQ agent pack"
 ```
 
 #### Removing the pack
 
-```bash
-# macOS / Linux
-scripts/bootstrap.sh --uninstall          # add --user to also remove user-global copies
-scripts/bootstrap.sh --uninstall --dry-run  # preview without changing anything
+Run this from inside your project, not from the pack folder.
 
-# Windows
-pwsh -File scripts/bootstrap.ps1 -Uninstall
-pwsh -File scripts/bootstrap.ps1 -Uninstall -DryRun
+On a Mac (or Linux / WSL):
+
+```bash
+cd ~/code/my-app
+
+# See what would be removed, without changing anything.
+bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --uninstall --dry-run
+
+# Actually remove it.
+bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --uninstall
+
+# Add --user to also remove copies installed outside this project
+# (the ones a portable or solo install put in your home folder).
+bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --uninstall --user
 ```
+
+On Windows:
+
+```powershell
+cd $HOME\code\my-app
+
+# See what would be removed, without changing anything.
+pwsh -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Uninstall -DryRun
+
+# Actually remove it.
+pwsh -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Uninstall
+
+# Add -User to also remove copies installed outside this project.
+pwsh -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Uninstall -User
+```
+
+Doing a dry run first is a good habit: it prints every file it would touch
+so there are no surprises.
 
 ### Upgrading to a new release
 
@@ -321,7 +476,7 @@ the 30 skills. Behavior varies by platform:
 | **Windows without Developer Mode / admin** | Installer **falls back to copying** `.github/skills/` → `.claude/skills/` and logs the fallback. | **Re-run `install.ps1` after editing any skill** so Claude sees the change. There is real drift risk here — prefer Developer Mode. |
 | **CI runners, Docker `COPY`, manual zip downloads** | Symlinks may not be preserved — you may get a broken link or a copy. | Prefer the GitHub-generated source tarball (preserves symlinks), or run `install.sh` / `install.ps1` after checkout to repair the link. |
 
-The installer is idempotent on every platform — re-running it is always
+The installer is safe to re-run on every platform — running it again is always
 safe.
 
 ---
@@ -654,9 +809,60 @@ delegating the skill to a less-experienced engineer.
 
 ## Troubleshooting
 
+### Install problems, by platform
+
+**Windows — "pwsh is not recognized."**
+You have Windows PowerShell 5.1 rather than PowerShell 7. Swap `pwsh` for
+`powershell` in the command and it will work. Everything in the pack is
+tested on both.
+
+**Windows — "python3 is not recognized."**
+On Windows the python.org installer gives you `python.exe` but no
+`python3.exe`, so `python3` genuinely does not exist. Use `python`, or
+`py -3` if that also fails. (The pack's own scripts already handle this
+for you; it only comes up when you run a Python command by hand.)
+
+**Windows — I edited a skill but the change doesn't show up.**
+Your `.claude/skills` is a copy rather than a shortcut. Windows only allows
+the shortcut if Developer Mode is on, and PowerShell 5.1 often cannot create
+one even then — PowerShell 7 usually can. Until you switch, just re-run the
+installer after editing a skill and the copy refreshes. The installer tells
+you which of the two you got.
+
+**Mac or Linux — `$'\r': command not found`, or `/usr/bin/env: 'bash\r'`.**
+Your copy of the pack has Windows line endings, usually because the files
+came from a Windows machine, a shared drive, or a zip. Fix the copy in
+place:
+
+```bash
+cd ~/assert-iq-agent-pack
+git add --renormalize .
+git checkout -- .
+```
+
+**Either platform — "not inside a git repo", or the pack installed somewhere
+unexpected.**
+You ran the command from the wrong folder. Every bootstrap command acts on
+the directory you are standing in, so `cd` into your project first, then
+point at the pack by its full path.
+
+**Either platform — the skills don't appear in chat after installing.**
+Reload your editor. In VS Code press `Cmd/Ctrl + Shift + P` and choose
+**Developer: Reload Window**; in Claude Code, restart the session. Nothing
+loads the new files until you do.
+
+**Not sure whether your machine is set up correctly?**
+Run the environment check from inside your project. It lists every
+requirement with the exact fix for anything missing — see
+[Installation](#installation).
+
+### Skill behavior problems
+
 **The skill says it can't find the work item.**
-Confirm MCP is wired (`.vscode/mcp.json`) and the PAT has read access.
-Test by running a minimal MCP query directly.
+Confirm MCP is wired up (`.vscode/mcp.json`) and that your access token has
+permission to read. A personal access token, or PAT, is the credential the
+tracker gives you so tools can read your tickets. Test by running a small
+MCP query on its own first.
 
 **Generated tests don't match our framework conventions.**
 Update `.github/instructions/qi-test-design.instructions.md` with explicit
@@ -730,6 +936,7 @@ or `qi-traceability.instructions.md` with examples drawn from your codebase.
 | **1.7.0** | **Decision Confidence Calibration — proving verdict accuracy over time.** Every PR risk assessment and release confidence judgment is recorded as an immutable verdict (band, score, per-layer states, assumptions, memory hash) in `.assert-iq/verdicts/`. Escapes link back to their original verdict; over time the pack computes Brier score, confusion matrix, per-layer fidelity, and memory-drift alerts (`.assert-iq/analysis/calibration.py`). Memory versioning via SHA256 hashing gives a reproducibility contract (restore snapshot → re-run assessment → identical verdict). Memory sanity checks (cycle, staleness, contradiction, granularity) guard the `/dream` consolidation pass. Verdict recording is mandatory in `/risk-assess-pr`, `/release-confidence`, and `/analyze-escaped-defect`. |
 | **2.0.0** | **Multi-agent orchestration + commercial instrumentation.** Lead agents (`Assert-IQ`, `Assert-IQ-PLAN`) now orchestrate **8 isolated specialist agents** under `.claude/agents/specialists/` — `risk-scorer`, `coverage-analyst`, `flake-adjudicator`, `hotspot-analyzer` (parallel batch) then `oracle-grader`, `calibration-specialist`, `memory-curator`, `traceability-auditor` (serial chain). Each returns structured JSON; the lead synthesizes findings into one narrative + decision, with the audit trail in `.assert-iq/agent-runs/`. New `/measure-qi-impact` skill converts QI verdicts + baseline metrics (`.assert-iq/business-metrics/baseline.json`) into VP-ready quarterly HTML dashboards: escape reduction %, triage hours reclaimed, cycle-time acceleration, and total economic ROI in dollars. Configured via `.assert-iq/config.yaml` → `business_metrics`. **30 skills total** (was 29). Strict superset of 1.7.0 — zero breaking changes. |
 | **2.1.0** | **Windows verified as a first-class platform for both harnesses.** All four variations (Windows/macOS × Copilot/Claude Code) are now covered, with the PowerShell suites run under **both** Windows PowerShell 5.1 and PowerShell 7 — a green run on one says nothing about the other, and four 5.1-only defects were hiding behind a fully passing 7 run. **Fixed:** Copilot session hooks never fired on Windows (every `$`-prefixed token was stripped before PowerShell parsed the command, so Dreaming recorded nothing and only a `ParserError` surfaced); `bootstrap.ps1 -Upgrade` silently dropped the pack update whenever the baseline came from a git tag; uninstall left `business-metrics/` behind on both platforms and `verdicts/` on Windows; the memory store was preserved on activity rather than consolidated knowledge, so a working hook meant every uninstall orphaned an empty store; `install.ps1` / `bootstrap.ps1` failed to *parse* under 5.1 (non-ASCII, no BOM); trial mode left the pack visible to git; every PowerShell-written JSON carried a BOM the Python tooling rejects; `.claude/skills` was silently a copy rather than a symlink; `install.sh` worked exactly once without `jq` on stock macOS; `validate-documentation-integrity.sh` ran 1 of 10 checks on every platform. **Added:** `scripts/check-environment.sh` / `.ps1` environment doctors, a `.gitattributes` (the pack never had one), and ~16 test files weighted toward executing behaviour over inspecting shape — including hook execution that asserts observable state. **Cross-harness parity:** the 8 specialist agents are now generated for Copilot from the Claude sources by `scripts/sync-agents.sh` / `.ps1`, so the two harnesses cannot drift; `Assert-IQ` gained `agent/runSubagent` and an `agents:` allowlist so Copilot can actually delegate; new parity checks P5 (generated agents stale) and P6 (bash vs PowerShell tool-map divergence). `jq` is no longer a dependency — JSON assertions moved to Python helpers — and the suite resolves `python3` → `python` → `py -3` by execution, because Windows ships a `python3` stub and no `python3.exe`. PowerShell 7 is now the documented Windows default; 5.1 remains supported and tested on every run. |
+| **2.1.2** | **Install documentation rewritten for a first-time reader, and split by operating system.** **Changed:** the landing page's Getting Started now covers install, update, and uninstall as separate **On a Mac** / **On Windows** paths, and surfaces trial mode only — `--graduate`, `--mode=committed`, the three presets and Path A moved into this document, along with the *Presets vs modes* explainer and preset table that had existed only on the landing page. The environment check is now an explicit step 3 of 4 rather than a passing mention, placed *after* `cd`-ing into the target project because `check-environment` inspects the directory it runs from and otherwise reports on the wrong one. Every code block in this document mixed both platforms, so copying one ran the macOS command *and* the Windows command; all eight are split. Added a glossary of the terms this page leans on and replaced jargon in place (*idempotent*, *TTY*, *chicken-and-egg*, *à la carte*, *PAT*). **Fixed:** `--uninstall` and `--graduate` were documented as `scripts/bootstrap.sh --uninstall`, a relative path implying you stand in the pack folder — `bootstrap.sh` sets `WORKSPACE="$PWD"`, so run that way it targets the pack folder rather than your project, and following the docs literally did not uninstall the thing you meant; PowerShell paths used `~\…` here but `$HOME\…` on the landing page, now `$HOME\` everywhere; Troubleshooting had no platform entries at all, now six drawn from the codebase (pwsh vs powershell, `python3` absent on Windows, the Developer Mode symlink/copy fallback, the CRLF `$'\r': command not found` error, running from the wrong folder, skills not appearing until reload); and a duplicate `id="get-started"` in `README.html` that would have made the search index emit `get-started-2`. |
 | **2.1.1** | **Patch release — the verdict and calibration tooling was inert, and the traceability rule only worked on .NET.** **Fixed:** `verdict-recorder.py` imported PyYAML at module scope, a dependency the pack declares and installs nowhere, so on a stock Python 3 the whole module — including `compute_memory_hash` — failed to import and verdict recording was dead on every platform and both harnesses (YAML load is now lazy, with a stdlib fallback reader for the config subset it needs); `compute_memory_hash` produced a different `memory_version` for an *unchanged* store depending on host case-collation, checkout line endings, a stray `.DS_Store` or `Thumbs.db`, and unframed concatenation that let distinct stores collide and hid the topic renames `/dream` performs — now length-prefixed `(path, content)` records over NFC-normalized POSIX paths, tagged `sha256-v2` so pre-fix verdicts stay distinguishable; `calibration.py` compared offset-aware `issued_at` values against a naive `utcnow()` and swallowed the resulting `TypeError`, so `--window-days` filtering never applied and drift detection could never fire at all; `bootstrap.ps1` wrote a BOM into every JSON it merged under Windows PowerShell 5.1 (`-Encoding UTF8` means *with* BOM there), which `json.load` and a strict `JSON.parse` both reject — silently un-wiring the Dreaming hooks the installer had just written; `/assert-iq-tailor` never asked about several setup steps, and config shipped two wrong grader/dreaming model IDs (one not a valid ID at all), now `claude-opus-5`. **Changed:** `qi-traceability.instructions.md` is language-agnostic and config-driven — its `applyTo` was `**/*.{cs,xaml}`, the narrowest glob of the six instruction files, so on most stacks it never loaded and the pack's traceability rule silently did not apply. It now covers 21 source extensions (deliberately inclusive; `/assert-iq-tailor` narrows it), names all ten `marker_style` values from `config.yaml`, and states what does *not* carry a marker. **Release tooling:** `make-release.sh` now promotes the version-history **Unreleased** row automatically — 2.1.0 shipped with it unpromoted. |
 
 Tag releases. Keep a CHANGELOG in `.assert-iq/CHANGELOG.md`.
@@ -764,13 +971,24 @@ Every PR risk assessment and release confidence judgment is recorded immutably:
 
 #### Using Calibration Metrics
 
-Run on-demand:
+Run it whenever you want a report. Do this from inside your project.
+
+On a Mac (or Linux / WSL):
+
 ```bash
 python3 .assert-iq/analysis/calibration.py --window-days 90 --output report.json
-# Windows: python.org ships python.exe but no python3.exe. Use instead:
-#   python .assert-iq/analysis/calibration.py --window-days 90 --output report.json
-#   py -3   .assert-iq/analysis/calibration.py --window-days 90 --output report.json
 ```
+
+On Windows:
+
+```powershell
+python .assert-iq\analysis\calibration.py --window-days 90 --output report.json
+```
+
+Why the different command? The installer from python.org gives you
+`python.exe` but no `python3.exe`, so `python3` will not be found on a
+typical Windows machine. If `python` doesn't work either, try `py -3`
+instead — that launcher ships with the same installer.
 
 Generates:
 - **Brier Score** — mean squared error between predicted confidence and actual outcome

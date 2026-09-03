@@ -73,8 +73,7 @@ ACCEPTED = {
             "30 Skills", "Multi-Agent Orchestration (v2.0)",
             "Business Impact Dashboards (v2.0)", "Oracle Layer", "Maturity-Aware",
             "20 MCP Servers", "Dreaming", "Decision Confidence Calibration",
-            "Path A · Try it on the pack", "Path B · Install into your codebase",
-            "Compare the paths", "Pick your workspace topology",
+            "Pick your workspace topology",
         ],
     },
 }

@@ -178,6 +178,78 @@ symlink-delete trap does not fire.
   delegation, were verified structurally (schema + Kiro's own loader logs)
   rather than by inspecting a live conversation.
 
+## [2.1.2] — 2026-09-03
+
+### Changed (install documentation rewritten for a first-time reader)
+
+Feedback from people trialling the pack: the install instructions were hard
+to follow and never made clear which commands belonged to which operating
+system.
+
+**Landing page (`README.md` / `README.html`).** Getting Started now covers
+install, update, and uninstall, each split into **On a Mac** and **On
+Windows**. Install surfaces trial mode only; the other paths and flags
+(`--graduate`, `--mode=committed`, the three presets, Path A) moved to
+`README.assert-iq.md`. The *Presets vs modes* explainer and the preset
+comparison table existed **only** on the landing page, so they were moved
+rather than deleted.
+
+**The environment check is now an explicit step**, 3 of 4, flagged as
+not-skippable, with a section explaining which of its verdicts block you
+(`Not ready`) and which do not (`WARN`). It was previously a passing mention
+that was easy to miss. It is placed *after* `cd`-ing into the target project
+rather than before: `check-environment` inspects the directory it runs from —
+whether that is a git repo, whether the pack is already installed there — so
+run from the pack folder it reports on the wrong directory and warns "not
+inside a git repo".
+
+**Deep doc (`README.assert-iq.md` / `.html`).** Every code block mixed both
+platforms, so copying one ran the macOS command *and* the Windows command.
+All eight are split and labelled. Added a glossary of the nine terms the
+document leans on (project, pack folder, trial mode, user-global, symlink,
+surface, skill…) and replaced jargon in place — *idempotent*, *TTY* /
+*non-TTY*, *chicken-and-egg*, *à la carte*, *PAT*.
+
+### Fixed (install commands that pointed at the wrong directory)
+
+- **`--uninstall` and `--graduate` were documented as
+  `scripts/bootstrap.sh --uninstall`** — a relative path implying you are
+  standing in the pack folder. `bootstrap.sh` sets `WORKSPACE="$PWD"`, so run
+  that way it targets the pack folder rather than your project: following the
+  documentation literally did not uninstall the thing you meant. Every
+  example now `cd`s into the project and points at the pack by full path,
+  with the rule stated explicitly.
+
+- **PowerShell paths were inconsistent** — `~\…` in the deep doc versus
+  `$HOME\…` on the landing page. Standardised on `$HOME\`, which is
+  unambiguous on both Windows PowerShell 5.1 and PowerShell 7.
+
+- **Troubleshooting carried no platform-specific entries**, although platform
+  failures are what newcomers actually hit. Added six, each drawn from the
+  codebase rather than invented: `pwsh` vs `powershell`, `python3` not
+  existing on Windows, the Developer Mode symlink/copy fallback
+  (`bootstrap.ps1:2363`), the CRLF `$'\r': command not found` error (verbatim
+  from `.gitattributes`), running from the wrong folder, and skills not
+  appearing until the editor is reloaded.
+
+- **Duplicate `id="get-started"` in `README.html`** — introduced by the
+  heading rename, since `<section>` already carried that id. Invalid HTML,
+  and `build-search-index.py` would have emitted `get-started-2` for the
+  heading. The id now lives on the heading alone.
+
+- **The environment requirements table contradicted the new instructions**,
+  still advertising `install.sh` and "jq required for `bootstrap.sh
+  --upgrade`" when neither appears on the page any more.
+
+Verified by executing every documented macOS command against a scratch repo
+(`check-environment.sh`, `--mode=trial`, `--uninstall --dry-run`,
+`--graduate`, `--uninstall`), and by checking all six documented PowerShell
+flags against `bootstrap.ps1`'s `param()` block. No PowerShell is available
+on the authoring machine, so the Windows commands are verified against the
+scripts' parameter definitions rather than by execution.
+
+---
+
 ## [2.1.1] — 2026-08-27
 
 ### Changed (qi-traceability.instructions.md is now language-agnostic)
