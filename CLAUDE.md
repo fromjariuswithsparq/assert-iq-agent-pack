@@ -57,7 +57,7 @@ inside each file.
   don't. The lead and planner agents are deliberately NOT generated: their prose
   is harness-specific and hand-authored on both sides.
 - **Skills** — `.github/skills/` (canonical) is mirrored at `.claude/skills`
-  so Claude auto-discovers all 30 QI skills (code review, test generation,
+  so Claude auto-discovers all 31 QI skills (code review, test generation,
   bug reports, traceability matrix, release confidence, hotspot map, business
   metrics dashboard, etc.). **v2.0+**: Includes `/measure-qi-impact` for
   quarterly business ROI reporting.

@@ -163,20 +163,53 @@ Longitudinal accuracy is measured via:
 
 ### Memory Poisoning Prevention
 
-Before `/dream` consolidates memory:
-1. Run `python3 .assert-iq/analysis/memory-sanity.py` for sanity checks
-   (on Windows use `python` or `py -3` — the python.org installer ships
-   `python.exe` but no `python3.exe`, and the Microsoft Store `python3` is a
-   non-functional stub):
+Before `/dream` changes a single memory file, run:
+
+```bash
+python3 .assert-iq/analysis/dream-safety.py pre
+```
+
+(on Windows use `python` or `py -3` — the python.org installer ships
+`python.exe` but no `python3.exe`, and the Microsoft Store `python3` is a
+non-functional stub)
+
+That one command performs steps 1–3 and prints a `CYCLE_ID=` line to carry
+into the post step:
+
+1. **Sanity checks** over the memory store:
    - Cycle detection (A→B→C→A flags editorial confusion)
    - Fact staleness (>180 days without update)
    - Contradiction detection (conflicting facts across topics)
    - Granularity checks (copy-paste vs. synthesized facts)
-2. Snapshot memory: `.assert-iq/dreaming/.snapshots/mem-<timestamp>.tar.gz`
-3. Log dream cycle in `.assert-iq/dreaming/provenance.json` (append-only audit)
-4. Post-dream: regression test golden corpus (fail if >5% verdict divergence)
+2. **Snapshot** memory to
+   `.assert-iq/dreaming/.snapshots/mem-<cycle>.tar.gz`, keeping the newest
+   `dreaming_provenance.snapshot_retention` archives. This is what the
+   reproducibility contract below restores from — a dream with no snapshot
+   is not reversible.
+3. **Open a dream cycle** in `.assert-iq/dreaming/provenance.json`
+   (append-only audit), recording `memory_version_before`, the snapshot
+   path, the maturity tier, and the sanity result.
 
-Higher maturity tiers enforce regression blocking; lower tiers alert only.
+Honor its exit code: **0** proceed, **1** stop (a gate failed and the tier
+enforces it), **2** stop (environment error — never dream blind).
+
+After consolidating, close the record:
+
+```bash
+python3 .assert-iq/analysis/dream-safety.py post --cycle-id dream-<stamp>
+```
+
+4. **Post-dream regression**, only when `regression_testing.enabled`: re-run
+   the golden corpus and compare (fail if divergence exceeds
+   `max_verdict_divergence_pct`, default 5%):
+
+   ```bash
+   python3 .assert-iq/analysis/dream-safety.py regression \
+       --cycle-id dream-<stamp> --results <results.jsonl>
+   ```
+
+Higher maturity tiers enforce blocking; lower tiers alert only. That applies
+to both gates: sanity failures and regression divergence.
 
 ### Audit Trail
 

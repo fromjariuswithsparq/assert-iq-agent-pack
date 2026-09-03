@@ -41,6 +41,30 @@ especially the `.github/instructions/*` rule files are read-only.
    — consolidate autonomously within the maturity tier. In a **committed**
    install (or when no manifest exists), the store is tracked in git, so treat
    the result as a reviewable diff and surface it as such in the report.
+5. **Safety — sanity check, snapshot, open the provenance cycle.** This is the
+   procedure `qi-foundation.instructions.md` > *Memory Poisoning Prevention*
+   requires; it is not optional and it runs **before** you change any memory
+   file. One command does all three:
+
+   ```bash
+   python3 .assert-iq/analysis/dream-safety.py pre
+   ```
+
+   On Windows use `python` or `py -3` — the python.org installer ships
+   `python.exe` but no `python3.exe`.
+
+   It prints a `CYCLE_ID=dream-<stamp>` line. **Keep that id**; the Finish
+   step needs it. Then honour the exit code:
+   - **0** — proceed. Any sanity warnings it printed are worth reading, and
+     worth mentioning in the dream report, but they do not stop you.
+   - **1** — **stop.** Sanity checks failed and the maturity tier enforces
+     rather than warns. Report what it found and do not modify memory.
+   - **2** — the environment is wrong (no memory store, or the analysis
+     helpers are missing). Report it and stop; do not dream blind.
+
+   Never hand-roll these steps. The snapshot it writes is what the
+   reproducibility contract restores from, and a dream with no snapshot is
+   not reversible.
 
 ## Phase 1 — Orient
 
@@ -89,11 +113,35 @@ index-vs-file contradictions, and reorder by relevance and recency. Update the
 
 ## Finish — update state + dream report
 
-1. Reset the counter: write `.assert-iq/memory/.dream/state.json` with
+1. **Close the provenance cycle** with the id from Preflight step 5:
+
+   ```bash
+   python3 .assert-iq/analysis/dream-safety.py post --cycle-id dream-<stamp>
+   ```
+
+   This records `memory_version_after` and whether memory actually changed,
+   completing the audit record. If you abandoned the dream part-way, pass
+   `--aborted` so the log says so rather than leaving the cycle open.
+
+2. **Regression corpus** — only when `regression_testing.enabled` is true in
+   `config.yaml`. Re-run `/risk-assess-pr` for each `pr_id` in
+   `regression_testing.golden_corpus_path`, write the outcomes as JSONL
+   (`{"pr_id": ..., "actual_verdict_band": ...}`), then:
+
+   ```bash
+   python3 .assert-iq/analysis/dream-safety.py regression \
+       --cycle-id dream-<stamp> --results <your-results.jsonl>
+   ```
+
+   Exit 1 means the divergence exceeded the configured threshold and the tier
+   enforces it: the consolidation degraded verdict accuracy. Restore the
+   snapshot this cycle recorded and report what happened.
+
+3. Reset the counter: write `.assert-iq/memory/.dream/state.json` with
    `last_dream_utc` = now (ISO-8601 UTC) and `sessions_since_dream` = 0.
-2. Emit a **dream report** — 3–6 sentences: what was consolidated, updated, or
+4. Emit a **dream report** — 3–6 sentences: what was consolidated, updated, or
    pruned. If nothing needed changing, say *"memories already tight — no changes."*
-3. In a **committed** install, remind the user the changes are a git diff they
+5. In a **committed** install, remind the user the changes are a git diff they
    can review, edit, or revert. In a **trial** install, note the store is
    local-only (hidden from git) and was updated in place.
 

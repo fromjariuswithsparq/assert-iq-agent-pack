@@ -629,7 +629,7 @@ upgrade_three_way() {
 # dreaming/, memory/ -- are still shipped, just by process_dreaming rather than
 # copy_tree, so they must never be treated as orphans. Only paths the pack has
 # genuinely stopped installing belong here.
-AIQ_NONPAYLOAD_PREFIXES=".assert-iq/tests/_qi/automated/"
+AIQ_NONPAYLOAD_PREFIXES=".assert-iq/tests/_qi/automated/ .assert-iq/IMPLEMENTATION_SUMMARY.md .assert-iq/README_REVIEW_SUMMARY.md"
 
 nonpayload_path() {
   # 0 if $1 (workspace-relative) is deliberately not installed by this version.
@@ -1947,7 +1947,15 @@ process_assert_iq() {
   # runtime artifact (config.yaml > calibration.golden_corpus_path) that the
   # post-dream regression gate reads, and the uninstaller already treats that
   # directory as a runtime sink.
-  local _ex="dreaming/ memory/ tests/_qi/automated/ .install-manifest.json .merge-result-shas .skip-worktree-paths .base/"
+  # IMPLEMENTATION_SUMMARY.md and README_REVIEW_SUMMARY.md are point-in-time
+  # engineering work logs from the v1.7.0-alpha1 cycle, not documentation. They
+  # shipped into every consumer workspace carrying claims that were already
+  # false ("57/57 tests passing", "No commits made -- ready for review before
+  # integration", and a Known Limitations table still marking as pending three
+  # things that shipped), so a client opening .assert-iq/ read a half-finished
+  # product. They stay in the pack repo as history; they are not install
+  # payload. What shipped in a release is the CHANGELOG's job.
+  local _ex="dreaming/ memory/ tests/_qi/automated/ IMPLEMENTATION_SUMMARY.md README_REVIEW_SUMMARY.md .install-manifest.json .merge-result-shas .skip-worktree-paths .base/"
   case "$ASSERT_IQ" in
     workspace) copy_tree ".assert-iq" "$SOURCE/.assert-iq" "$WORKSPACE/.assert-iq" "workspace" "$_ex" ;;
     user)      copy_tree ".assert-iq" "$SOURCE/.assert-iq" "$USER_ASSERT_IQ"       "user"      "$_ex" ;;

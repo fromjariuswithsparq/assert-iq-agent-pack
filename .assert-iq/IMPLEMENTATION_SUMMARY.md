@@ -1,5 +1,12 @@
 # Assert.IQ v1.7.0-alpha1 — Complete Implementation Summary
 
+> **Historical record — not current state.**
+> This is a point-in-time engineering work log from the **v1.7.0** cycle,
+> kept for history. It is **not installed into consumer workspaces** and it is
+> not maintained: statements below were true when written and several are now
+> false. For what a release actually contains, read `CHANGELOG.md`; for how the
+> pack works today, read `README.assert-iq.md`.
+
 **Status:** ✅ **COMPLETE** — All phases executed, all tests passing, ready for Phase 5 (skill maintainer integration)
 
 **Date:** 2026-08-11  

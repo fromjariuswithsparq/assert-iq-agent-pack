@@ -1514,7 +1514,9 @@ function Invoke-UpgradeThreeWay {
 # memory/ -- are still shipped, just by Step-Dreaming rather than
 # Copy-TreeScoped, so they must never be treated as orphans. Only paths the pack
 # has genuinely stopped installing belong here.
-$script:NonPayloadPrefixes = @('.assert-iq/tests/_qi/automated/')
+$script:NonPayloadPrefixes = @('.assert-iq/tests/_qi/automated/',
+                                '.assert-iq/IMPLEMENTATION_SUMMARY.md',
+                                '.assert-iq/README_REVIEW_SUMMARY.md')
 
 function Test-NonPayloadPath([string]$RelUnix) {
     foreach ($pre in $script:NonPayloadPrefixes) {
@@ -1999,7 +2001,13 @@ function Step-AssertIq {
     # broken. tests/_qi/regression/ IS still installed: golden-corpus.jsonl is a
     # consumer runtime artifact (config.yaml > calibration.golden_corpus_path).
     # Keep this list in step with process_assert_iq in bootstrap.sh.
-    $aiqExclude = @('dreaming/','memory/','tests/_qi/automated/','.install-manifest.json','.merge-result-shas','.skip-worktree-paths','.base/')
+    # IMPLEMENTATION_SUMMARY.md and README_REVIEW_SUMMARY.md are point-in-time
+    # engineering work logs from the v1.7.0-alpha1 cycle, not documentation. They
+    # shipped into every consumer workspace carrying claims that were already false
+    # ("57/57 tests passing", "No commits made", a Known Limitations table still
+    # marking three shipped items as pending), so a client opening .assert-iq/ read
+    # a half-finished product. They stay in the pack repo as history, not payload.
+    $aiqExclude = @('dreaming/','memory/','tests/_qi/automated/','IMPLEMENTATION_SUMMARY.md','README_REVIEW_SUMMARY.md','.install-manifest.json','.merge-result-shas','.skip-worktree-paths','.base/')
     switch ($AssertIq) {
         'workspace' { Copy-TreeScoped '.assert-iq' (Join-Path $Source '.assert-iq') (Join-Path $Workspace '.assert-iq') 'workspace' -Exclude $aiqExclude }
         'user'      { Copy-TreeScoped '.assert-iq' (Join-Path $Source '.assert-iq') $userAssertIq 'user' -Exclude $aiqExclude }

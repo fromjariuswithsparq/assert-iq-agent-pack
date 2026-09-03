@@ -5,6 +5,77 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed (the /dream safety procedure was documented but unwired)
+
+`qi-foundation.instructions.md` > *Memory Poisoning Prevention* promised four
+things around `/dream`: sanity checks, a memory snapshot, an append-only
+provenance record, and a post-dream golden-corpus regression check. **None of
+them existed.** Nothing anywhere wrote `provenance.json`, `.snapshots/` stayed
+empty, and the `/dream` skill never mentioned steps 1, 2 or 4.
+
+The cost went past tidiness. The reproducibility contract in the same
+instruction file opens with `tar xzf .snapshots/mem-<version>.tar.gz` — a step
+that **could never have worked**, because no snapshot was ever taken.
+
+`integration-dream-provenance.sh` passed the whole time: it asserted only that
+`provenance.json` existed and parsed, never that anything wrote to it. An
+existence check on an append-only audit log is close to worthless on its own,
+so it now also asserts the producer exists and that `/dream` invokes it. Both
+new checks fail against the previous state.
+
+- **New `.assert-iq/analysis/dream-safety.py`** implements the deterministic
+  half of the procedure: `pre` (sanity, snapshot, open cycle, prune to
+  `snapshot_retention`), `post --cycle-id` (record `memory_version_after`), and
+  `regression --cycle-id --results` (divergence vs. the golden corpus). One
+  stdlib-only Python file rather than a `.sh`/`.ps1` pair — the pack already
+  resolves an interpreter on every platform, so this adds no second parity
+  surface. Exit codes are the contract: **0** proceed, **1** blocked, **2**
+  environment error.
+- **Gates follow the maturity tier**, as the instruction says: `higher`
+  enforces, `early`/`mid` warn. A blocked run still takes its snapshot, so a
+  refused dream leaves a restore point.
+- **The judgement half stays with the model.** A script cannot reproduce a risk
+  assessment, so `/dream` re-runs the corpus and writes JSONL; the script does
+  the divergence maths and the gate. The unimplementable half was not faked.
+- **`/dream` now invokes both steps**, and `qi-foundation.instructions.md` was
+  rewritten so the instruction and the implementation describe the same thing.
+- Sanity results come from `memory-sanity.py`'s individual check functions
+  rather than by parsing its printed report, so a wording change there cannot
+  silently turn the gate into a no-op. Provenance is written via a temp file and
+  `replace()`; an interrupted run would otherwise truncate the audit log and
+  lose every prior cycle. Cycle ids disambiguate with a `-2` suffix, since the
+  stamp is second-resolution and a duplicate id would make the log ambiguous
+  and let the second run overwrite the first one's archive.
+
+### Added (`/calibration-report`)
+
+The skill tracked as "Phase 6, not yet created" since v1.7.0. `calibration.py`
+already computed Brier score, confusion matrix, per-layer fidelity and drift;
+there was no skill to run and interpret it, so the capability was unreachable
+from chat. The skill wraps the existing script — it does not reimplement the
+maths — and interprets the output against the maturity tier, leading with a
+verdict on the verdicts rather than pasting JSON. **31 skills total** (was 30).
+
+### Changed (two stale work logs no longer ship to clients)
+
+`IMPLEMENTATION_SUMMARY.md` and `README_REVIEW_SUMMARY.md` are point-in-time
+engineering logs from the v1.7.0-alpha1 cycle, and both installed into every
+consumer workspace. They carried claims that were already false — "57/57 tests
+passing" (the suite is 29), "No commits made — ready for review before
+integration", and a Known Limitations table still marking as pending three
+things that had shipped. A client opening `.assert-iq/` read a half-finished
+product.
+
+Both are now excluded from the install payload in `bootstrap.sh` and
+`bootstrap.ps1`, using the same `NonPayload` mechanism that stopped shipping
+the pack's own test suite — so an upgrade also cleans them out of existing
+installs. They stay in the pack repo as history, each with a banner marking it
+a historical record. What a release contains is the CHANGELOG's job.
+
+---
+
 ## [2.1.2] — 2026-09-03
 
 ### Changed (install documentation rewritten for a first-time reader)

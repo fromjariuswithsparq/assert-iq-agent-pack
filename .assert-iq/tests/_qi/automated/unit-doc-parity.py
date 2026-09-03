@@ -70,7 +70,7 @@ ACCEPTED = {
         "html_only": [
             "Change Risk", "Protection Strength", "Signal Trustworthiness",
             "Outcome Evidence", "The immediate impact",
-            "30 Skills", "Multi-Agent Orchestration (v2.0)",
+            "31 Skills", "Multi-Agent Orchestration (v2.0)",
             "Business Impact Dashboards (v2.0)", "Oracle Layer", "Maturity-Aware",
             "20 MCP Servers", "Dreaming", "Decision Confidence Calibration",
             "Pick your workspace topology",
