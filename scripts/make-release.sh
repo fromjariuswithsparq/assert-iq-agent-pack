@@ -69,6 +69,8 @@ bump_doc_banners() {
     "README.assert-iq.md"
     "README.assert-iq.html"
     "README.html"
+    "FEATURES.md"
+    "FEATURES.html"
     "claude-readme.html"
     "vscode-readme.html"
     "dreaming-readme.html"
@@ -86,6 +88,7 @@ bump_doc_banners() {
       -e "s|(<strong>Version:</strong> )$v|\\1v$new|" \
       -e "s|(Pack · )$v( · Owned)|\\1v$new\\3|g" \
       -e "s|(<span class=\"badge-dot\"></span>)$v( · Internal)|\\1v$new\\3|" \
+      -e "s|(<span class=\"badge-dot\"></span>)$v( · Feature Guide)|\\1v$new\\3|" \
       -e "s|(git checkout )$v|\\1v$new|g" \
       -e "s|(git clone --branch )$v|\\1v$new|g" \
       "$f" > "$tmp"
@@ -215,7 +218,8 @@ fi
 
 RELEASE_PATHS=(
   VERSION CHANGELOG.md README.md MANIFEST.md README.assert-iq.md
-  README.assert-iq.html README.html claude-readme.html vscode-readme.html
+  README.assert-iq.html README.html FEATURES.md FEATURES.html
+  claude-readme.html vscode-readme.html
   dreaming-readme.html MCP.html assets/search-index.js docs/html
 )
 if ! git diff --quiet -- "${RELEASE_PATHS[@]}" 2>/dev/null; then

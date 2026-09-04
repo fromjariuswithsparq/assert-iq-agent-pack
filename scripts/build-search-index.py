@@ -32,6 +32,7 @@ INDEX_JS = ASSETS_DIR / "search-index.js"
 PAGES = [
     ("README.html",            "Pack overview"),
     ("README.assert-iq.html",  "Assert.IQ overview"),
+    ("FEATURES.html",          "Feature guide"),
     ("MCP.html",               "MCP servers"),
     ("vscode-readme.html",     "VS Code guide"),
     ("claude-readme.html",     "Claude Code guide"),
@@ -132,8 +133,11 @@ def process_page(path: Path, page_title_fallback: str) -> list[dict]:
                 anchor = f"{base}-{n}"
                 n += 1
             used_ids.add(anchor)
-            spacer = "" if attrs.startswith(" ") else " "
-            new_attrs = f'{spacer}id="{anchor}"' + attrs
+            # Always separate the tag name from the injected id, and the
+            # injected id from any pre-existing attrs. Deriving one spacer for
+            # both jobs emitted `<h3id="…" class="…">` on attributed headings.
+            sep = "" if (not attrs or attrs.startswith(" ")) else " "
+            new_attrs = f' id="{anchor}"{sep}{attrs}'
 
         entries.append({
             "p": path.name,

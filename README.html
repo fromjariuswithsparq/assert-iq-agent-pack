@@ -248,8 +248,17 @@
     font-size: 1.3rem;
     margin-bottom: 12px;
   }
-  .feature h4 { margin: 0 0 8px; }
+  .feature h4 { margin: 0 0 8px; color: var(--text); }
   .feature p { margin: 0; color: var(--text-dim); font-size: 0.92em; }
+  a.feature { display: block; color: var(--text); }
+  a.feature:hover { color: var(--text); border-color: var(--accent); }
+  a.feature h4::after {
+    content: ' →';
+    color: var(--accent-2);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  a.feature:hover h4::after { opacity: 1; }
 
   /* Steps */
   .steps { counter-reset: step; }
@@ -395,6 +404,7 @@
     <p class="tagline">Quality Intelligence for every IDE, every sprint, every team.</p>
     <div class="hero-cta">
       <a class="btn btn-primary" href="#get-started">Get Started →</a>
+      <a class="btn btn-ghost" href="FEATURES.html">Feature Guide</a>
       <a class="btn btn-ghost" href="README.assert-iq.html">Full Documentation</a>
     </div>
   </div>
@@ -443,47 +453,48 @@
   <p class="lead">Assert.IQ is the accelerator. It drops a QI reasoning layer directly into <strong>GitHub Copilot Chat</strong> and <strong>Claude Code</strong> so teams don't have to learn a new tool or change their workflow. The IDE they already use becomes QI-aware.</p>
 
   <div class="features">
-    <div class="feature">
+    <a class="feature" href="FEATURES.html#skills">
       <div class="feature-icon" aria-hidden="true">⚡</div>
       <h4>31 Skills</h4>
       <p>Test generation, code review, risk assessment, hotspot mapping, traceability matrices, release confidence, escaped-defect analysis, exploratory charters, oracle-based grading, business metrics dashboards, and more.</p>
-    </div>
-    <div class="feature">
+    </a>
+    <a class="feature" href="FEATURES.html#multi-agent-orchestration">
       <div class="feature-icon" aria-hidden="true">🤖</div>
       <h4>Multi-Agent Orchestration <span class="accent">(v2.0)</span></h4>
       <p>On <strong>both</strong> harnesses, two lead agents (<code>Assert-IQ</code> for execution, <code>Assert-IQ-PLAN</code> for plan-first) orchestrate <strong>8 isolated specialist agents</strong> — risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer, oracle-grader, calibration-specialist, memory-curator, traceability-auditor — in parallel then serially.</p>
-    </div>
-    <div class="feature">
+    </a>
+    <a class="feature" href="FEATURES.html#business-impact-dashboards">
       <div class="feature-icon" aria-hidden="true">💰</div>
       <h4>Business Impact Dashboards <span class="accent">(v2.0)</span></h4>
       <p>The <code>/measure-qi-impact</code> skill converts QI verdicts into <strong>VP-ready HTML dashboards</strong> — escape reduction %, triage hours reclaimed, cycle-time acceleration, and total economic ROI in dollars.</p>
-    </div>
-    <div class="feature">
+    </a>
+    <a class="feature" href="FEATURES.html#oracle-layer">
       <div class="feature-icon" aria-hidden="true">🔮</div>
       <h4>Oracle Layer</h4>
       <p>Rubric-based grading (<code>/define-quality-rubric</code>, <code>/grade-with-rubric</code>) — define what "good" looks like first, then grade artifacts independently. Immutable, versioned specs feed the Outcome layer.</p>
-    </div>
-    <div class="feature">
+    </a>
+    <a class="feature" href="FEATURES.html#maturity-aware">
       <div class="feature-icon" aria-hidden="true">📊</div>
       <h4>Maturity-Aware</h4>
       <p>A one-file config scales the pack from <em>early / manual generation only</em> to <em>higher / autonomous healing</em>, meeting teams where they are.</p>
-    </div>
-    <div class="feature">
+    </a>
+    <a class="feature" href="FEATURES.html#mcp-servers">
       <div class="feature-icon" aria-hidden="true">🔌</div>
       <h4>20 MCP Servers</h4>
       <p>GitHub, ADO, Jira, Sentry, Grafana, Playwright, Slack, and more — wired in one file, credentials kept in your OS keychain.</p>
-    </div>
-    <div class="feature">
+    </a>
+    <a class="feature" href="FEATURES.html#dreaming">
       <div class="feature-icon" aria-hidden="true">🌙</div>
       <h4>Dreaming</h4>
       <p>A markdown memory store the agent consolidates across sessions (via <code>/dream</code>), so it sharpens on your codebase over time — without the token cost of per-tool-call hooks.</p>
-    </div>
-    <div class="feature">
+    </a>
+    <a class="feature" href="FEATURES.html#decision-confidence-calibration">
       <div class="feature-icon" aria-hidden="true">🎯</div>
       <h4>Decision Confidence Calibration</h4>
       <p>Every verdict is recorded with a memory hash for reproducibility. Brier score, confusion matrix, and per-layer fidelity prove verdict accuracy against real production escapes over time.</p>
-    </div>
+    </a>
   </div>
+  <p style="margin-top:24px;">Every card above is a link. <strong><a href="FEATURES.html">Open the Feature Guide →</a></strong> for the what, how, when, and why of each feature — including all 31 skills, one by one.</p>
 </section>
 
 <section id="environment">
@@ -777,6 +788,7 @@ Total quarterly ROI: $204,675</code></pre>
   <p style="margin-top:32px;">Tool-specific references:</p>
   <ul style="color:var(--text-dim);">
     <li>VS Code / Copilot — <a href="vscode-readme.html"><code>vscode-readme.html</code></a></li>
+    <li>Feature guide — <a href="FEATURES.html"><code>FEATURES.html</code></a></li>
     <li>Claude Code — <a href="claude-readme.html"><code>claude-readme.html</code></a></li>
     <li>MCP servers — <a href="MCP.html"><code>MCP.html</code></a></li>
     <li>Oracle quick start — <a href="oracles-readme.html"><code>oracles-readme.html</code></a></li>
@@ -790,6 +802,7 @@ Total quarterly ROI: $204,675</code></pre>
   <div>Assert.IQ Agent Pack · v2.1.2 · Owned by <a href="https://github.com/fromjariuswithsparq">Jarius Hayes</a> · Sparq Intelligence Studio</div>
   <div style="margin-top:12px;">
     <a href="README.md">Markdown README</a>
+    <a href="FEATURES.html">Feature Guide</a>
     <a href="README.assert-iq.html">Full Docs</a>
     <a href="https://github.com/fromjariuswithsparq/assert-iq-agent-pack">GitHub</a>
   </div>
