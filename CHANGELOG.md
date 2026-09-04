@@ -5,7 +5,56 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.3] — 2026-09-04
+
+### Added (a feature guide — the pack listed its features but never explained them)
+
+The README advertises eight features as eight cards. A developer evaluating the
+pack could see *that* Dreaming and the Oracle Layer and Multi-Agent
+Orchestration existed, and had no way to learn **when or why** to reach for any
+of them. The full docs describe how the pack is built; nothing described how to
+use it, feature by feature, for someone meeting it for the first time.
+
+- **New `FEATURES.md` and its HTML sister `FEATURES.html`** — every one of the
+  eight features and all **31 skills**, each broken down the same way: what it
+  is, how to use it, when to use it (including when *not* to), and why it
+  matters. Written for a first-year engineer and a non-technical stakeholder at
+  the same time, so neither has to skip anything. Opens with a plain-language
+  glossary of the eight recurring terms, a "which feature do I need?" chooser,
+  and closes with a first-two-weeks sequence.
+- **The eight README cards are now links.** Each card in *QI inside your IDE*
+  navigates straight to that feature's section, on both the HTML landing page
+  and in `README.md` — where the list also grew from six bullets to the eight
+  the cards actually show.
+- **Every feature and skill is individually addressable and searchable.** The
+  guide contributes **86 headings** to the cross-page search index, including
+  all 31 skills by command name, so typing `flake` lands on
+  `/analyze-flaky-test`. Anchors are stable and one-per-heading.
+
+### Fixed (release and doc tooling did not know about a new doc pair)
+
+Three gaps surfaced while wiring the guide in — each one a place where adding a
+doc page would have silently drifted:
+
+- **`build-search-index.py` emitted malformed HTML.** Injecting a generated
+  `id` into a heading that already carried attributes produced
+  `<h3id="…" class="…">` — no space after the tag name — because one variable
+  was doing double duty as the separator before the id *and* after it. No
+  existing page had an attributed heading, so it had never fired. A heading in
+  that state also stops matching the indexer's own regex, so the section
+  quietly drops out of site search.
+- **`make-release.sh` did not bump the new pair's version banners.** Added
+  `FEATURES.md` and `FEATURES.html` to `bump_doc_banners` and `RELEASE_PATHS`,
+  plus an anchored pattern for the guide's `· Feature Guide` hero badge. Two
+  releases have already needed follow-up commits to fix versions the release
+  script left stale; this keeps the count from growing.
+- **`unit-doc-parity.py` did not guard the new pair.** `FEATURES.md` ↔
+  `FEATURES.html` is now in `PAIRS` and passes with **zero declared
+  exceptions** — the two files were aligned to one heading structure rather
+  than granted 50 allowances. Feature names are `h2`, skills are `h3` (so site
+  search indexes them; the index reads `h1`–`h3` only), and phase groups are
+  visual labels in both files rather than headings, so a divider named "Plan"
+  never lands in search results.
 
 ### Added — Kiro (Amazon's agentic IDE) as a third harness
 
@@ -1765,6 +1814,8 @@ change in incompatible ways without a major-version bump.
 
 See git history (`git log v0.8.0`). Releases prior to 1.0.0 are pre-stable.
 
+[2.1.3]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.2...v2.1.3
+[2.1.2]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.1...v2.1.2
 [2.1.1]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.0.2...v2.1.0
 [1.1.1]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v1.1.0...v1.1.1

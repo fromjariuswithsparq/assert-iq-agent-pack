@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Assert.IQ — The Feature Guide</title>
+<style>
+  :root {
+    --bg: #18191a;
+    --bg-elev: #242526;
+    --bg-card: #2a2b2d;
+    --border: #3a3b3c;
+    --text: #f5f5f5;
+    --text-dim: #aab0b8;
+    --accent: #e25232;
+    --accent-2: #1e8077;
+    --accent-3: #f58467;
+    --warn: #ffb347;
+    --code-bg: #111213;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent-2); text-decoration: none; transition: color 0.15s; }
+  a:hover { color: var(--accent); }
+  code {
+    font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+    font-size: 0.88em;
+    background: var(--code-bg);
+    color: #c8d3ff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+    font-size: 0.86em;
+    line-height: 1.55;
+  }
+  pre code { background: none; border: none; padding: 0; color: #c8d3ff; }
+  .comment { color: #6b7280; }
+  p { color: var(--text-dim); }
+
+  /* Hero */
+  .hero {
+    position: relative;
+    padding: 100px 24px 80px;
+    text-align: center;
+    background:
+      radial-gradient(ellipse at top, rgba(226, 82, 50, 0.15), transparent 60%),
+      radial-gradient(ellipse at bottom right, rgba(30, 128, 119, 0.12), transparent 60%),
+      var(--bg);
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(226, 82, 50, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(226, 82, 50, 0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
+  }
+  .hero-content { position: relative; max-width: 880px; margin: 0 auto; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: rgba(226, 82, 50, 0.12);
+    border: 1px solid rgba(226, 82, 50, 0.4);
+    border-radius: 999px;
+    font-size: 0.82em;
+    color: var(--accent);
+    font-weight: 500;
+    letter-spacing: 0.4px;
+    margin-bottom: 24px;
+  }
+  .badge-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  h1 {
+    font-size: clamp(2.4rem, 5vw, 3.8rem);
+    margin: 0 0 16px;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #fff 30%, var(--accent) 60%, var(--accent-3) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero p.tagline {
+    font-size: 1.25rem;
+    color: var(--text-dim);
+    margin: 0 0 36px;
+    font-weight: 300;
+  }
+  .hero-cta {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-3));
+    color: white;
+    box-shadow: 0 4px 24px rgba(226, 82, 50, 0.35);
+  }
+  .btn-primary:hover { transform: translateY(-2px); color: white; box-shadow: 0 6px 30px rgba(226, 82, 50, 0.5); }
+  .btn-ghost {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Layout */
+  .container {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 80px 24px;
+  }
+  section { margin-bottom: 80px; }
+  h2 {
+    font-size: 2rem;
+    margin: 0 0 16px;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+  h2 .accent { color: var(--accent); }
+  h3 { font-size: 1.25rem; margin: 32px 0 12px; }
+  .lead {
+    font-size: 1.1rem;
+    color: var(--text-dim);
+    max-width: 720px;
+    margin-bottom: 40px;
+  }
+
+  /* Four-layer cards */
+  .layers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin: 32px 0;
+  }
+  .layer-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .layer-card:hover { transform: translateY(-4px); border-color: var(--accent); }
+  .layer-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-3));
+  }
+  .layer-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75em;
+    color: var(--accent);
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .layer-card h4 { margin: 0 0 8px; font-size: 1.05rem; }
+  .layer-card p { margin: 0; color: var(--text-dim); font-size: 0.92em; }
+
+  /* Bullets impact list */
+  .impact { list-style: none; padding: 0; }
+  .impact li {
+    position: relative;
+    padding: 10px 0 10px 32px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  .impact li:last-child { border-bottom: none; }
+  .impact li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--accent-2);
+    font-weight: bold;
+  }
+
+  /* Feature grid */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    margin-top: 32px;
+  }
+  .feature {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    transition: border-color 0.2s;
+  }
+  .feature:hover { border-color: var(--accent-2); }
+  .feature-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-3));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    margin-bottom: 12px;
+  }
+  .feature h4 { margin: 0 0 8px; }
+  .feature p { margin: 0; color: var(--text-dim); font-size: 0.92em; }
+
+  /* Steps */
+  .steps { counter-reset: step; }
+  .step {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 32px 28px 88px;
+    margin-bottom: 20px;
+    position: relative;
+    counter-increment: step;
+  }
+  .step::before {
+    content: counter(step);
+    position: absolute;
+    left: 24px;
+    top: 28px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-3));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: white;
+  }
+  .step h3 { margin-top: 0; }
+  .step h4 { margin: 24px 0 8px; color: var(--accent); }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    background: var(--bg-card);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    font-size: 0.92em;
+  }
+  thead { background: linear-gradient(135deg, rgba(226, 82, 50, 0.15), rgba(30, 128, 119, 0.12)); }
+  th {
+    text-align: left;
+    padding: 12px 16px;
+    color: var(--text);
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+    vertical-align: top;
+  }
+  td:first-child { color: var(--text); font-weight: 500; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(226, 82, 50, 0.04); }
+
+  /* Tree / file structure */
+  .tree {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+    line-height: 1.85;
+    color: var(--text-dim);
+    overflow-x: auto;
+  }
+  .tree .dir { color: var(--accent-2); }
+  .tree .comment { color: #6b7280; font-style: italic; }
+  .tree .file { color: var(--text); }
+
+  /* Path comparison */
+  .paths {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin: 32px 0;
+  }
+  .path-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    position: relative;
+    min-width: 0;
+  }
+  .path-card.featured { border-color: var(--accent); }
+  .path-card.featured::after {
+    content: 'RECOMMENDED';
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    font-size: 0.65em;
+    letter-spacing: 1px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-3));
+    padding: 4px 10px;
+    border-radius: 4px;
+    color: white;
+    font-weight: 700;
+  }
+  .path-card h3 { margin-top: 0; color: var(--accent); }
+  .path-card.featured h3 { color: var(--accent-2); }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 40px 24px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.9em;
+    background: var(--bg-elev);
+  }
+  footer a { margin: 0 12px; }
+
+  @media (max-width: 720px) {
+    .paths { grid-template-columns: 1fr; }
+    .step { padding-left: 28px; padding-top: 80px; }
+    .step::before { top: 24px; left: 24px; }
+  }
+
+  /* ---- Feature Guide additions ---- */
+  .toc {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px;
+    margin: 32px 0 8px;
+  }
+  .toc a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-weight: 500;
+    font-size: 0.95em;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .toc a:hover { border-color: var(--accent); transform: translateY(-2px); color: var(--text); }
+  .toc .n {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78em;
+    color: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 7px;
+    flex: none;
+  }
+
+  /* Feature section wrapper */
+  .fx { margin-bottom: 72px; }
+  .fx > h2 { margin-top: 6px; scroll-margin-top: 52px; }
+  .fx-num {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 2px;
+    color: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 10px;
+    white-space: nowrap;
+  }
+  .oneline {
+    border-left: 3px solid var(--accent-2);
+    background: rgba(30, 128, 119, 0.07);
+    border-radius: 0 10px 10px 0;
+    padding: 14px 20px;
+    margin: 20px 0 32px;
+    color: var(--text);
+    font-size: 1.02em;
+  }
+  .oneline strong { color: var(--accent-2); }
+
+  /* What / How / When / Why blocks */
+  .wq { margin: 28px 0; }
+  .wq > h3 {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 10px;
+    font-size: 1.1rem;
+  }
+  .wq > h3::before {
+    content: attr(data-k);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62em;
+    letter-spacing: 1.5px;
+    color: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 2px 8px;
+  }
+  .wq p, .wq ul { margin-top: 0; }
+  .wq ul { color: var(--text-dim); padding-left: 22px; }
+  .wq li { margin-bottom: 6px; }
+
+  /* Skill cards */
+  .phase {
+    margin: 48px 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .phase .phase-label { color: var(--accent-2); font-size: 1.1rem; font-weight: 600; letter-spacing: 0.3px; }
+  .phase .rule { flex: 1; height: 1px; background: var(--border); }
+  .skill {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 16px 0;
+    scroll-margin-top: 24px;
+    transition: border-color 0.2s;
+  }
+  .skill:hover { border-color: var(--accent-2); }
+  .skill-head {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .skill h3.skill-h {
+    margin: 0;
+    scroll-margin-top: 28px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.98rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .skill h3.skill-h a { color: inherit; }
+  .skill h3.skill-h a:hover { color: var(--accent-3); }
+  .skill dl { margin: 0; }
+  .skill dt {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7em;
+    letter-spacing: 1.4px;
+    color: var(--accent-2);
+    text-transform: uppercase;
+    margin-top: 10px;
+  }
+  .skill dt:first-child { margin-top: 0; }
+  .skill dd { margin: 3px 0 0; color: var(--text-dim); font-size: 0.94em; }
+  .gate {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72em;
+    letter-spacing: 0.6px;
+    background: rgba(255, 179, 71, 0.12);
+    border: 1px solid rgba(255, 179, 71, 0.4);
+    color: var(--warn);
+    border-radius: 999px;
+    padding: 2px 10px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .backtop { font-size: 0.85em; }
+</style>
+<!-- aiq-search:head:start -->
+<link rel="stylesheet" href="assets/search.css">
+<!-- aiq-search:head:end -->
+</head>
+<body>
+<!-- aiq-search:widget:start -->
+<div id="aiq-search" role="search">
+  <input id="aiq-search-input" type="search" autocomplete="off" spellcheck="false"
+         placeholder="Search docs (press / to focus)…" aria-label="Search documentation">
+  <div id="aiq-search-results" hidden role="listbox"></div>
+</div>
+<!-- aiq-search:widget:end -->
+
+<section class="hero">
+  <div class="hero-content">
+    <div class="badge"><span class="badge-dot"></span>v2.1.3 · Feature Guide</div>
+    <h1 id="assert-iq-the-feature-guide">The Feature Guide</h1>
+    <p class="tagline">Eight features. What each one is, how to use it, when to reach for it, and why it earns its place.</p>
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="#skills">Start with the skills →</a>
+      <a class="btn btn-ghost" href="README.html">Back to the README</a>
+    </div>
+  </div>
+</section>
+
+<div class="container">
+
+<section>
+  <h2 id="how-to-read-this-guide">How to read <span class="accent">this guide</span></h2>
+  <p class="lead">Every feature below is written for two people at once: an engineer in their first year who needs the exact command, and a stakeholder who needs to know why any of it matters. Neither has to skip anything.</p>
+
+  <p>Each feature answers the same four questions, in the same order:</p>
+  <table>
+    <tbody>
+      <tr><td><strong>What it is</strong></td><td>Plain language. No prior Assert.IQ knowledge assumed.</td></tr>
+      <tr><td><strong>How to use it</strong></td><td>The actual commands, files, and steps. Copy-paste ready.</td></tr>
+      <tr><td><strong>When to use it</strong></td><td>The moments that should make you reach for it — and the moments that shouldn't.</td></tr>
+      <tr><td><strong>Why it matters</strong></td><td>What you get that you didn't have before.</td></tr>
+    </tbody>
+  </table>
+  <p>Every heading has its own link. Copy the URL from any feature or skill and it will drop the next person exactly where you were reading.</p>
+
+  <h3 id="which-feature-do-i-need">Start here — which feature do I need?</h3>
+  <table>
+    <thead><tr><th>If you're trying to…</th><th>Go to</th></tr></thead>
+    <tbody>
+      <tr><td>Write tests, review a PR, or produce any QE artifact</td><td><a href="#skills">The 31 Skills</a></td></tr>
+      <tr><td>Get a deep, multi-angle read on a risky change</td><td><a href="#multi-agent-orchestration">Multi-Agent Orchestration</a></td></tr>
+      <tr><td>Show leadership what quality work is worth in dollars</td><td><a href="#business-impact-dashboards">Business Impact Dashboards</a></td></tr>
+      <tr><td>Define what "good" means before you generate anything</td><td><a href="#oracle-layer">Oracle Layer</a></td></tr>
+      <tr><td>Stop the tool from doing more than your team is ready for</td><td><a href="#maturity-aware">Maturity-Aware Behavior</a></td></tr>
+      <tr><td>Let the agent see your real PRs, tickets, and production errors</td><td><a href="#mcp-servers">20 MCP Servers</a></td></tr>
+      <tr><td>Stop re-explaining your codebase every session</td><td><a href="#dreaming">Dreaming</a></td></tr>
+      <tr><td>Prove your ship/hold calls were actually right</td><td><a href="#decision-confidence-calibration">Decision Confidence Calibration</a></td></tr>
+    </tbody>
+  </table>
+
+  <div class="toc">
+    <a href="#skills"><span class="n">01</span> The 31 Skills</a>
+    <a href="#multi-agent-orchestration"><span class="n">02</span> Multi-Agent Orchestration</a>
+    <a href="#business-impact-dashboards"><span class="n">03</span> Business Impact Dashboards</a>
+    <a href="#oracle-layer"><span class="n">04</span> Oracle Layer</a>
+    <a href="#maturity-aware"><span class="n">05</span> Maturity-Aware Behavior</a>
+    <a href="#mcp-servers"><span class="n">06</span> 20 MCP Servers</a>
+    <a href="#dreaming"><span class="n">07</span> Dreaming</a>
+    <a href="#decision-confidence-calibration"><span class="n">08</span> Decision Confidence Calibration</a>
+  </div>
+</section>
+
+<section>
+  <h2 id="the-eight-words">The eight words <span class="accent">you'll see everywhere</span></h2>
+  <p class="lead">Read these once and the rest of the guide reads easily.</p>
+  <table>
+    <thead><tr><th>Word</th><th>What it means here</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Signal</strong></td><td>Evidence good enough to make a decision on. A number that just tells you what happened is a <em>metric</em>; a number you'd stake a release on is a <em>signal</em>.</td></tr>
+      <tr><td><strong>The four layers</strong></td><td>The four questions Assert.IQ asks about every change: what changed (<strong>Change risk</strong>), what tests protect it (<strong>Protection strength</strong>), whether those tests can be believed (<strong>Signal trustworthiness</strong>), and what real-world outcomes say (<strong>Outcome evidence</strong>).</td></tr>
+      <tr><td><strong>Decision Confidence</strong></td><td>The synthesis of those four layers into one answer: ship, mitigate, or hold. Never a single percentage.</td></tr>
+      <tr><td><strong>Verdict</strong></td><td>One recorded decision — a risk band (green / amber / red), a score, and the reasoning behind it. Saved, so it can be checked later.</td></tr>
+      <tr><td><strong>Escape</strong></td><td>A defect that reached production. The thing every other signal exists to prevent.</td></tr>
+      <tr><td><strong>Flake</strong></td><td>A test that passes and fails without the code changing. Flakes destroy trust in your test suite faster than missing tests do.</td></tr>
+      <tr><td><strong>Traceability</strong></td><td>A visible link from a requirement to the code that implements it to the test that proves it.</td></tr>
+      <tr><td><strong>Maturity tier</strong></td><td>Your team's honest self-assessment — <code>early</code>, <code>mid</code>, or <code>higher</code>. It controls how much autonomy Assert.IQ takes.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="fx">
+  <span class="fx-num">FEATURE 01</span>
+  <h2 id="skills">The <span class="accent">31 Skills</span></h2>
+  <div class="oneline"><strong>In one sentence:</strong> thirty-one slash commands that turn "I need a test plan / a risk read / a bug report" into a finished, standards-conforming artifact in under a minute.</div>
+
+  <div class="wq">
+    <h3 data-k="WHAT" id="skills-what">What it is</h3>
+    <p>A skill is a pre-written expert procedure the agent follows on request. You type <code>/generate-automated-unit-test</code>; the agent reads your config, your framework, your acceptance criteria, and your existing test conventions, then produces a test that looks like your team wrote it.</p>
+    <p>The difference between a skill and just asking the chat window for a test is repeatability. The chat window gives you whatever it feels like today. A skill gives you the same structure, the same required headers, and the same traceability every single time, for every person on the team.</p>
+    <p>Skills live in <code>.github/skills/</code> and are mirrored to <code>.claude/skills/</code>, so the same 31 commands work in <strong>GitHub Copilot Chat</strong> and <strong>Claude Code</strong>. One pack, both tools.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="HOW" id="skills-how">How to use it</h3>
+    <p>In Copilot Chat, select the <code>Assert-IQ</code> agent. In Claude Code, just type. Then:</p>
+<pre><code>/risk-assess-pr</code></pre>
+    <p>That's the whole interface. Some skills take an argument:</p>
+<pre><code>/generate-automated-unit-test src/checkout/totals.ts
+/grade-with-rubric tests/unit/login.test.ts test-unit-v1.0</code></pre>
+    <p>If you're not sure which one you want, describe the problem in plain language — "this test keeps failing randomly" — and the lead agent routes you to the right skill.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="WHEN" id="skills-when">When to use it</h3>
+    <p>Any time you're about to produce a QE artifact by hand. If your next hour is going to be spent writing test cases, filing a bug, assembling a coverage story, or drafting a release readiness note, there is a skill for it.</p>
+    <p><strong>When not to:</strong> skills draft, they don't decide. Everything a skill produces is reviewed by a human before it merges. That rule is not negotiable and it is enforced in the pack's own instructions.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="WHY" id="skills-why">Why it matters</h3>
+    <p>Consistency is the whole point. Thirty-one skills mean a junior engineer's test plan has the same structure as a principal's, a bug report from any team member has the same reproduction quality, and traceability headers appear on every generated artifact instead of the ones somebody remembered.</p>
+    <p>You also stop paying the "blank page" tax. The expensive part of quality work has never been the typing — it's deciding what to write. The skills carry that decision structure with them.</p>
+  </div>
+
+  <h3 id="the-31-skills-one-by-one">The 31 skills, one by one</h3>
+  <p>Each skill below has its own link. Grouped by where they land in the delivery lifecycle.</p>
+
+  <div class="phase" id="phase-plan"><span class="phase-label">Plan</span><span class="rule"></span></div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="review-acceptance-criteria"><a href="#review-acceptance-criteria">/review-acceptance-criteria</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>A testability review of your acceptance criteria before anyone writes a test against them.</dd>
+      <dt>How to use it</dt><dd><code>/review-acceptance-criteria</code> with a work item ID or pasted ACs. It returns each AC marked testable / ambiguous / untestable, with a rewrite suggestion for the weak ones.</dd>
+      <dt>When to use it</dt><dd>Refinement and sprint planning, before the story is accepted into the sprint. The cheapest possible moment.</dd>
+      <dt>Why it matters</dt><dd>An untestable AC produces an untestable feature, and you find out three weeks later during UAT. This catches it in ninety seconds while the AC is still cheap to change.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="generate-test-plan"><a href="#generate-test-plan">/generate-test-plan</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>A one-page operating test plan for a feature or release, scaled to the actual scope rather than a template you'll never read again.</dd>
+      <dt>How to use it</dt><dd><code>/generate-test-plan</code> with the epic, feature, or release scope. You get risk-weighted priorities and exit criteria written as signals, not vibes.</dd>
+      <dt>When to use it</dt><dd>Kicking off any feature big enough that "we'll figure out testing as we go" would be a lie.</dd>
+      <dt>Why it matters</dt><dd>Test plans usually fail because they're written to satisfy a process, not to be used. This one fits on a page and its exit criteria are checkable.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="generate-tests-from-ac"><a href="#generate-tests-from-ac">/generate-tests-from-ac</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>A router. It reads each acceptance criterion and decides whether it should become an automated test, a scripted manual case, or an exploratory charter — then dispatches to the right generator.</dd>
+      <dt>How to use it</dt><dd><code>/generate-tests-from-ac</code> with a work item ID or pasted ACs.</dd>
+      <dt>When to use it</dt><dd>When a story is accepted and you need full coverage across every AC, not just the ones that are easy to automate.</dd>
+      <dt>Why it matters</dt><dd>Teams over-automate the deterministic and under-test the subjective. This forces an explicit routing decision per AC, and records <em>why</em> anything went to manual.</dd>
+    </dl>
+  </div>
+
+  <div class="phase" id="phase-develop"><span class="phase-label">Develop</span><span class="rule"></span></div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="generate-automated-unit-test"><a href="#generate-automated-unit-test">/generate-automated-unit-test</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>Unit tests for one function, class, or module: happy path first, then negative paths, then edge cases.</dd>
+      <dt>How to use it</dt><dd><code>/generate-automated-unit-test &lt;path&gt;</code>. It reads your framework from <code>.assert-iq/config.yaml</code> and conforms to it rather than importing a new one.</dd>
+      <dt>When to use it</dt><dd>Immediately after writing a unit of logic, and when you're hardening a module that a hotspot map flagged.</dd>
+      <dt>Why it matters</dt><dd>It writes the tests you'd have written on a good day, including the traceability header and the review-required flag you'd have forgotten on a busy one.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="generate-automated-api-test"><a href="#generate-automated-api-test">/generate-automated-api-test</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>API tests built from a contract or work item — schema validation, error envelopes, and auth scenarios, not just a 200-OK check.</dd>
+      <dt>How to use it</dt><dd><code>/generate-automated-api-test</code> with the endpoint, spec, or work item.</dd>
+      <dt>When to use it</dt><dd>New or changed endpoints, contract changes, and any integration another team depends on.</dd>
+      <dt>Why it matters</dt><dd>Most API suites test the happy path and nothing else. The failures that reach production are almost always in the error envelope and the auth boundary.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="generate-automated-ui-test"><a href="#generate-automated-ui-test">/generate-automated-ui-test</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>UI tests using the Page Object Model, stable selectors, and explicit waits.</dd>
+      <dt>How to use it</dt><dd><code>/generate-automated-ui-test</code> with the workflow or work item. It reuses your existing page objects instead of inventing a parallel pattern.</dd>
+      <dt>When to use it</dt><dd>Critical user journeys — the flows where a break is a revenue event, not a papercut.</dd>
+      <dt>Why it matters</dt><dd>Hard waits and brittle selectors are the two things that turn a UI suite into an ignored, red-all-the-time wall. Neither one gets generated here.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="generate-manual-test-case"><a href="#generate-manual-test-case">/generate-manual-test-case</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>Scripted manual test cases formatted for the tool you already use — ADO Test Plans, Xray, TestRail, or markdown.</dd>
+      <dt>How to use it</dt><dd><code>/generate-manual-test-case</code> with the ACs. Every case carries a mandatory <code>routed-to-manual-because</code> field.</dd>
+      <dt>When to use it</dt><dd>UAT scripts, accessibility checks, and anything genuinely subjective where a human judgment is the point.</dd>
+      <dt>Why it matters</dt><dd>That mandatory field is the guardrail. Manual suites grow quietly until they're unmaintainable; forcing a stated reason keeps the growth honest.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="generate-exploratory-charter"><a href="#generate-exploratory-charter">/generate-exploratory-charter</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>A time-boxed exploratory testing mission: what to learn, which risks it targets, which oracles to judge against.</dd>
+      <dt>How to use it</dt><dd><code>/generate-exploratory-charter</code> with the area and risk. You get a charter — a mission, deliberately not a script.</dd>
+      <dt>When to use it</dt><dd>Novel areas, third-party integrations, and anywhere your instinct says "something's off here" but you can't name it yet.</dd>
+      <dt>Why it matters</dt><dd>Scripted tests only find the bugs you already thought of. Charters are how you find the ones you didn't — and this makes that session structured enough to report on.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="generate-test-data"><a href="#generate-test-data">/generate-test-data</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>Deterministic, PII-safe test data built through your project's existing factory pattern.</dd>
+      <dt>How to use it</dt><dd><code>/generate-test-data</code> with the scenario.</dd>
+      <dt>When to use it</dt><dd>Any test needing more than trivial input, and whenever a suite is flaking because data drifted underneath it.</dd>
+      <dt>Why it matters</dt><dd>Data drift is one of the top causes of flaky suites, and hand-rolled fixtures are one of the top causes of PII landing somewhere it shouldn't. This closes both.</dd>
+    </dl>
+  </div>
+
+  <div class="phase" id="phase-code-review"><span class="phase-label">Code review and pull requests</span><span class="rule"></span></div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="code-review"><a href="#code-review">/code-review</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>A code review through the four-layer QI lens, plus a pre-flight pass for the anti-patterns human reviewers catch and AI reviews usually miss.</dd>
+      <dt>How to use it</dt><dd><code>/code-review</code> on the current diff or a PR. In PR mode it reads existing comment threads and commit history first, then checks claimed fixes against what was actually committed.</dd>
+      <dt>When to use it</dt><dd>Before requesting review on your own work, and as a second pair of eyes on someone else's.</dd>
+      <dt>Why it matters</dt><dd>It reviews the <em>change</em> in context of the tests protecting it, rather than reading a diff in isolation and commenting on style.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="check-test-coverage"><a href="#check-test-coverage">/check-test-coverage</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>Coverage analysis weighted by risk. Not "what percent," but "is the risky part covered."</dd>
+      <dt>How to use it</dt><dd><code>/check-test-coverage</code> on the changed surfaces.</dd>
+      <dt>When to use it</dt><dd>Before merge, and whenever someone quotes a coverage percentage in a meeting as if it settles something.</dd>
+      <dt>Why it matters</dt><dd>Eighty percent coverage means nothing if the uncovered twenty percent is your payment path. This tells you where the gap actually is.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="check-merge"><a href="#check-merge">/check-merge</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>The pre-merge gate. It aggregates every available signal into one verdict: merge, hold, or discuss.</dd>
+      <dt>How to use it</dt><dd><code>/check-merge</code> on the PR. Any layer it can't assess is reported <strong>UNGRADED</strong> with a stated reason — never guessed at.</dd>
+      <dt>When to use it</dt><dd>The last checkpoint before the merge button.</dd>
+      <dt>Why it matters</dt><dd>It replaces "CI is green, ship it" with a defensible answer that names what it doesn't know. That honesty is what makes the green ones trustworthy.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="new-pull-request"><a href="#new-pull-request">/new-pull-request</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>A PR opened with a QI-aware description: risk band, AC linkage, traceability, and specific reviewer guidance.</dd>
+      <dt>How to use it</dt><dd><code>/new-pull-request</code> when your branch is ready.</dd>
+      <dt>When to use it</dt><dd>Every PR you open.</dd>
+      <dt>Why it matters</dt><dd>Reviewers give better reviews when they're told where to look. This turns your PR description from a changelog into a set of directions.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="review-test-quality"><a href="#review-test-quality">/review-test-quality</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>A design review of tests that already exist — independence, determinism, brittle patterns, missing traceability.</dd>
+      <dt>How to use it</dt><dd><code>/review-test-quality</code> on a test file or directory.</dd>
+      <dt>When to use it</dt><dd>Inheriting a suite, onboarding to a codebase, or after a sprint of fast test-writing that nobody reviewed closely.</dd>
+      <dt>Why it matters</dt><dd>A bad test is worse than no test: it costs maintenance and buys false confidence. This finds the ones costing you both.</dd>
+    </dl>
+  </div>
+
+  <div class="phase" id="phase-execute"><span class="phase-label">Execute and debug</span><span class="rule"></span></div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="debug-ui-tests"><a href="#debug-ui-tests">/debug-ui-tests</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>A diagnosis of a failing UI test that answers the only question that matters: is this flaky, brittle, broken, or a real regression?</dd>
+      <dt>How to use it</dt><dd><code>/debug-ui-tests</code> with the failing test and its output.</dd>
+      <dt>When to use it</dt><dd>The moment a UI test goes red and you're tempted to just re-run it.</dd>
+      <dt>Why it matters</dt><dd>Those four causes need four different responses, and guessing wrong is how a real regression gets re-run until it passes and ships.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="analyze-flaky-test"><a href="#analyze-flaky-test">/analyze-flaky-test</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>Pattern analysis across historical run data to find the <em>systemic</em> cause of flake, rather than diagnosing one failure.</dd>
+      <dt>How to use it</dt><dd><code>/analyze-flaky-test</code> with the test or suite. It reads run history, not just the latest failure.</dd>
+      <dt>When to use it</dt><dd>When the same test has failed intermittently more than twice, or when the team has started ignoring red.</dd>
+      <dt>Why it matters</dt><dd>Flakes are usually one shared root cause wearing twelve different test names. Fixing the cause fixes all twelve.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="agentic-heal"><a href="#agentic-heal">/agentic-heal</a></h3><span class="gate">mid+ maturity</span></div>
+    <dl>
+      <dt>What it is</dt><dd>Autonomous diagnosis, repair, and re-execution of failing tests within a bounded number of retries.</dd>
+      <dt>How to use it</dt><dd><code>/agentic-heal</code> on the failing test. At <code>mid</code> it suggests and never commits; at <code>higher</code> it can heal within your configured retry bound. Every heal records the failure signature and the fix rationale.</dd>
+      <dt>When to use it</dt><dd>Breakage where the fix is mechanical — a moved selector, a renamed field — and the intent of the test is unchanged.</dd>
+      <dt>Why it matters</dt><dd>It clears the mechanical failures so your attention goes to the real ones. The recorded rationale is what keeps this from becoming "the robot silently made the tests pass."</dd>
+    </dl>
+  </div>
+
+  <div class="phase" id="phase-decision"><span class="phase-label">Decision</span><span class="rule"></span></div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="risk-assess-pr"><a href="#risk-assess-pr">/risk-assess-pr</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>A score for a pull request across all four QI layers, posted back as a structured comment.</dd>
+      <dt>How to use it</dt><dd><code>/risk-assess-pr</code> on the PR. The verdict is recorded to <code>.assert-iq/verdicts/</code> with its band, score, per-layer states, assumptions, and a hash of the memory used to produce it.</dd>
+      <dt>When to use it</dt><dd>Any PR touching a risky surface, and every PR once the team is used to the rhythm.</dd>
+      <dt>Why it matters</dt><dd>It converts "this feels risky" into four named layers with evidence — and because it's recorded, you can check months later whether the call was right. See <a href="#decision-confidence-calibration">Decision Confidence Calibration</a>.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="release-confidence"><a href="#release-confidence">/release-confidence</a></h3><span class="gate">mid+ maturity</span></div>
+    <dl>
+      <dt>What it is</dt><dd>Signals aggregated across an entire upcoming release into a go / no-go report.</dd>
+      <dt>How to use it</dt><dd><code>/release-confidence</code> with the release scope. Recorded like any other verdict.</dd>
+      <dt>When to use it</dt><dd>Release readiness reviews, go/no-go calls, and any conversation where someone is about to ask "are we good to ship?"</dd>
+      <dt>Why it matters</dt><dd>It gives that meeting a shared evidence base instead of a room full of competing intuitions and one loud opinion.</dd>
+    </dl>
+  </div>
+
+  <div class="phase" id="phase-learn"><span class="phase-label">Learn</span><span class="rule"></span></div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="dream"><a href="#dream">/dream</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>The memory consolidation pass. It reads recent session logs, resolves contradictions, prunes stale entries, and rewrites the memory store.</dd>
+      <dt>How to use it</dt><dd><code>/dream</code>. Full detail in <a href="#dreaming">Dreaming</a>.</dd>
+      <dt>When to use it</dt><dd>Every week or two, and right after a refactor that invalidated things the agent believes.</dd>
+      <dt>Why it matters</dt><dd>Memory that only ever grows becomes noise. This is the process that keeps it decision-grade.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="analyze-escaped-defect"><a href="#analyze-escaped-defect">/analyze-escaped-defect</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>Post-incident analysis that names <em>which signal layer should have caught this</em> — and links the escape back to the verdict that let it through.</dd>
+      <dt>How to use it</dt><dd><code>/analyze-escaped-defect</code> with the defect. It queries the verdict archive to find the original assessment.</dd>
+      <dt>When to use it</dt><dd>Every production escape. Every single one.</dd>
+      <dt>Why it matters</dt><dd>This is the feedback loop the whole system runs on. Without it you're triaging symptoms; with it, each escape permanently improves the layer that missed it.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="generate-bug-report"><a href="#generate-bug-report">/generate-bug-report</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>A failure converted into a tracker-ready defect: duplicate-checked, severity-justified, PII-stripped.</dd>
+      <dt>How to use it</dt><dd><code>/generate-bug-report</code> with the failure output.</dd>
+      <dt>When to use it</dt><dd>Any time you're about to file a bug by hand.</dd>
+      <dt>Why it matters</dt><dd>Bad bug reports cost the person who receives them an hour of clarification. Severity justification alone changes how triage meetings go.</dd>
+    </dl>
+  </div>
+
+  <div class="phase" id="phase-cross-cutting"><span class="phase-label">Cross-cutting</span><span class="rule"></span></div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="generate-traceability-matrix"><a href="#generate-traceability-matrix">/generate-traceability-matrix</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>A requirement ↔ code ↔ test matrix built from the <code>qi-trace</code> headers in your codebase, surfacing orphan tests, untraceable code, and uncovered ACs.</dd>
+      <dt>How to use it</dt><dd><code>/generate-traceability-matrix</code>.</dd>
+      <dt>When to use it</dt><dd>Audit preparation, compliance reviews, and any time someone asks "how do we know this requirement is tested?"</dd>
+      <dt>Why it matters</dt><dd>It answers an auditor's question with a document instead of a promise. The orphan-test column is usually the surprise: tests nobody can connect to a requirement.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="generate-hotspot-map"><a href="#generate-hotspot-map">/generate-hotspot-map</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>An audit of code volatility, structural complexity, and defect density, producing a ranked registry of your most fragile modules.</dd>
+      <dt>How to use it</dt><dd><code>/generate-hotspot-map</code>.</dd>
+      <dt>When to use it</dt><dd>Sprint zero, quarterly planning, and whenever you have testing capacity and no agreement on where to spend it.</dd>
+      <dt>Why it matters</dt><dd>Files that change constantly, are structurally complex, and have a defect history are where your next escape is coming from. This ranks them so investment goes to evidence, not to whoever argued hardest.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="eval-optimizer"><a href="#eval-optimizer">/eval-optimizer</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>An evaluate-and-improve loop for any AI instruction artifact — a skill, a system prompt, a set of custom instructions.</dd>
+      <dt>How to use it</dt><dd><code>/eval-optimizer</code> with the artifact. You get an optimized version plus a report on what changed and why.</dd>
+      <dt>When to use it</dt><dd>When you've written or customized a skill and want to know whether it actually performs.</dd>
+      <dt>Why it matters</dt><dd>Prompts and skills are code that nobody tests. This is the test.</dd>
+    </dl>
+  </div>
+
+  <div class="phase" id="phase-setup"><span class="phase-label">Setup and meta</span><span class="rule"></span></div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="assert-iq-bootstrap"><a href="#assert-iq-bootstrap">/assert-iq-bootstrap</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>The guided installer. It walks you through what goes into the workspace, what goes user-global, and what gets skipped, then runs the right script for your OS.</dd>
+      <dt>How to use it</dt><dd><code>/assert-iq-bootstrap</code>, or run <code>scripts/bootstrap.sh</code> / <code>scripts\bootstrap.ps1</code> directly. Use <code>--mode=trial</code> to keep everything local and invisible to your teammates.</dd>
+      <dt>When to use it</dt><dd>Installing the pack into a repository.</dd>
+      <dt>Why it matters</dt><dd>Trial mode is why you can evaluate this without a team decision, a PR, or a rollback plan. It never touches your <code>.gitignore</code>, and uninstall restores what it replaced.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="assert-iq-tailor"><a href="#assert-iq-tailor">/assert-iq-tailor</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>The customization pass. It discovers your stack once, then fills in <code>config.yaml</code>, <code>governance.md</code>, <code>maturity-profile.md</code>, the instruction files, and MCP wiring — in dependency order, with a human review gate at each step.</dd>
+      <dt>How to use it</dt><dd><code>/assert-iq-tailor</code> right after installing.</dd>
+      <dt>When to use it</dt><dd>Immediately after install. This is the step that turns a generic pack into <em>your</em> pack.</dd>
+      <dt>Why it matters</dt><dd>A pack full of <code>&lt;PLACEHOLDER&gt;</code> values produces generic output. Fifteen minutes here is the difference between advice about software and advice about your software.</dd>
+    </dl>
+  </div>
+
+  <div class="phase" id="phase-oracle"><span class="phase-label">Oracle and verification</span><span class="rule"></span></div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="define-quality-rubric"><a href="#define-quality-rubric">/define-quality-rubric</a></h3><span class="gate">all tiers</span></div>
+    <dl>
+      <dt>What it is</dt><dd>A guided interview that turns your definition of "good" into a versioned, machine-readable acceptance contract.</dd>
+      <dt>How to use it</dt><dd><code>/define-quality-rubric</code>. Output lands in <code>.assert-iq/oracles/rubrics/&lt;rubric_id&gt;.json</code>, ready to commit.</dd>
+      <dt>When to use it</dt><dd>Before you start generating a new class of artifact at volume.</dd>
+      <dt>Why it matters</dt><dd>See <a href="#oracle-layer">Oracle Layer</a>. Writing down what "good" means is the part everyone skips, and it's the part that makes every later judgment defensible.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="grade-with-rubric"><a href="#grade-with-rubric">/grade-with-rubric</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>Independent grading of an artifact against a rubric, performed by a grader with no visibility into how the artifact was produced.</dd>
+      <dt>How to use it</dt><dd><code>/grade-with-rubric &lt;artifact_path&gt; &lt;rubric_id&gt;</code>. Verdict lands in <code>.assert-iq/oracles/outcomes/</code>. Advisory at <code>early</code>, an optional gate at <code>mid</code>, able to block at <code>higher</code>.</dd>
+      <dt>When to use it</dt><dd>On generated tests before merge, and on any artifact where "looks fine to me" isn't a good enough standard.</dd>
+      <dt>Why it matters</dt><dd>The grader can't rationalize, because it never saw the reasoning. Every verdict cites line numbers and says what would change it.</dd>
+    </dl>
+  </div>
+
+  <div class="phase" id="phase-business"><span class="phase-label">Business impact</span><span class="rule"></span></div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="measure-qi-impact"><a href="#measure-qi-impact">/measure-qi-impact</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>Your QI verdicts and baseline metrics converted into a quarterly HTML dashboard aimed at an executive audience.</dd>
+      <dt>How to use it</dt><dd><code>/measure-qi-impact</code>. Full detail in <a href="#business-impact-dashboards">Business Impact Dashboards</a>.</dd>
+      <dt>When to use it</dt><dd>Quarterly business reviews, renewal conversations, and any budget discussion about quality investment.</dd>
+      <dt>Why it matters</dt><dd>Engineering value that never gets translated into business language gets cut in the next budget cycle.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="calibration-report"><a href="#calibration-report">/calibration-report</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>Longitudinal accuracy measurement of your verdicts: Brier score, confusion matrix, per-layer fidelity, and drift — read against real escapes.</dd>
+      <dt>How to use it</dt><dd><code>/calibration-report</code>. Full detail in <a href="#decision-confidence-calibration">Decision Confidence Calibration</a>.</dd>
+      <dt>When to use it</dt><dd>Quarterly, alongside <code>/measure-qi-impact</code>, and any time the team's trust in the verdicts starts to wobble.</dd>
+      <dt>Why it matters</dt><dd>It answers the only question that ultimately matters about a prediction system: <em>are we actually right?</em></dd>
+    </dl>
+  </div>
+
+  <p class="backtop"><a href="#assert-iq-the-feature-guide">↑ Back to top</a></p>
+</section>
+
+<section class="fx">
+  <span class="fx-num">FEATURE 02</span>
+  <h2 id="multi-agent-orchestration"><span class="accent">Multi-Agent</span> Orchestration</h2>
+  <div class="oneline"><strong>In one sentence:</strong> instead of one agent forming one opinion, eight specialists analyze your change independently and a lead agent synthesizes their findings into a single decision.</div>
+
+  <div class="wq">
+    <h3 data-k="WHAT" id="mao-what">What it is</h3>
+    <p>When you ask a single AI a complex question, everything it notices early colors everything it notices later. Decide in the first paragraph that a change looks safe, and the rest of the analysis quietly goes looking for agreement.</p>
+    <p>Multi-agent orchestration breaks that. Eight specialists each get their own isolated context — none of them sees the others' reasoning — and each returns structured JSON. A lead agent then synthesizes those independent findings into one narrative and one decision.</p>
+    <p><strong>Four run in parallel, at the same time:</strong></p>
+    <table>
+      <thead><tr><th>Specialist</th><th>What it examines</th></tr></thead>
+      <tbody>
+        <tr><td><strong>risk-scorer</strong></td><td>What changed and how far it reaches (Change + Protection layers)</td></tr>
+        <tr><td><strong>coverage-analyst</strong></td><td>Where the protection gaps actually are</td></tr>
+        <tr><td><strong>flake-adjudicator</strong></td><td>Whether a failure is flaky, brittle, or a genuine regression</td></tr>
+        <tr><td><strong>hotspot-analyzer</strong></td><td>Which modules are fragile — churn, complexity, and defect history</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Four run after, in sequence:</strong></p>
+    <table>
+      <thead><tr><th>Specialist</th><th>What it examines</th></tr></thead>
+      <tbody>
+        <tr><td><strong>oracle-grader</strong></td><td>Artifact quality against your rubrics</td></tr>
+        <tr><td><strong>calibration-specialist</strong></td><td>Whether verdicts like this one have been accurate historically</td></tr>
+        <tr><td><strong>memory-curator</strong></td><td>Whether the memory informing this decision is healthy</td></tr>
+        <tr><td><strong>traceability-auditor</strong></td><td>Whether requirement, code, and test are actually linked</td></tr>
+      </tbody>
+    </table>
+    <p>Two lead agents drive them: <code>Assert-IQ</code> executes, and <code>Assert-IQ-PLAN</code> is a read-only sibling that plans first and waits for your approval before anything is done.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="HOW" id="mao-how">How to use it</h3>
+    <p>You don't invoke the specialists directly. You invoke a decision skill and the orchestration happens underneath:</p>
+<pre><code>/risk-assess-pr
+/check-merge
+/release-confidence</code></pre>
+    <p>In Claude Code you can also address a lead agent by name and describe the problem. Use <code>Assert-IQ-PLAN</code> when the task is large, risky, or spans many files and you want to see the plan before anything moves.</p>
+    <p>Every run leaves an audit trail in <code>.assert-iq/agent-runs/</code> — each specialist's raw JSON, preserved. When you disagree with a verdict, that's where you go to find out <em>which specialist</em> you disagree with.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="WHEN" id="mao-when">When to use it</h3>
+    <ul>
+      <li>Any pull request touching a critical path, a shared service, or a surface with an escape history</li>
+      <li>Release go/no-go decisions</li>
+      <li>Post-incident analysis, where you need to know which layer failed and not just what broke</li>
+    </ul>
+    <p><strong>When not to:</strong> a typo fix, a doc change, or a dependency bump doesn't need eight specialists. The lead agent routes simple questions to a single skill, and that's the correct outcome.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="WHY" id="mao-why">Why it matters</h3>
+    <p><strong>Isolation buys you real independence.</strong> Four analysts who can't see each other's work produce four genuinely different reads. Agreement between them means something. Disagreement is a signal in itself — and it's exactly the disagreement a single-context analysis would have smoothed over.</p>
+    <p><strong>Parallelism buys you speed.</strong> Four specialists running concurrently means depth doesn't cost you the afternoon.</p>
+    <p><strong>The audit trail buys you trust.</strong> "The agent said it was risky" is not a reason. "The coverage analyst found no test on the changed branch, and the hotspot analyzer ranks this module third by defect density" is a reason — and it's still on disk next quarter.</p>
+  </div>
+  <p class="backtop"><a href="#assert-iq-the-feature-guide">↑ Back to top</a></p>
+</section>
+
+<section class="fx">
+  <span class="fx-num">FEATURE 03</span>
+  <h2 id="business-impact-dashboards"><span class="accent">Business Impact</span> Dashboards</h2>
+  <div class="oneline"><strong>In one sentence:</strong> the <code>/measure-qi-impact</code> skill turns your quality data into a dashboard a VP will actually read — escape reduction, hours reclaimed, cycle time, and dollars.</div>
+
+  <div class="wq">
+    <h3 data-k="WHAT" id="bid-what">What it is</h3>
+    <p>Quality teams have always had a translation problem. The work is real, the improvement is real, and none of it survives contact with a budget meeting — because "we reduced flake rate by 40%" doesn't map to anything a finance conversation can hold.</p>
+    <p>This skill does the translation. It reads your recorded verdicts, coverage data, and flake records, compares them against a baseline you captured before Assert.IQ, and produces four numbers in business language:</p>
+    <table>
+      <thead><tr><th>Metric</th><th>The question it answers</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Escape Reduction</strong></td><td>How many production incidents didn't happen — and what they would have cost</td></tr>
+        <tr><td><strong>Triage Hours Reclaimed</strong></td><td>How many engineer-hours went back to building instead of investigating</td></tr>
+        <tr><td><strong>Release Cycle Acceleration</strong></td><td>How many days faster a change gets from PR to production</td></tr>
+        <tr><td><strong>Total Economic Value</strong></td><td>Those savings, added up, in dollars</td></tr>
+      </tbody>
+    </table>
+    <p>You get a print-friendly HTML dashboard and a JSON report for trending.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="HOW" id="bid-how">How to use it</h3>
+    <p><strong>One-time setup.</strong> In <code>.assert-iq/config.yaml</code>, set your cost assumptions:</p>
+<pre><code>business_metrics:
+  enabled: true
+  escape_incident_cost: 50000      <span class="comment"># your average cost per production incident</span>
+  engineer_burden_rate: 85         <span class="comment"># $/hour, all-in</span>
+  reporting_period: quarterly</code></pre>
+    <p>Then capture where you're starting from in <code>.assert-iq/business-metrics/baseline.json</code> — escape rate, triage hours, cycle time. <strong>Do this before you've improved anything.</strong> A baseline captured after six months of gains understates every result you're about to report.</p>
+    <p><strong>Then, each quarter:</strong></p>
+<pre><code>/measure-qi-impact</code></pre>
+    <p>Reports land in <code>.assert-iq/business-metrics/reports/</code>. A quarter's output reads like this:</p>
+<pre><code>33% escape reduction (4 fewer incidents) → $200K cost avoidance
+55 engineer-hours reclaimed             → $4,675 burden cost savings
+4 days cycle acceleration               → velocity improvement
+Total quarterly ROI: $204,675</code></pre>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="WHEN" id="bid-when">When to use it</h3>
+    <ul>
+      <li>Quarterly business reviews and leadership updates</li>
+      <li>Renewal, budget, and headcount conversations</li>
+      <li>Any moment where someone asks what the quality investment is returning</li>
+    </ul>
+    <p><strong>When not to:</strong> don't run it in week two. There's no signal in a two-week window, and a dashboard built on eleven data points invites a challenge you'll lose. Give it a quarter.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="WHY" id="bid-why">Why it matters</h3>
+    <p><strong>Because the numbers are yours.</strong> Every figure traces back to your recorded verdicts and your baseline, using cost assumptions you set. When someone challenges the ROI, you open the verdict archive.</p>
+    <p><strong>Because the alternative is being invisible.</strong> Quality work that prevents incidents is, by definition, work whose output is an absence. Absences don't get noticed and don't get funded. This makes the absence countable.</p>
+    <p><strong>Because "we saved tokens" has never persuaded anyone.</strong> "$200,000 in prevented incidents and 55 engineer-hours back" is a sentence a VP can repeat to their own leadership. That's the bar.</p>
+  </div>
+  <p class="backtop"><a href="#assert-iq-the-feature-guide">↑ Back to top</a></p>
+</section>
+
+<section class="fx">
+  <span class="fx-num">FEATURE 04</span>
+  <h2 id="oracle-layer"><span class="accent">Oracle</span> Layer</h2>
+  <div class="oneline"><strong>In one sentence:</strong> write down what "good" means <em>first</em>, as a versioned contract, then have an independent grader judge artifacts against it — with evidence.</div>
+
+  <div class="wq">
+    <h3 data-k="WHAT" id="oracle-what">What it is</h3>
+    <p>Here's the gap at the center of AI-assisted testing: <strong>generation without specification.</strong> A tool generates a test. Is it a good test? The usual answer is that it looks fine. That isn't a standard; it's a mood.</p>
+    <p>The Oracle Layer inverts the order. Before you generate at volume, you author a <strong>rubric</strong> — a written acceptance contract naming three to five things that make an artifact good, with objective definitions of PASS, CONDITIONAL, and FAIL for each.</p>
+    <p>Then an <strong>isolated grader</strong> evaluates artifacts against that rubric. The grader has no access to how the artifact was made, no access to previous verdicts, and no ability to rationalize. It sees the artifact and the rubric. Nothing else.</p>
+    <p>Rubrics are <strong>immutable</strong>. You never edit <code>test-unit-v1.0</code>; you create <code>test-unit-v1.1</code>. Old versions stay in git, so every past verdict remains interpretable.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="HOW" id="oracle-how">How to use it</h3>
+    <p><strong>Author a rubric:</strong></p>
+<pre><code>/define-quality-rubric</code></pre>
+    <p>A guided interview walks you through dimensions, weights, and level definitions, then saves a versioned JSON spec to <code>.assert-iq/oracles/rubrics/</code>. Available at every maturity tier.</p>
+    <p><strong>Grade an artifact:</strong></p>
+<pre><code>/grade-with-rubric tests/unit/login.test.ts test-unit-v1.0</code></pre>
+    <p>A verdict looks like this:</p>
+<pre><code>Verdict: CONDITIONAL (0.92 / 1.0)
+  ✓ PASS: independence, determinism, focus
+  ⚠ CONDITIONAL: assertion clarity — line 25 is a bare assert()
+  → Add a message to line 25 and this becomes PASS</code></pre>
+    <p>Every dimension cites specific lines, explains why that level was chosen, and says what would change it. Verdicts append to a history file, so you can watch an artifact improve across versions.</p>
+    <p><strong>Wire it into your gates.</strong> Oracle verdicts feed the Outcome layer of <code>/check-merge</code> and <code>/release-confidence</code>, weighted by maturity: <strong>early 0%</strong> (advisory only), <strong>mid 20%</strong> (an optional gate), <strong>higher 50%</strong> (co-decisive).</p>
+    <p>Start with <a href="oracles-readme.html">the Oracle quick start</a>.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="WHEN" id="oracle-when">When to use it</h3>
+    <ul>
+      <li>Before generating a new class of artifact at volume — that's the moment the contract is worth the most</li>
+      <li>Grading generated tests before merge</li>
+      <li>Onboarding, where "what does good look like here?" currently has no written answer</li>
+      <li>Regulated work, where a subjective judgment is not an acceptable artifact</li>
+    </ul>
+    <p><strong>When not to:</strong> don't author a rubric for a one-off. Rubrics pay back through repetition.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="WHY" id="oracle-why">Why it matters</h3>
+    <p><strong>Rubric authorship is the defensible skill.</strong> Anyone can generate a test. Knowing what makes a test good in <em>your</em> domain is expertise, and this is where that expertise gets written down instead of walking out with whoever had it.</p>
+    <p><strong>Independent grading can't flatter itself.</strong> A grader that saw the generator's reasoning would inherit its blind spots. This one can't.</p>
+    <p><strong>Evidence over opinion.</strong> "Line 25 is a bare assert, and here's what would fix it" is actionable. "Looks good" is not.</p>
+    <p><strong>Immutability preserves history.</strong> A verdict from six months ago still means what it meant, because the rubric it was graded against hasn't moved.</p>
+  </div>
+  <p class="backtop"><a href="#assert-iq-the-feature-guide">↑ Back to top</a></p>
+</section>
+
+<section class="fx">
+  <span class="fx-num">FEATURE 05</span>
+  <h2 id="maturity-aware"><span class="accent">Maturity-Aware</span> Behavior</h2>
+  <div class="oneline"><strong>In one sentence:</strong> one config field scales the entire pack from cautious to autonomous, so it never does more than your team is ready to trust.</div>
+
+  <div class="wq">
+    <h3 data-k="WHAT" id="maturity-what">What it is</h3>
+    <p>Most tools ship one behavior and expect you to adapt. A team six months into their first regression suite gets the same autonomy as a team with ten years of signal infrastructure — and it goes badly for one of them.</p>
+    <p>Assert.IQ reads your maturity tier before it acts, and scales itself:</p>
+    <table>
+      <thead><tr><th>Tier</th><th>What's active</th><th>What's off</th></tr></thead>
+      <tbody>
+        <tr><td><code>early</code></td><td>Traceability, manual test generation, rubric authoring, foundation reasoning</td><td>Agentic Healing is <strong>disabled</strong>. Oracle verdicts carry <strong>0%</strong> decision weight</td></tr>
+        <tr><td><code>mid</code></td><td>Adds automated test generation and risk assessment</td><td>Healing is <strong>suggest-only</strong> — it proposes, never commits. Oracle carries <strong>20%</strong> weight</td></tr>
+        <tr><td><code>higher</code></td><td>Full pack: autonomous healing within your retry bounds, predictive risk, the full signal pipeline</td><td>Nothing gated. Oracle carries <strong>50%</strong> weight</td></tr>
+      </tbody>
+    </table>
+    <p>The tier isn't a settings toggle. It's a statement about what your team can currently verify.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="HOW" id="maturity-how">How to use it</h3>
+    <p>Set it in two places, and keep them in sync.</p>
+    <p><strong><code>.assert-iq/maturity-profile.md</code></strong> — the honest version. It ships with a checklist of indicators across foundation, test signal, and governance. Check the ones that genuinely describe your team today, and count:</p>
+    <ul>
+      <li><strong>0–4 checked</strong> → <code>early</code></li>
+      <li><strong>5–8 checked</strong> → <code>mid</code></li>
+      <li><strong>9+ checked</strong> → <code>higher</code></li>
+    </ul>
+    <p><strong><code>.assert-iq/config.yaml</code></strong> — the machine-readable version:</p>
+<pre><code>maturity:
+  tier: "early"
+  rationale: "New team, building baseline coverage first."</code></pre>
+    <p>Write the rationale in plain language. The agent reads it.</p>
+    <p>Re-evaluate quarterly, and <strong>promote one tier at a time.</strong> When in doubt, choose the tier below where you think you are.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="WHEN" id="maturity-when">When to use it</h3>
+    <p>Set it during setup, before you run anything else — it changes how every other feature behaves. Then revisit it every ninety days, or whenever something material shifts: a new regression suite, a governance change, a team that turned over.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="WHY" id="maturity-why">Why it matters</h3>
+    <p><strong>It prevents the failure that kills adoption.</strong> A team at <code>early</code> given autonomous healing gets tests silently rewritten by a tool nobody yet trusts. One surprise like that and the pack is uninstalled — correctly.</p>
+    <p><strong>It makes trust incremental.</strong> Each tier turns on capabilities you've earned the ability to verify. That's a much better story to your leadership than "we turned everything on and hoped."</p>
+    <p><strong>It makes the tool honest about itself.</strong> The pack refuses to do things your tier hasn't enabled, even if you ask. Constraints you can rely on are worth more than capabilities you can't.</p>
+  </div>
+  <p class="backtop"><a href="#assert-iq-the-feature-guide">↑ Back to top</a></p>
+</section>
+
+<section class="fx">
+  <span class="fx-num">FEATURE 06</span>
+  <h2 id="mcp-servers"><span class="accent">20 MCP</span> Servers</h2>
+  <div class="oneline"><strong>In one sentence:</strong> twenty pre-configured connections that let the agent read your real pull requests, tickets, production errors, and dashboards instead of guessing.</div>
+
+  <div class="wq">
+    <h3 data-k="WHAT" id="mcp-what">What it is</h3>
+    <p>MCP — Model Context Protocol — is the standard way an AI tool connects to another system. Without it, the agent only knows what's in your open files. With it, the agent can read the actual PR, the actual Jira ticket, the actual Sentry error from last Tuesday.</p>
+    <p>That distinction is the difference between advice and evidence. The fourth QI layer — Outcome evidence — is <em>unanswerable</em> without a connection to where outcomes live.</p>
+    <p>Twenty servers ship pre-configured across eight categories:</p>
+    <table>
+      <thead><tr><th>Category</th><th>Servers</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Code hosts &amp; trackers</strong></td><td>GitHub, Azure DevOps, Atlassian (Jira/Confluence), GitLab, Bitbucket, git</td></tr>
+        <tr><td><strong>Local &amp; filesystem</strong></td><td>filesystem</td></tr>
+        <tr><td><strong>Databases</strong></td><td>PostgreSQL, SQLite</td></tr>
+        <tr><td><strong>Cloud</strong></td><td>AWS</td></tr>
+        <tr><td><strong>Observability</strong></td><td>Sentry, Grafana, Datadog, Honeycomb</td></tr>
+        <tr><td><strong>Browser automation</strong></td><td>Playwright, Puppeteer</td></tr>
+        <tr><td><strong>Knowledge bases</strong></td><td>Notion, Confluence</td></tr>
+        <tr><td><strong>Communication</strong></td><td>Slack, Microsoft Teams</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="HOW" id="mcp-how">How to use it</h3>
+    <p>Everything is defined in <code>.vscode/mcp.json</code>. You enable what you use and delete the rest.</p>
+    <p><strong>Credentials are never written to that file.</strong> Each server declares an input placeholder; your editor prompts you the first time and stores the value in your <strong>OS keychain</strong>. The config file stays safe to commit.</p>
+    <p>Start with three and grow from there:</p>
+    <ul>
+      <li><strong>Your code host</strong> — GitHub, ADO, GitLab, or Bitbucket. This unlocks the Change layer.</li>
+      <li><strong>Your tracker</strong> — Jira or ADO. This unlocks acceptance criteria and traceability.</li>
+      <li><strong>Your error monitor</strong> — Sentry, Datadog, Grafana, or Honeycomb. This unlocks Outcome evidence.</li>
+    </ul>
+    <p>Per-server setup, credential scopes, and troubleshooting are in <a href="MCP.html">the MCP server guide</a>.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="WHEN" id="mcp-when">When to use it</h3>
+    <p>Wire this during setup, right after tailoring your config. Add servers as you notice gaps — when a skill reports a layer as <strong>UNGRADED</strong> with a reason like "no telemetry source," it's telling you exactly which server to connect next.</p>
+    <p><strong>When not to:</strong> don't connect all twenty. Every connection is a credential to manage and an access surface to justify. Three well-chosen servers beat twenty half-configured ones.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="WHY" id="mcp-why">Why it matters</h3>
+    <p><strong>It's the difference between a chatbot and an analyst.</strong> An agent that can't see your PRs is pattern-matching on your open buffer. An agent that can read the PR, the linked ticket, and last month's Sentry events on that module is reasoning about your system.</p>
+    <p><strong>It's what makes UNGRADED honest.</strong> Assert.IQ never fabricates a missing signal — it names the gap. Connecting a server is how you close one.</p>
+    <p><strong>It respects your security posture.</strong> Credentials in the OS keychain, config in git, nothing crossing the IDE or CI boundary. That's a design decision the governance rules enforce, not a convention.</p>
+  </div>
+  <p class="backtop"><a href="#assert-iq-the-feature-guide">↑ Back to top</a></p>
+</section>
+
+<section class="fx">
+  <span class="fx-num">FEATURE 07</span>
+  <h2 id="dreaming"><span class="accent">Dreaming</span></h2>
+  <div class="oneline"><strong>In one sentence:</strong> a markdown memory store the agent consolidates between sessions, so it gets sharper on your codebase over time instead of starting from zero every morning.</div>
+
+  <div class="wq">
+    <h3 data-k="WHAT" id="dreaming-what">What it is</h3>
+    <p>Every AI session starts amnesiac. You re-explain the same architecture, the same conventions, the same "we don't do it that way here" — every time.</p>
+    <p>Dreaming fixes that with two loops, borrowed from how memory actually works.</p>
+    <p><strong>The waking loop</strong> records a one-line note per session and increments a counter. Cheap, quiet, always running.</p>
+    <p><strong>The dream loop</strong> is the <code>/dream</code> skill — an offline consolidation pass that reads recent session logs and existing memory, then resolves contradictions, prunes stale entries, removes duplicates, and rewrites the store. Memory improving memory.</p>
+    <p>The store lives in <code>.assert-iq/memory/</code>, as plain markdown you can read and edit. <code>MEMORY.md</code> is the index — capped at 200 lines and the only part loaded at session start. Detail lives in <code>topics/</code>, pulled in only when relevant.</p>
+    <p><strong>Dreaming can only write inside the memory store.</strong> Source, config, and the instruction rule files are read-only to it. Memory never overrides a written rule.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="HOW" id="dreaming-how">How to use it</h3>
+    <p>It's on by default. Configure it in <code>.assert-iq/config.yaml</code>:</p>
+<pre><code>dreaming:
+  enabled: true
+  memory_dir: ".assert-iq/memory"
+  index_max_lines: 200
+  gate:
+    min_hours_between_dreams: 24
+    min_sessions_between_dreams: 5</code></pre>
+    <p>Both gates must be met before a dream is suggested — 24 hours <em>and</em> 5 sessions.</p>
+    <p><strong>To run one:</strong></p>
+<pre><code>/dream</code></pre>
+    <p><strong>Before it changes a single file, run the safety check:</strong></p>
+<pre><code>python3 .assert-iq/analysis/dream-safety.py pre</code></pre>
+    <p>That one command runs sanity checks (cycles, staleness past 180 days, contradictions, copy-paste vs. synthesis), snapshots the memory to <code>.assert-iq/dreaming/.snapshots/</code>, and opens an append-only audit record. Honor its exit code: <strong>0</strong> proceed, <strong>1</strong> stop, <strong>2</strong> stop — never dream blind. On Windows use <code>python</code> or <code>py -3</code>.</p>
+    <p><strong>After consolidating, close the record:</strong></p>
+<pre><code>python3 .assert-iq/analysis/dream-safety.py post --cycle-id dream-&lt;stamp&gt;</code></pre>
+    <p>Maturity gates it as you'd expect: <code>early</code> runs only when you ask, <code>mid</code> nudges you at session start, <code>higher</code> may fire on its own — and still produces a reviewable diff.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="WHEN" id="dreaming-when">When to use it</h3>
+    <ul>
+      <li>Every week or two during active development</li>
+      <li>Right after a refactor that invalidated things the agent believes</li>
+      <li>When the agent starts citing something that used to be true</li>
+    </ul>
+    <p><strong>When not to:</strong> don't dream after every session. The gates exist because over-consolidation destroys detail. And don't skip the safety check to save thirty seconds — the snapshot it takes is the only thing that makes a bad dream reversible.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="WHY" id="dreaming-why">Why it matters</h3>
+    <p><strong>It compounds.</strong> Month three is materially better than week one, because the agent has accumulated the things you'd otherwise re-explain.</p>
+    <p><strong>It's cheap.</strong> Consolidating between sessions rather than hooking every tool call means the token cost stays flat while the knowledge grows.</p>
+    <p><strong>It's inspectable.</strong> The memory is markdown in your repo. You can read it, edit it, and diff it. On a committed install, every dream cycle is a reviewable pull-request-shaped change.</p>
+    <p><strong>It's safe by construction.</strong> Snapshots, an append-only audit trail, sanity checks before every pass, and a hard rule that memory never outranks an instruction file.</p>
+    <p>Full detail: <a href="dreaming-readme.html">the Dreaming guide</a>.</p>
+  </div>
+  <p class="backtop"><a href="#assert-iq-the-feature-guide">↑ Back to top</a></p>
+</section>
+
+<section class="fx">
+  <span class="fx-num">FEATURE 08</span>
+  <h2 id="decision-confidence-calibration"><span class="accent">Decision Confidence</span> Calibration</h2>
+  <div class="oneline"><strong>In one sentence:</strong> every ship/hold call is recorded, later checked against what actually escaped to production, and scored — so you know whether your verdicts deserve to be trusted.</div>
+
+  <div class="wq">
+    <h3 data-k="WHAT" id="calib-what">What it is</h3>
+    <p>Every prediction system has one honest question to answer: <strong>are we right?</strong> Most never ask, because nobody wrote down what they predicted.</p>
+    <p>Assert.IQ writes it down. Every <code>/risk-assess-pr</code> and <code>/release-confidence</code> verdict is recorded immutably to <code>.assert-iq/verdicts/archive/YYYY/MM/</code>:</p>
+    <ul>
+      <li>A unique verdict ID and band (green / amber / red / ungraded)</li>
+      <li>The numeric confidence score</li>
+      <li>Per-layer scores for Change, Protection, Trust, and Outcome</li>
+      <li>The maturity tier at the time</li>
+      <li><strong>A SHA256 hash of the memory used to produce it</strong></li>
+      <li>The explicit assumptions — and a link to the escape, if one is later found</li>
+    </ul>
+    <p>That memory hash is what makes a verdict <strong>reproducible</strong>. Restore the snapshot, re-run the assessment, get the same verdict. For a SOX or ISO 27001 audit asking "why did you ship PR #4521?", that's a complete answer instead of an anecdote.</p>
+    <p>When an escape is found, <code>/analyze-escaped-defect</code> links it back to the verdict that let it through. Over time that produces real accuracy measurement:</p>
+    <ul>
+      <li><strong>Brier score</strong> per band — green verdicts followed by escapes cost you, as they should</li>
+      <li><strong>Confusion matrix</strong> — predicted band against actual outcome, and precision per band</li>
+      <li><strong>Per-layer signal fidelity</strong> — of the verdicts marked WEAK on Protection, how many actually escaped? That tells you which layer is earning its weight</li>
+      <li><strong>Drift detection</strong> — rolling 30-day windows, alarming if the Brier score degrades past your threshold</li>
+    </ul>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="HOW" id="calib-how">How to use it</h3>
+    <p>Enable it in <code>.assert-iq/config.yaml</code>:</p>
+<pre><code>verdicts:
+  enabled: true
+  track_in_git: false      <span class="comment"># set true for regulated clients (SOX, ISO 27001)</span>
+  retention_days: 730
+
+calibration:
+  enabled: true
+  window_days: 90
+  drift_alarm_threshold: 0.15
+  min_verdicts_for_stats: 10</code></pre>
+    <p><strong>Read the report:</strong></p>
+<pre><code>/calibration-report</code></pre>
+    <p>Or run the analysis directly:</p>
+<pre><code>python3 .assert-iq/analysis/calibration.py --window-days 90 --output report.json</code></pre>
+    <p><strong>Investigate one verdict:</strong></p>
+<pre><code>bash .assert-iq/analysis/audit-verdict.sh &lt;verdict_id&gt;</code></pre>
+    <p>That prints the full record plus instructions for reproducing it. One-line summaries also append to <code>.assert-iq/verdicts/VERDICTS.md</code> for human scanning.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="WHEN" id="calib-when">When to use it</h3>
+    <ul>
+      <li>Quarterly, next to <code>/measure-qi-impact</code> — impact says what it was worth, calibration says whether to believe it</li>
+      <li>After any escape, to close the loop on the verdict that missed it</li>
+      <li>After a <code>/dream</code>, to confirm memory consolidation didn't degrade accuracy</li>
+      <li>Whenever the team starts second-guessing the verdicts. Either the data reassures them or it doesn't, and both answers are useful</li>
+    </ul>
+    <p><strong>When not to:</strong> below <code>min_verdicts_for_stats</code> — ten by default — the statistics are noise. The tool suppresses them for you.</p>
+  </div>
+
+  <div class="wq">
+    <h3 data-k="WHY" id="calib-why">Why it matters</h3>
+    <p><strong>For engineers:</strong> it tells you which of the four layers is actually predictive in <em>your</em> codebase. If Protection-layer warnings have been right seven times out of eight and Trust-layer warnings have been right twice out of nine, you now know where to spend the next quarter.</p>
+    <p><strong>For regulated teams:</strong> verdicts are auditable end to end. Memory snapshot → reproducible assessment → linked escape. That's the difference between "our process is sound" and demonstrating it.</p>
+    <p><strong>For anyone selling or defending this work:</strong> after sixty days you have escape-correlation data specific to your environment that nobody can replicate from the outside. "Our green-band verdicts had 94% precision in your codebase" is a claim with a receipt attached.</p>
+    <p><strong>For the system itself:</strong> this is the feedback loop. Calibration feeds back into confidence scoring, so being wrong makes the next verdict better.</p>
+  </div>
+  <p class="backtop"><a href="#assert-iq-the-feature-guide">↑ Back to top</a></p>
+</section>
+
+<section>
+  <h2 id="your-first-two-weeks">Your first <span class="accent">two weeks</span></h2>
+  <p class="lead">The features reinforce each other, so order matters more than speed.</p>
+  <div class="steps">
+    <div class="step">
+      <h3 id="install-and-tailor-day-1">Install and tailor — day 1</h3>
+      <p>Run <code>/assert-iq-bootstrap</code> with <code>--mode=trial</code> so nothing touches your team's git history. Then <code>/assert-iq-tailor</code> to replace the placeholders with your actual stack. Fifteen minutes here changes the quality of everything downstream.</p>
+    </div>
+    <div class="step">
+      <h3 id="set-your-tier-honestly-day-1">Set your tier honestly — day 1</h3>
+      <p>Work through the checklist in <code>.assert-iq/maturity-profile.md</code> and set <a href="#maturity-aware">the tier</a> in both files. Choose the tier below where you think you are.</p>
+    </div>
+    <div class="step">
+      <h3 id="connect-three-servers-day-2">Connect three servers — day 2</h3>
+      <p>Your <a href="#mcp-servers">code host, your tracker, and your error monitor</a>. That's enough to answer all four layers.</p>
+    </div>
+    <div class="step">
+      <h3 id="capture-your-baseline-day-2">Capture your baseline — day 2</h3>
+      <p>Fill in <code>.assert-iq/business-metrics/baseline.json</code> <em>before</em> anything improves. You cannot go back for this number later.</p>
+    </div>
+    <div class="step">
+      <h3 id="use-the-skills-on-real-work-week-1">Use the skills on real work — week 1</h3>
+      <p>Run <a href="#risk-assess-pr"><code>/risk-assess-pr</code></a> on a live PR. Run <a href="#generate-hotspot-map"><code>/generate-hotspot-map</code></a> to see where your fragility actually is. Run <a href="#check-test-coverage"><code>/check-test-coverage</code></a> on something you thought was well covered.</p>
+    </div>
+    <div class="step">
+      <h3 id="write-one-rubric-week-2">Write one rubric — week 2</h3>
+      <p>Pick the artifact you generate most and give it an <a href="#oracle-layer">acceptance contract</a>. Then grade three existing examples against it and see what you learn.</p>
+    </div>
+    <div class="step">
+      <h3 id="dream-once-week-2">Dream once — week 2</h3>
+      <p>After five or so sessions, run the safety check and then <a href="#dreaming"><code>/dream</code></a>. Read the diff. That's the moment the compounding starts.</p>
+    </div>
+    <div class="step">
+      <h3 id="report-end-of-quarter">Report — end of quarter</h3>
+      <p>Run <a href="#business-impact-dashboards"><code>/measure-qi-impact</code></a> and <a href="#decision-confidence-calibration"><code>/calibration-report</code></a> together. One says what the work was worth; the other says whether to believe it.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2 id="where-to-go-next">Where to go <span class="accent">next</span></h2>
+  <ul>
+    <li>Pack overview — <a href="README.html"><code>README.html</code></a></li>
+    <li>Full documentation — <a href="README.assert-iq.html"><code>README.assert-iq.html</code></a></li>
+    <li>Oracle quick start — <a href="oracles-readme.html"><code>oracles-readme.html</code></a></li>
+    <li>MCP servers — <a href="MCP.html"><code>MCP.html</code></a></li>
+    <li>Dreaming guide — <a href="dreaming-readme.html"><code>dreaming-readme.html</code></a></li>
+    <li>Claude Code — <a href="claude-readme.html"><code>claude-readme.html</code></a></li>
+    <li>VS Code / Copilot — <a href="vscode-readme.html"><code>vscode-readme.html</code></a></li>
+    <li>Markdown version of this guide — <a href="FEATURES.md"><code>FEATURES.md</code></a></li>
+  </ul>
+</section>
+
+</div>
+
+<footer>
+  <div>Assert.IQ Agent Pack · v2.1.3 · Owned by <a href="https://github.com/fromjariuswithsparq">Jarius Hayes</a> · Sparq Intelligence Studio</div>
+  <div style="margin-top:12px;">
+    <a href="README.html">Overview</a>
+    <a href="README.assert-iq.html">Full Docs</a>
+    <a href="FEATURES.md">Markdown</a>
+    <a href="https://github.com/fromjariuswithsparq/assert-iq-agent-pack">GitHub</a>
+  </div>
+</footer>
+
+<!-- aiq-search:scripts:start -->
+<script src="assets/search-index.js"></script>
+<script src="assets/search.js"></script>
+<!-- aiq-search:scripts:end -->
+</body>
+</html>

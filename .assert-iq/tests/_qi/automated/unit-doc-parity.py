@@ -49,6 +49,7 @@ PAIRS = [
     (".vscode/MCP.md",                "MCP.html"),
     (".assert-iq/dreaming/README.md", "dreaming-readme.html"),
     ("ORACLE_QUICK_START.md",         "oracles-readme.html"),
+    ("FEATURES.md",                   "FEATURES.html"),
 ]
 
 # Declared, deliberate divergences. Anything NOT listed here fails.

@@ -2,7 +2,7 @@
 
 > Quality Intelligence for every IDE, every sprint, every team.
 
-**v2.1.2** · [Full documentation →](README.assert-iq.md)
+**v2.1.3** · [Full documentation →](README.assert-iq.md)
 
 ---
 
@@ -34,12 +34,16 @@ The immediate impact:
 
 Assert.IQ is the accelerator. It drops a QI reasoning layer directly into **GitHub Copilot Chat** and **Claude Code** so teams don't have to learn a new tool or change their workflow. The IDE they already use becomes QI-aware.
 
-- **31 skills** covering the full QE lifecycle — test generation, code review, risk assessment, hotspot mapping, traceability matrices, release confidence, escaped-defect analysis, exploratory charters, oracle-based grading, business metrics dashboards, and more.
-- **Multi-agent orchestration (v2.0)** — available on **both** harnesses: two lead agents (`Assert-IQ` for full execution, `Assert-IQ-PLAN` for plan-first workflows) orchestrate **8 isolated specialist agents** (risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer, oracle-grader, calibration-specialist, memory-curator, traceability-auditor) that run in parallel then serially, each returning structured JSON the lead synthesizes into one decision.
-- **Business impact dashboards (v2.0)** — the `/measure-qi-impact` skill converts QI verdicts into VP-ready HTML dashboards: escape reduction %, triage hours reclaimed, cycle-time acceleration, and total economic ROI in dollars.
-- **Maturity-aware behavior** — a one-file config scales the pack from "early / manual generation only" to "higher / autonomous healing," meeting teams where they are.
-- **MCP wiring** to GitHub, ADO, Jira, Sentry, Grafana, Playwright, Slack, and 13 more tool surfaces — configured in one file, credentials kept in your OS keychain.
-- **Dreaming** — a markdown memory store that consolidates learnings across sessions (via the `/dream` skill) so the agent gets sharper on your codebase over time, without the token cost of per-tool-call hooks.
+Eight features do the work. Each one links to its full write-up in the **[Feature Guide](FEATURES.md)** — what it is, how to use it, when to reach for it, and why it earns its place, written to be readable whether or not you write code.
+
+- **[31 skills](FEATURES.md#skills)** covering the full QE lifecycle — test generation, code review, risk assessment, hotspot mapping, traceability matrices, release confidence, escaped-defect analysis, exploratory charters, oracle-based grading, business metrics dashboards, and more. Every skill is broken down individually [in the guide](FEATURES.md#the-31-skills-one-by-one).
+- **[Multi-agent orchestration](FEATURES.md#multi-agent-orchestration) (v2.0)** — available on **both** harnesses: two lead agents (`Assert-IQ` for full execution, `Assert-IQ-PLAN` for plan-first workflows) orchestrate **8 isolated specialist agents** (risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer, oracle-grader, calibration-specialist, memory-curator, traceability-auditor) that run in parallel then serially, each returning structured JSON the lead synthesizes into one decision.
+- **[Business impact dashboards](FEATURES.md#business-impact-dashboards) (v2.0)** — the `/measure-qi-impact` skill converts QI verdicts into VP-ready HTML dashboards: escape reduction %, triage hours reclaimed, cycle-time acceleration, and total economic ROI in dollars.
+- **[Oracle Layer](FEATURES.md#oracle-layer)** — rubric-based grading (`/define-quality-rubric`, `/grade-with-rubric`): define what "good" looks like first, then grade artifacts independently. Immutable, versioned specs feed the Outcome layer.
+- **[Maturity-aware behavior](FEATURES.md#maturity-aware)** — a one-file config scales the pack from "early / manual generation only" to "higher / autonomous healing," meeting teams where they are.
+- **[20 MCP servers](FEATURES.md#mcp-servers)** wiring GitHub, ADO, Jira, Sentry, Grafana, Playwright, Slack, and 13 more tool surfaces — configured in one file, credentials kept in your OS keychain.
+- **[Dreaming](FEATURES.md#dreaming)** — a markdown memory store that consolidates learnings across sessions (via the `/dream` skill) so the agent gets sharper on your codebase over time, without the token cost of per-tool-call hooks.
+- **[Decision Confidence Calibration](FEATURES.md#decision-confidence-calibration)** — every verdict is recorded with a memory hash for reproducibility. Brier score, confusion matrix, and per-layer fidelity prove verdict accuracy against real production escapes over time.
 
 QI is the operating model. Assert.IQ is how teams act on it — from day one, in the tools they already use.
 
@@ -443,9 +447,12 @@ scripts/
 
 The steps above are the fast path. When you're ready for the full picture — including every other way to install, how to share the pack with your team, and the full skill reference:
 
+**[FEATURES.md →](FEATURES.md)** — the Feature Guide: all eight features and all 31 skills, each with what it is, how to use it, when to use it, and why it matters.
+
 **[README.assert-iq.md →](README.assert-iq.md)** — detailed install options (drop-in / air-gapped / trial vs. committed), full skill reference, maturity tier matrix, MCP server inventory, Dreaming architecture, and full release history.
 
 Tool-specific references:
+- Feature guide — [`FEATURES.md`](FEATURES.md)
 - VS Code / Copilot — [`.github/vscode-readme.md`](.github/vscode-readme.md)
 - Claude Code — [`.claude/claude-readme.md`](.claude/claude-readme.md)
 - MCP servers — [`.vscode/MCP.md`](.vscode/MCP.md)
