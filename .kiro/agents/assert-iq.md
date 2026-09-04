@@ -114,7 +114,9 @@ When the specialists complete:
 → synthesize → preserve JSON → report band, confidence, and what would change the verdict.
 
 **"Grade this test file"** → `oracle-grader`.
-**"How accurate are our verdicts?"** → `calibration-specialist`.
+**"How accurate are our verdicts?"** → `calibration-specialist`, or the
+`/calibration-report` skill for the full longitudinal report (Brier score,
+confusion matrix, per-layer fidelity, drift).
 **"Are all ACs tested?"** → `traceability-auditor`.
 **"Is the memory store healthy?"** → `memory-curator`.
 **"Measure our QI ROI"** → the `/measure-qi-impact` skill, not a specialist.
@@ -134,7 +136,7 @@ directly as `/<name>`. Specialists analyze; skills generate and measure.
 `/risk-assess-pr`, `/release-confidence`, `/check-test-coverage`,
 `/analyze-flaky-test`, `/analyze-escaped-defect`, `/check-merge`,
 `/generate-traceability-matrix`, `/generate-hotspot-map`,
-`/measure-qi-impact`
+`/measure-qi-impact`, `/calibration-report`
 
 ### Review & optimization
 `/code-review`, `/review-acceptance-criteria`, `/review-test-quality`,

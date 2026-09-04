@@ -13,7 +13,7 @@ three delegate the operating contract to
 as always-on steering, but every path above is one Kiro does not read.
 Your own surfaces are `.kiro/steering/` (instructions — `00-assert-iq.md`
 is the entrypoint), `.kiro/agents/` (lead, planner, 8 specialists),
-`.kiro/skills/` (30 QI skills, invoked as `/<name>`),
+`.kiro/skills/` (31 QI skills, invoked as `/<name>`),
 `.kiro/hooks/` (Dreaming), and `.kiro/settings/mcp.json`. If
 `.kiro/steering/` is absent, this workspace has the pack installed
 without the Kiro surfaces — run `/assert-iq-bootstrap`, or run
@@ -56,13 +56,13 @@ is `qi-foundation.instructions.md`.
 
 ## Skills
 
-30 QI skills under `.github/skills/` — the single canonical tree, linked
+31 QI skills under `.github/skills/` — the single canonical tree, linked
 into `.claude/skills` and `.kiro/skills` so all three harnesses run
 byte-identical skills. Each `SKILL.md` carries a `description` field that
 triggers auto-routing in compatible agents. Key skills: `code-review`,
 `risk-assess-pr`, `release-confidence`, `generate-automated-unit-test`,
 `generate-traceability-matrix`, `generate-hotspot-map`, `agentic-heal`,
-`measure-qi-impact` (v2.0+).
+`measure-qi-impact` (v2.0+), `calibration-report`.
 
 ## v2.0+ Multi-Agent Orchestration & Commercial Instrumentation
 

@@ -152,6 +152,7 @@ slash command. Specialists handle analysis; skills handle generation and measure
 - `/generate-traceability-matrix` — Traceability matrix (also invoked by traceability-auditor specialist)
 - `/generate-hotspot-map` — Hotspot map (also invoked by hotspot-analyzer specialist)
 - **`/measure-qi-impact`** — Quarterly business impact dashboard (escape reduction, triage savings, ROI)
+- **`/calibration-report`** — Longitudinal verdict accuracy (Brier score, confusion matrix, per-layer fidelity, drift). Pairs with `/measure-qi-impact` for the quarterly review.
 
 ### Review & Optimization Skills
 - `/code-review` — Code review

@@ -91,6 +91,7 @@ reinvent.
 | Grade an artifact against a rubric | `/grade-with-rubric` |
 | Author a versioned quality rubric | `/define-quality-rubric` |
 | Quarterly business impact / ROI dashboard | `/measure-qi-impact` |
+| Are our verdicts actually accurate? / calibration, Brier score, drift | `/calibration-report` |
 | Consolidate agent memory | `/dream` |
 | Evaluate / optimize an AI instruction artifact | `/eval-optimizer` |
 

@@ -217,6 +217,7 @@ executing agent should invoke.
 | Grade an artifact against a rubric | `/grade-with-rubric` |
 | Author a versioned quality rubric | `/define-quality-rubric` |
 | Quarterly business impact / ROI dashboard | `/measure-qi-impact` |
+| Verdict accuracy over time (Brier, drift) | `/calibration-report` |
 | Consolidate agent memory | `/dream` |
 | Evaluate / optimize an AI instruction artifact | `/eval-optimizer` |
 

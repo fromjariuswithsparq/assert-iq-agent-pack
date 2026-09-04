@@ -73,6 +73,7 @@ CLAUDE_DIR=".claude/agents"
 COPILOT_DIR=".github/agents"
 CLAUDE_ROUTER="$CLAUDE_DIR/assert-iq.md"
 COPILOT_ROUTER="$COPILOT_DIR/Assert-IQ.agent.md"
+KIRO_ROUTER=".kiro/agents/assert-iq.md"
 
 echo "=== E2E: Cross-Harness Agent Parity ==="
 echo ""
@@ -121,12 +122,13 @@ fi
 echo ""
 
 # ---------------------------------------------------------------------------
-# P3: every shipped skill must be routable from BOTH routers
+# P3: every shipped skill must be routable from EVERY router
 # ---------------------------------------------------------------------------
 echo "--- P3: Skill-routing coverage ---"
 skill_total=0
 claude_missing=()
 copilot_missing=()
+kiro_missing=()
 
 # Extract the set of /slash-commands each router mentions with ONE grep per
 # router, then test membership with `case`. Two greps per skill (60
@@ -136,6 +138,10 @@ copilot_missing=()
 # /check-merge cannot satisfy a lookup for /check-merge-gate.
 claude_routed=" $(grep -oE '/[a-z0-9][a-z0-9-]*' "$CLAUDE_ROUTER"  | sort -u | tr '\012' ' ')"
 copilot_routed=" $(grep -oE '/[a-z0-9][a-z0-9-]*' "$COPILOT_ROUTER" | sort -u | tr '\012' ' ')"
+# Kiro is the third harness. Adding it without extending P3 is exactly how a
+# router goes stale unnoticed: /calibration-report landed on main and the Kiro
+# lead did not route it, which nothing caught until a human went looking.
+kiro_routed=" $(grep -oE '/[a-z0-9][a-z0-9-]*' "$KIRO_ROUTER" 2>/dev/null | sort -u | tr '\012' ' ')"
 
 for skill_dir in .github/skills/*/; do
   [ -d "$skill_dir" ] || continue
@@ -143,6 +149,7 @@ for skill_dir in .github/skills/*/; do
   skill_total=$((skill_total + 1))
   case "$claude_routed"  in *" /$skill "*) ;; *) claude_missing[${#claude_missing[@]}]="$skill" ;; esac
   case "$copilot_routed" in *" /$skill "*) ;; *) copilot_missing[${#copilot_missing[@]}]="$skill" ;; esac
+  case "$kiro_routed"    in *" /$skill "*) ;; *) kiro_missing[${#kiro_missing[@]}]="$skill" ;; esac
 done
 
 if [ ${#claude_missing[@]} -eq 0 ]; then
@@ -157,6 +164,15 @@ if [ ${#copilot_missing[@]} -eq 0 ]; then
 else
   fail "P3: Copilot router misses ${#copilot_missing[@]}/$skill_total skills"
   printf '        - %s\n' "${copilot_missing[@]}"
+fi
+
+if [ ! -f "$KIRO_ROUTER" ]; then
+  fail "P3: Kiro router is missing ($KIRO_ROUTER)"
+elif [ ${#kiro_missing[@]} -eq 0 ]; then
+  pass "P3: Kiro router covers all $skill_total skills"
+else
+  fail "P3: Kiro router misses ${#kiro_missing[@]}/$skill_total skills"
+  printf '        - %s\n' "${kiro_missing[@]}"
 fi
 
 echo ""

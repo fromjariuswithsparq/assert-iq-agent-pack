@@ -1,5 +1,12 @@
 # README Review & Update Summary — v1.7.0-alpha1
 
+> **Historical record — not current state.**
+> This is a point-in-time engineering work log from the **v1.7.0-alpha1** cycle,
+> kept for history. It is **not installed into consumer workspaces** and it is
+> not maintained: statements below were true when written and several are now
+> false. For what a release actually contains, read `CHANGELOG.md`; for how the
+> pack works today, read `README.assert-iq.md`.
+
 **Date:** 2026-08-11  
 **Status:** ✅ All README files reviewed and updated for v1.7.0-alpha1
 

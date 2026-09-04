@@ -22,7 +22,7 @@
 </head>
 <body>
     <h1>QI foundation instruction</h1>
-    <div class="meta">Generated: 2026-09-03 15:10:40 UTC</div>
+    <div class="meta">Generated: 2026-09-03 17:13:51 UTC</div>
 <p>---
 applyTo: "**"
 description: "QI foundation — applied to every interaction in this repository."
@@ -112,19 +112,34 @@ addressed. If a layer cannot be evaluated, say so explicitly.</p><h2>Decision Co
 - **Per-Layer Signal Fidelity** — of verdicts marked WEAK on layer X, what fraction had actual escapes?
   - Measures predictiveness of each layer
 - **Memory Drift Detection** — post-dream, compare verdict accuracy before/after
-  - Regression test corpus prevents memory degradation</p><h3>Memory Poisoning Prevention</h3></p><p>Before <code>/dream</code> consolidates memory:
-1. Run <code>python3 .assert-iq/analysis/memory-sanity.py</code> for sanity checks
-   (on Windows use <code>python</code> or <code>py -3</code> — the python.org installer ships
-   <code>python.exe</code> but no <code>python3.exe</code>, and the Microsoft Store <code>python3</code> is a
-   non-functional stub):
+  - Regression test corpus prevents memory degradation</p><h3>Memory Poisoning Prevention</h3></p><p>Before <code>/dream</code> changes a single memory file, run:</p><p>``<code>bash
+python3 .assert-iq/analysis/dream-safety.py pre
+</code>`<code></p><p>(on Windows use </code>python<code> or </code>py -3<code> — the python.org installer ships
+</code>python.exe<code> but no </code>python3.exe<code>, and the Microsoft Store </code>python3<code> is a
+non-functional stub)</p><p>That one command performs steps 1–3 and prints a </code>CYCLE_ID=<code> line to carry
+into the post step:</p><p>1. **Sanity checks** over the memory store:
    - Cycle detection (A→B→C→A flags editorial confusion)
    - Fact staleness (>180 days without update)
    - Contradiction detection (conflicting facts across topics)
    - Granularity checks (copy-paste vs. synthesized facts)
-2. Snapshot memory: <code>.assert-iq/dreaming/.snapshots/mem-<timestamp>.tar.gz</code>
-3. Log dream cycle in <code>.assert-iq/dreaming/provenance.json</code> (append-only audit)
-4. Post-dream: regression test golden corpus (fail if >5% verdict divergence)</p><p>Higher maturity tiers enforce regression blocking; lower tiers alert only.</p><h3>Audit Trail</h3></p><p>One-line summaries appended to <code>.assert-iq/verdicts/VERDICTS.md</code> for human audit:
-``<code>
+2. **Snapshot** memory to
+   </code>.assert-iq/dreaming/.snapshots/mem-<cycle>.tar.gz<code>, keeping the newest
+   </code>dreaming_provenance.snapshot_retention<code> archives. This is what the
+   reproducibility contract below restores from — a dream with no snapshot
+   is not reversible.
+3. **Open a dream cycle** in </code>.assert-iq/dreaming/provenance.json<code>
+   (append-only audit), recording </code>memory_version_before<code>, the snapshot
+   path, the maturity tier, and the sanity result.</p><p>Honor its exit code: **0** proceed, **1** stop (a gate failed and the tier
+enforces it), **2** stop (environment error — never dream blind).</p><p>After consolidating, close the record:</p><p></code>`<code>bash
+python3 .assert-iq/analysis/dream-safety.py post --cycle-id dream-<stamp>
+</code>`<code></p><p>4. **Post-dream regression**, only when </code>regression_testing.enabled<code>: re-run
+   the golden corpus and compare (fail if divergence exceeds
+   </code>max_verdict_divergence_pct<code>, default 5%):</p><p>   </code>`<code>bash
+   python3 .assert-iq/analysis/dream-safety.py regression \
+       --cycle-id dream-<stamp> --results <results.jsonl>
+   </code>`<code></p><p>Higher maturity tiers enforce blocking; lower tiers alert only. That applies
+to both gates: sanity failures and regression divergence.</p><h3>Audit Trail</h3></p><p>One-line summaries appended to </code>.assert-iq/verdicts/VERDICTS.md<code> for human audit:
+</code>`<code>
 <YYYY-MM-DD HH:MM:SS UTC> | <verdict_id> | <type> | <band> | <score> | <pr_id> | <layer_summary> | <linked_escape>
 </code>`<code></p><p>Query any verdict: </code>bash .assert-iq/analysis/audit-verdict.sh <verdict_id>` outputs full record
 with reproducibility instructions.

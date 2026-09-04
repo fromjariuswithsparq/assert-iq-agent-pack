@@ -550,6 +550,58 @@ function Remove-ManagedBlockLines([string[]]$Lines) {
     return ,$kept.ToArray()
 }
 
+# Lines an Assert.IQ trial-mode install has ever written into
+# .git/info/exclude. Used ONLY as an allowlist when clearing an unmarked
+# legacy block: a line not on this list is never removed, so entries the user
+# added themselves can never be eaten by the heuristic.
+$script:AiqExcludeOwned = @(
+    '.assert-iq/', '.github/', '.claude/', '.vscode/', 'AGENTS.md', 'CLAUDE.md',
+    '.github/instructions/', '.github/skills/', '.github/agents/',
+    '.github/copilot-instructions.md', '.claude/agents/', '.claude/skills',
+    '.claude/settings.json', '.vscode/settings.json', '.vscode/mcp.json'
+)
+
+# Strip an UNMARKED Assert.IQ block. Returns the kept lines; sets
+# $script:_StripRemoved = $true if anything was removed.
+#
+# WHY THIS EXISTS
+#
+# Remove-ManagedBlockLines only matches the exact begin/end marker pair.
+# Installs predating those markers -- and agents that hand-rolled the block
+# from the bootstrap skill prose instead of running this script -- wrote a
+# section with a human-worded header and no machine-readable delimiters.
+# Uninstall could not see it, so it reported "nothing to remove" and exited
+# successfully while leaving the block in place, keeping .github/, .vscode/
+# and .claude/ excluded forever. The user OWN files at those paths -- a GitHub
+# Actions workflow, say -- then stay silently invisible to git long after the
+# pack is gone. Found in the wild on a real project.
+#
+# Conservative by construction, and identical in behaviour to
+# _strip_legacy_block in bootstrap.sh: it starts only at a comment naming
+# Assert.IQ, swallows the explanatory comments that follow, then removes only
+# allowlisted paths. The first unrecognized line -- blank, unowned path, or a
+# comment once the paths have started -- ends the block.
+function Remove-LegacyBlockLines([string[]]$Lines) {
+    $script:_StripRemoved = $false
+    $kept = New-Object System.Collections.Generic.List[string]
+    $inBlock = $false
+    $inPaths = $false
+    foreach ($line in $Lines) {
+        $t = $line.Trim()
+        if (-not $inBlock) {
+            if ($t.StartsWith('#') -and $t -match '(?i)assert[.\-]?iq') {
+                $inBlock = $true; $inPaths = $false; $script:_StripRemoved = $true; continue
+            }
+            $kept.Add($line) | Out-Null; continue
+        }
+        if ((-not $inPaths) -and $t.StartsWith('#')) { continue }
+        if ($script:AiqExcludeOwned -contains $t) { $inPaths = $true; continue }
+        $inBlock = $false
+        $kept.Add($line) | Out-Null
+    }
+    return ,$kept.ToArray()
+}
+
 function Write-ExcludeBlock {
     # Always-on writer for .git/info/exclude managed block. Two layers:
     #   1) backup-globs (`*.assert-iq.pre-install`, `*.assert-iq.pre-tailor`,
@@ -757,11 +809,22 @@ function Remove-ExcludeBlock {
     }
     $existing = Get-Content -LiteralPath $excl
     $kept = Remove-ManagedBlockLines $existing
-    Write-AiqUtf8 -Path $excl -Value $kept
     if ($script:_StripRemoved) {
+        Write-AiqUtf8 -Path $excl -Value $kept
         Write-Host "Removed Assert.IQ managed block from $excl"
+        return
+    }
+    # No managed block. Before reporting "nothing to remove" -- which is what
+    # stranded a real project .github/ and .vscode/ behind a legacy block --
+    # look for an unmarked Assert.IQ section too.
+    $kept = Remove-LegacyBlockLines $existing
+    if ($script:_StripRemoved) {
+        Write-AiqUtf8 -Path $excl -Value $kept
+        Write-Host "Removed an unmarked (legacy or hand-written) Assert.IQ block from $excl"
+        Write-Host "  It had no managed markers, so earlier versions could not see it."
+        Write-Host "  Paths like .github/ and .vscode/ are visible to git again."
     } else {
-        Write-Host "No Assert.IQ managed block found in $excl -- nothing to remove."
+        Write-Host "No Assert.IQ block found in $excl -- nothing to remove."
     }
 }
 
@@ -1532,7 +1595,9 @@ function Invoke-UpgradeThreeWay {
 # memory/ -- are still shipped, just by Step-Dreaming rather than
 # Copy-TreeScoped, so they must never be treated as orphans. Only paths the pack
 # has genuinely stopped installing belong here.
-$script:NonPayloadPrefixes = @('.assert-iq/tests/_qi/automated/')
+$script:NonPayloadPrefixes = @('.assert-iq/tests/_qi/automated/',
+                                '.assert-iq/IMPLEMENTATION_SUMMARY.md',
+                                '.assert-iq/README_REVIEW_SUMMARY.md')
 
 function Test-NonPayloadPath([string]$RelUnix) {
     foreach ($pre in $script:NonPayloadPrefixes) {
@@ -2020,7 +2085,13 @@ function Step-AssertIq {
     # broken. tests/_qi/regression/ IS still installed: golden-corpus.jsonl is a
     # consumer runtime artifact (config.yaml > calibration.golden_corpus_path).
     # Keep this list in step with process_assert_iq in bootstrap.sh.
-    $aiqExclude = @('dreaming/','memory/','tests/_qi/automated/','.install-manifest.json','.merge-result-shas','.skip-worktree-paths','.base/')
+    # IMPLEMENTATION_SUMMARY.md and README_REVIEW_SUMMARY.md are point-in-time
+    # engineering work logs from the v1.7.0-alpha1 cycle, not documentation. They
+    # shipped into every consumer workspace carrying claims that were already false
+    # ("57/57 tests passing", "No commits made", a Known Limitations table still
+    # marking three shipped items as pending), so a client opening .assert-iq/ read
+    # a half-finished product. They stay in the pack repo as history, not payload.
+    $aiqExclude = @('dreaming/','memory/','tests/_qi/automated/','IMPLEMENTATION_SUMMARY.md','README_REVIEW_SUMMARY.md','.install-manifest.json','.merge-result-shas','.skip-worktree-paths','.base/')
     switch ($AssertIq) {
         'workspace' { Copy-TreeScoped '.assert-iq' (Join-Path $Source '.assert-iq') (Join-Path $Workspace '.assert-iq') 'workspace' -Exclude $aiqExclude }
         'user'      { Copy-TreeScoped '.assert-iq' (Join-Path $Source '.assert-iq') $userAssertIq 'user' -Exclude $aiqExclude }
