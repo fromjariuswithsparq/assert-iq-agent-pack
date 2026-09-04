@@ -66,6 +66,10 @@ ACCEPTED = {
         "md_only": [
             "Decision Confidence Calibration — Proving Your QI Verdicts (v1.7.0+)",
             "Oracle Layer — Defensible Quality Verification (v1.6.0+)",
+            # Procedure for trying an unreleased branch. Belongs with the
+            # install steps in the repo front page, and is exactly the kind of
+            # install depth the landing page delegates rather than duplicates.
+            "Testing an unreleased branch",
         ],
         "html_only": [
             "Change Risk", "Protection Strength", "Signal Trustworthiness",

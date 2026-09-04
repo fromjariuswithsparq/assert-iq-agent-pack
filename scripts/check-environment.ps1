@@ -113,7 +113,7 @@ if ($isWin) {
     Remove-Item -LiteralPath $probe -Force -Recurse -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $target -Force -Recurse -ErrorAction SilentlyContinue
     if ($canLink) {
-        Pass 'symlinks' '.claude\skills will be a live symlink to .github\skills'
+        Pass 'symlinks' '.claude\skills and .kiro\skills will be live symlinks to .github\skills'
     } else {
         # Host-dependent, not just OS-dependent: PowerShell 7 can create an
         # unprivileged symlink when Developer Mode is on, Windows PowerShell 5.1
@@ -124,8 +124,24 @@ if ($isWin) {
         } else {
             'cannot create symlinks'
         }
-        Warn 'symlinks' $why 'enable Settings > System > For developers > Developer Mode, and/or run the installer under pwsh 7. Without symlinks .claude\skills is COPIED, so re-run the installer after editing a skill.'
+        # Two symlinks now, not one. A stale COPY is worse than it sounds: the
+        # skill tree keeps working, it just silently serves the version from
+        # install time. Hit for real -- three skills were edited, the copies
+        # were not refreshed, and Kiro kept rejecting the pre-edit files.
+        Warn 'symlinks' $why 'enable Settings > System > For developers > Developer Mode, and/or run the installer under pwsh 7. Without symlinks .github\skills is COPIED to .claude\skills AND .kiro\skills, so re-run the installer after editing any skill or those copies go stale.'
     }
+}
+
+# ---- 4b. Kiro (third harness) -------------------------------------------
+# Advisory only. Kiro is optional, so its absence is not a warning -- but when
+# it IS present the tester needs to know about workspace trust, because Kiro
+# disables hook execution in an untrusted folder SILENTLY. Dreaming then looks
+# broken with nothing in any log the user would think to read.
+$kiroHome = Join-Path $env:USERPROFILE '.kiro'
+if ((Get-Command kiro -ErrorAction SilentlyContinue) -or (Test-Path $kiroHome)) {
+    Pass 'kiro' 'Kiro detected - .kiro\steering, agents, skills and hooks will install'
+    Write-Host '         note: after installing, TRUST the workspace in Kiro. It disables hook' -ForegroundColor DarkGray
+    Write-Host '               execution in untrusted folders SILENTLY, so Dreaming looks dead.' -ForegroundColor DarkGray
 }
 
 # ---- 5. Shell installers vs Git Bash ------------------------------------

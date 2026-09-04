@@ -272,6 +272,41 @@ Run it from **inside your project**, as shown above. It checks the folder you're
 
 - **VS Code** — press `Cmd/Ctrl + Shift + P`, then pick **Developer: Reload Window**
 - **Claude Code** — restart the session
+- **Kiro** — press `Cmd/Ctrl + Shift + P`, then pick **Developer: Reload Window**, and
+  **trust the workspace** when prompted. Kiro disables hook execution in an
+  untrusted folder *silently*, so Dreaming will look dead with nothing in any
+  log you'd think to check. If you dismissed the prompt, reopen it with
+  **Workspaces: Manage Workspace Trust**.
+
+#### Testing an unreleased branch
+
+The installer copies from the pack checkout it lives in — there is no release
+artifact and no branch pinning anywhere in the install path. So to try an
+unreleased branch, **switch the pack clone to that branch and install
+normally**. Nothing else changes:
+
+```bash
+cd ~/assert-iq-agent-pack
+git fetch origin
+git checkout feat/kiro-ide-support     # the branch you're testing
+
+cd ~/code/my-app
+bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
+```
+
+Two things worth knowing:
+
+- **Install into a scratch project, or use `--mode=trial`** (shown above).
+  Trial mode adds the pack to `.git/info/exclude`, so nothing shows up in
+  `git status` and nothing can be committed by accident. Undo it completely
+  with `--uninstall`.
+- **The branch may not have bumped `VERSION`.** If you already have the same
+  version installed in that workspace, `--upgrade` has no version change to
+  key on. Test in a workspace with no existing install, or `--uninstall`
+  first, so you're measuring the branch and not a half-upgraded state.
+
+Switching the pack clone back to `main` and re-running the installer reverts
+the workspace to released behaviour.
 
 That's it. Skip to step 2.
 
