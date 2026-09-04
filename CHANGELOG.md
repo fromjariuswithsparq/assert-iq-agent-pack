@@ -148,24 +148,28 @@ Kiro 1.0.337 was opened on this repo and its logs read back:
 - `v2 hooks loaded 2 standalone hooks from .kiro/hooks/` — the v1 hook
   schema is accepted as written.
 - `skill.validation.failed` count went **6 → 0** after the frontmatter fix;
-  all 30 skills now validate.
+  all skills now validate.
 - `hooks.v2.executionDisabledUntrustedWorkspace` — the untrusted-workspace
   behaviour documented in the contract, confirmed live. Hooks *load* but do
   not *execute* until the folder is trusted.
+- **Dreaming runs end to end.** With the workspace trusted, Kiro fires the
+  `SessionStart` gate and the `Stop` recorder and the memory store updates —
+  confirmed by the pack author in a separate workspace. This was the last
+  unproven link in the chain: the v1 hook schema, the `${WORKSPACE_ROOT}`
+  substitution, the `shell:true` interpreter handling, and the
+  `AIQ_HOOK_OUTPUT=plain` protocol switch are all exercised by that path.
 
-Full bootstrap install **and uninstall** now verified end to end on
-`bootstrap.ps1`: 7s install, 14s uninstall, 138 manifest paths (21 Kiro),
-**0 leftover files**, and `.github/skills` intact afterwards — the
-symlink-delete trap does not fire.
+A real install was also performed by the author into a separate workspace
+with Kiro, independently of the fixtures below.
+
+Full bootstrap install **and uninstall** verified end to end on
+`bootstrap.ps1`: 37s install, 9s uninstall, 138 manifest paths (24 Kiro),
+31 skills visible through the `.kiro/skills` symlink, trial-mode exclude
+written and removed, **0 leftover files**, and `.github/skills` intact
+afterwards — the symlink-delete trap does not fire.
 
 ### Known gaps
 
-- **Dreaming hook execution under Kiro is not yet observed.** The hooks are
-  parsed and loaded, and the rendered commands were executed directly under
-  both `/bin/sh` and `cmd.exe` with their side effects confirmed
-  (`sessions_since_dream` incremented, daily log written) — but Kiro itself
-  has not been allowed to fire them, because that requires trusting the
-  workspace.
 - The `bootstrap.sh` uninstall completes its `.kiro`, `.claude` and
   `.github` removal correctly but its `.assert-iq` sweep is very slow under
   MSYS. That is the documented MSYS penalty `bootstrap.sh` already refuses
@@ -177,6 +181,9 @@ symlink-delete trap does not fire.
 - Steering *content* reaching the model, and specialist sub-agent
   delegation, were verified structurally (schema + Kiro's own loader logs)
   rather than by inspecting a live conversation.
+- `unit-legacy-exclude-strip.sh` covers a `bootstrap.sh` code path, so it
+  reports NOT APPLICABLE on Windows (see above). The same behaviour has no
+  `bootstrap.ps1` twin yet, so that fix is currently unguarded on Windows.
 
 ---
 ### Fixed (the /dream safety procedure was documented but unwired)
