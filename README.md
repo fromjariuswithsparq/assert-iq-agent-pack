@@ -32,7 +32,7 @@ The immediate impact:
 
 ## Assert.IQ — QI inside your IDE
 
-Assert.IQ is the accelerator. It drops a QI reasoning layer directly into **GitHub Copilot Chat** and **Claude Code** so teams don't have to learn a new tool or change their workflow. The IDE they already use becomes QI-aware.
+Assert.IQ is the accelerator. It drops a QI reasoning layer directly into **GitHub Copilot Chat**, **Claude Code** and **Kiro** so teams don't have to learn a new tool or change their workflow. The IDE they already use becomes QI-aware.
 
 Eight features do the work. Each one links to its full write-up in the **[Feature Guide](FEATURES.md)** — what it is, how to use it, when to reach for it, and why it earns its place, written to be readable whether or not you write code.
 

@@ -67,11 +67,11 @@ A skill is a pre-written expert procedure the agent follows on request. You type
 
 The difference between a skill and just asking the chat window for a test is repeatability. The chat window gives you whatever it feels like today. A skill gives you the same structure, the same required headers, and the same traceability every single time, for every person on the team.
 
-Skills live in `.github/skills/` and are mirrored to `.claude/skills/`, so the same 31 commands work in **GitHub Copilot Chat** and **Claude Code**. One pack, both tools.
+Skills live in `.github/skills/` and are mirrored to `.claude/skills/` and `.kiro/skills/`, so the same 31 commands work in **GitHub Copilot Chat**, **Claude Code** and **Kiro**. One pack, three tools — and because the mirrors are symlinks to one canonical tree, the three cannot drift apart.
 
 ### How to use it
 
-In Copilot Chat, select the `Assert-IQ` agent. In Claude Code, just type. Then:
+In Copilot Chat, select the `Assert-IQ` agent. In Claude Code, just type. In Kiro, type `/` and the skill name, or describe what you want and let it route. Then:
 
 ```
 /risk-assess-pr
@@ -952,6 +952,7 @@ Run [`/measure-qi-impact`](#business-impact-dashboards) and [`/calibration-repor
 | [`.vscode/MCP.md`](.vscode/MCP.md) | Per-server MCP setup and credentials |
 | [`.claude/claude-readme.md`](.claude/claude-readme.md) | Claude Code specifics |
 | [`.github/vscode-readme.md`](.github/vscode-readme.md) | VS Code and Copilot specifics |
+| [`.assert-iq/kiro-harness.md`](.assert-iq/kiro-harness.md) | Kiro specifics — the verified schema contract |
 
 ---
 

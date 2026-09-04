@@ -42,8 +42,8 @@ Two things worth knowing before you run anything:
 ## What this is
 
 This pack drops into a client codebase and gives the development team an
-opinionated, QI-grounded layer over **GitHub Copilot Chat and Claude Code**
-in VS Code (and any other `AGENTS.md`-aware tooling: Codex CLI, Cursor,
+opinionated, QI-grounded layer over **GitHub Copilot Chat, Claude Code and
+Kiro** (and any other `AGENTS.md`-aware tooling: Codex CLI, Cursor,
 Aider). It is *not* a SaaS product. It is *not* a runtime. It is a
 versioned set of files — markdown, YAML, JSON — that lives in the repo
 and is owned by the team.
