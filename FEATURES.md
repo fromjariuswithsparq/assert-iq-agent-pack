@@ -2,7 +2,7 @@
 
 > Eight features. What each one is, how to use it, when to reach for it, and why it earns its place.
 
-**v2.1.2** · [Full documentation →](README.assert-iq.md) · [← Back to the README](README.md)
+**v2.1.3** · [Full documentation →](README.assert-iq.md) · [← Back to the README](README.md)
 
 ---
 
@@ -955,4 +955,4 @@ Run [`/measure-qi-impact`](#business-impact-dashboards) and [`/calibration-repor
 
 ---
 
-*Assert.IQ Agent Pack · v2.1.2 · Owned by [Jarius Hayes](https://github.com/fromjariuswithsparq) · Sparq Intelligence Studio*
+*Assert.IQ Agent Pack · v2.1.3 · Owned by [Jarius Hayes](https://github.com/fromjariuswithsparq) · Sparq Intelligence Studio*
