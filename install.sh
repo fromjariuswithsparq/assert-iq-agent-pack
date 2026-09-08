@@ -339,9 +339,45 @@ fi
 # One canonical skill tree (.github/skills), linked into each harness's
 # expected location. This is why skills cannot drift across harnesses the way
 # agents did at v2.0 -- there is only ever one copy.
+skills_dest_disposable() {
+    # 0 (disposable) if replacing directory $1 loses NOTHING: every file under
+    # it also exists under $2 with identical bytes. An empty directory is
+    # disposable by definition -- the loop body never runs.
+    local dst="$1" src="$2" f rel
+    [[ -d "$dst" ]] || return 1
+    [[ -d "$src" ]] || return 1
+    while IFS= read -r f; do
+        [[ -n "$f" ]] || continue
+        rel="${f#"$dst"/}"
+        [[ -f "$src/$rel" ]] || return 1
+        cmp -s "$f" "$src/$rel" || return 1
+    done < <(find "$dst" -type f 2>/dev/null)
+    return 0
+}
+
 link_skills() {
     # $1 = destination path, $2 = relative link target, $3 = label
     local dst="$1" src_rel="$2" label="$3"
+    local src_abs="$ROOT/.github/skills"
+
+    # This used to `rm -rf "$dst"` unconditionally. install.sh is documented as
+    # "run after dropping the pack into a repo", so $ROOT can be the USER'S
+    # repo -- and if they already kept their own skills in .kiro/skills or
+    # .claude/skills, that deleted them outright. Silent data loss, and a
+    # harsher version of the sidecar bug reported from the field.
+    #
+    # Only reclaim a destination that is ours (empty, or byte-identical to the
+    # canonical tree). Where the user has their own skills, MERGE ours in
+    # alongside and never delete.
+    if [[ -d "$dst" ]] && ! [[ -L "$dst" ]] && ! skills_dest_disposable "$dst" "$src_abs"; then
+        if [[ ! -d "$src_abs" ]]; then
+            fail "missing $src_abs; cannot merge skills"
+        fi
+        cp -R "$src_abs/." "$dst/"
+        say "[ok] merged .github/skills -> $label (your existing skills kept; re-run install.sh after skill changes)"
+        return 0
+    fi
+
     if [[ -L "$dst" || -e "$dst" ]]; then
         rm -rf "$dst"
     fi

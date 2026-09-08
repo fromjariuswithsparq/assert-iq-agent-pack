@@ -918,6 +918,71 @@ Run-Case "45 upgrade preserves trial mode" $Pattern {
     }
 }
 
+Run-Case "46 skills dest reclaimed not sidecarred" $Pattern {
+    # FIELD REPORT: a developer installed into a Kiro workspace and could not
+    # invoke a single skill. `.kiro\skills.assert-iq-new` held all 31 skills
+    # while `.kiro\skills` -- the only path Kiro reads -- held none.
+    #
+    # Cause: the pack-owned test recognised ONLY a symlink. Without Developer
+    # Mode the installer COPIES the tree, and a copy is not a symlink, so the
+    # next run treated the pack's own files as user content and sidecarred
+    # them. An empty directory hit the same path. Sidecar-ing is correct only
+    # when it protects something; here it protected nothing and broke the
+    # install.
+    #
+    # This is the Windows twin and the one that matters most: the copy fallback
+    # is a WINDOWS condition (no Developer Mode), so this is the platform where
+    # the bug actually reached a user.
+    #
+    # Three states, one contract: replace what is ours, never touch what is not.
+    # (Twin of case 45 in e2e-bootstrap.sh.)
+
+    # (a) EMPTY pre-existing dir -- the exact reported state.
+    $pair = Invoke-MkFixture
+    try {
+        $ws = $pair.ws
+        New-Item -ItemType Directory -Force -Path "$ws\.kiro\skills" | Out-Null
+        Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
+        Assert-FileExists 46 "$ws\.kiro\skills\dream\SKILL.md"
+        Assert-DirMissing 46 "$ws\.kiro\skills.assert-iq-new"
+    } finally { Invoke-CleanupFixture $pair $Keep }
+
+    # (b) A pack COPY from a previous run -- must be reclaimed, not sidecarred.
+    $pair = Invoke-MkFixture
+    try {
+        $ws = $pair.ws
+        New-Item -ItemType Directory -Force -Path "$ws\.kiro" | Out-Null
+        Copy-Item -LiteralPath (Join-Path $PackDir '.github\skills') -Destination "$ws\.kiro\skills" -Recurse -Force
+        Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
+        Assert-FileExists 46 "$ws\.kiro\skills\dream\SKILL.md"
+        Assert-DirMissing 46 "$ws\.kiro\skills.assert-iq-new"
+    } finally { Invoke-CleanupFixture $pair $Keep }
+
+    # (c) GENUINE user content -- MERGE, do not sidecar and do not clobber.
+    # This is the case that reached a real developer: he installed into a Kiro
+    # workspace that already held his own skills. Sidecar-ing protected his
+    # work but left every Assert.IQ skill unreachable, because Kiro reads only
+    # .kiro\skills. Both must be true afterwards: his skill still there, and
+    # ours usable in the same directory.
+    $pair = Invoke-MkFixture
+    try {
+        $ws = $pair.ws
+        New-Item -ItemType Directory -Force -Path "$ws\.kiro\skills\my-own-skill" | Out-Null
+        Set-Content -LiteralPath "$ws\.kiro\skills\my-own-skill\SKILL.md" -Value "do not delete me"
+        Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
+        Assert-Contains   46 "$ws\.kiro\skills\my-own-skill\SKILL.md" "do not delete me"
+        Assert-FileExists 46 "$ws\.kiro\skills\dream\SKILL.md"
+        Assert-DirMissing 46 "$ws\.kiro\skills.assert-iq-new"
+
+        # And UNINSTALL must be surgical: our skills go, his stays, and the
+        # directory itself survives because it is not empty.
+        Invoke-RunBoot $pair @("--uninstall", "--yes") | Out-Null
+        Assert-Contains    46 "$ws\.kiro\skills\my-own-skill\SKILL.md" "do not delete me"
+        Assert-FileMissing 46 "$ws\.kiro\skills\dream\SKILL.md"
+        Assert-DirExists   46 "$ws\.kiro\skills"
+    } finally { Invoke-CleanupFixture $pair $Keep }
+}
+
 echo "`nSummary: $($global:CASES_PASS) pass, $($global:CASES_FAIL) fail"
 if ($global:CASES_FAIL -gt 0) {
     echo "Failures:"

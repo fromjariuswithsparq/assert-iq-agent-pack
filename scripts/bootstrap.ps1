@@ -2426,6 +2426,39 @@ function Step-ClaudeSkillsLink {
     Link-WorkspaceSkills -Dst (Join-Path $Workspace '.claude\skills') -Label '.claude/skills'
 }
 
+function Test-SkillsDestDisposable {
+    # $true if replacing directory -Dst with a link to -Src loses NOTHING:
+    # every file under -Dst also exists under -Src with identical content. An
+    # empty directory is disposable by definition.
+    #
+    # Conservative in one direction only: a file the user added, or any file
+    # whose content differs from the canonical tree, makes the whole directory
+    # non-disposable and we sidecar instead. Missing files are fine -- a partial
+    # or interrupted copy is still ours to replace.
+    #
+    # Content comparison rather than a manifest lookup on purpose. The manifest
+    # is exactly what is unreliable here: it can be stale, it can predate the
+    # entry, and it has been observed written as 0 bytes when a jq invocation
+    # blew the Windows argv limit. Bytes on disk cannot lie.
+    param(
+        [Parameter(Mandatory)][string]$Dst,
+        [Parameter(Mandatory)][string]$Src
+    )
+    if (-not (Test-Path -LiteralPath $Dst -PathType Container)) { return $false }
+    if (-not (Test-Path -LiteralPath $Src -PathType Container)) { return $false }
+    $dstFull = (Resolve-Path -LiteralPath $Dst).Path
+    foreach ($f in (Get-ChildItem -LiteralPath $Dst -Recurse -File -Force -ErrorAction SilentlyContinue)) {
+        $rel = $f.FullName.Substring($dstFull.Length).TrimStart([char]92)
+        $peer = Join-Path $Src $rel
+        if (-not (Test-Path -LiteralPath $peer -PathType Leaf)) { return $false }
+        # Compare content, not timestamps: a copy has different mtimes by
+        # definition, and length alone would miss an edit of equal size.
+        if ((Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash -ne
+            (Get-FileHash -LiteralPath $peer      -Algorithm SHA256).Hash) { return $false }
+    }
+    return $true
+}
+
 function Link-WorkspaceSkills {
     # Link <Dst> -> ..\.github\skills, preferring a relative symlink and falling
     # back to a recursive copy. Shared by .claude\skills and .kiro\skills so the
@@ -2457,7 +2490,58 @@ function Link-WorkspaceSkills {
             Record $Label 'unchanged (pack-owned symlink)' $dst
             return
         }
-        # Anything else -- sidecar.
+
+        # A plain DIRECTORY here has two very different meanings, and the
+        # installer used to sidecar both. Reported from the field twice over:
+        #
+        #   * A developer with his OWN skills already in .kiro\skills got
+        #     `.kiro\skills.assert-iq-new` holding all 31 Assert.IQ skills
+        #     while .kiro\skills kept only his. The sidecar protected his work
+        #     correctly, but Kiro reads ONLY .kiro\skills, so not one
+        #     Assert.IQ skill could be invoked and the sidecar was invisible
+        #     to the IDE.
+        #   * A leftover pack COPY (without Developer Mode the branch below
+        #     falls back to copying, and a copy is not a symlink) was mistaken
+        #     for user content on the next run, so a plain re-install broke
+        #     itself. That is a WINDOWS-specific path, which is why this twin
+        #     matters most.
+        #
+        # So: reclaim what is ours, MERGE into what is not.
+        $isPlainDir = ($existing.PSIsContainer) -and
+                      ($existing.LinkType -notin @('SymbolicLink','Junction'))
+
+        if ($isPlainDir -and (Test-SkillsDestDisposable -Dst $dst -Src $targetAbs)) {
+            # Empty, or every file identical to the canonical tree -- nothing to
+            # preserve. Drop it and fall through to the symlink branch, which is
+            # the better arrangement because it cannot go stale.
+            Remove-Item -LiteralPath $dst -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        elseif ($isPlainDir) {
+            # The user has their own skills here. A symlink cannot express
+            # "both", so switch to a per-skill merge: copy the pack's skills in
+            # ALONGSIDE theirs. Copy-TreeScoped does this per FILE, which buys
+            # three things that matter more than the symlink's freshness:
+            #   1. their skills are never touched -- ours are simply added;
+            #   2. every file we add gets its own manifest entry, so -Uninstall
+            #      removes exactly our files and leaves theirs (the parent
+            #      directory survives too: the empty-dir sweep only removes a
+            #      directory that is actually empty);
+            #   3. a name collision is handled per file by Copy-FileScoped's
+            #      existing sha-compare + conflict resolver, so a skill of
+            #      theirs sharing a name with one of ours is backed up rather
+            #      than clobbered.
+            # The cost is that merged copies do not auto-update when
+            # .github\skills changes -- re-running the installer refreshes them.
+            Record $Label 'merging into your existing skills directory (yours kept, ours added)' $dst
+            Copy-TreeScoped -Label $Label `
+                -SrcDir (Join-Path $Source '.github\skills') `
+                -DstDir $dst `
+                -Scope 'workspace'
+            return
+        }
+        else {
+
+        # Not a directory and not a pack-owned symlink -- sidecar.
         $side = "$dst.assert-iq-new"
         if (Test-Path -LiteralPath $side) {
             Remove-Item -LiteralPath $side -Recurse -Force -ErrorAction SilentlyContinue
@@ -2478,8 +2562,12 @@ function Link-WorkspaceSkills {
             }
         }
         Add-ManifestEntry 'sidecar' $side 'workspace'
-        Record $Label 'sidecar -> .assert-iq-new' $side
+        # Say what it COSTS, not just what happened. The old wording ("diff them
+        # when ready") read like routine housekeeping, so the broken state went
+        # unnoticed until skills failed to invoke.
+        Record $Label "sidecar ($Label is not a usable directory) -> .assert-iq-new -- SKILLS WILL NOT LOAD until you resolve it" $side
         return
+        }
     }
 
     $parent = Split-Path -Parent $dst

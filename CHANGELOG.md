@@ -175,6 +175,68 @@ count), and both branches stage to a temp and `mv` only on success, so a
 failed write leaves the previous manifest intact and returns non-zero.
 `bootstrap.ps1` was never affected — it builds JSON natively.
 
+### Fixed — installing into a workspace that already had its own skills broke every Assert.IQ skill
+
+Reported from the field. A developer installed into an existing Kiro
+workspace that already held **his own skills** in `.kiro/skills`. Afterwards
+he could not invoke a single Assert.IQ skill. `.kiro/skills.assert-iq-new`
+held all 31 of ours; `.kiro/skills` still held only his.
+
+The sidecar did its job — it refused to destroy his work — but the outcome
+was still a broken install, because **Kiro reads only `.kiro/skills`** and a
+sidecar directory is invisible to it. The skills surface is one directory,
+and the installer wanted to own the whole thing: a symlink cannot express
+"his skills *and* ours".
+
+**The skills destination is now merged, not claimed.** Three cases, one rule
+— reclaim what is ours, merge into what is not, never delete what we did not
+put there:
+
+| Destination | Before | Now |
+|---|---|---|
+| absent | symlink | symlink (unchanged) |
+| pack-owned symlink | unchanged | unchanged |
+| **empty directory** | sidecar → install broken | reclaimed, symlinked |
+| **pack copy from a prior run** | sidecar → re-install broke itself | reclaimed, symlinked |
+| **user's own skills** | sidecar → skills unreachable | **merged in alongside** |
+| a *file* named `skills` | sidecar | sidecar (loudly) |
+
+"Ours" is decided by comparing bytes, not by consulting the install
+manifest. The manifest is exactly what is unreliable in this situation: it
+can be stale, it can predate the entry, and it has been observed written as
+0 bytes when a `jq` call blew the Windows argv limit. Bytes on disk cannot
+lie. A file the user edited, or one they added, makes the whole directory
+non-disposable.
+
+**Uninstall is surgical.** The merge copies per file through the same
+`copy_tree` / `Copy-TreeScoped` path everything else uses, so every file we
+add gets its own manifest entry. `--uninstall` removes exactly those and
+leaves the user's skills untouched — and the directory itself survives,
+because the empty-directory sweep only removes a directory that is actually
+empty. Verified end to end: a workspace with 2 user skills went to 33 after
+install, back to exactly those 2 after uninstall, content intact.
+
+The trade-off, stated plainly: merged skills are **copies**, so they do not
+auto-update the way the symlink does. Re-running the installer refreshes
+them. That is the price of sharing the directory, and it is worth it — a
+stale skill is recoverable, an unreachable one is not.
+
+**`install.sh` / `install.ps1` had a worse version of the same bug.** Their
+skills step called `rm -rf` on the destination unconditionally. Since both
+are documented as "run after dropping the pack into a repo", that path can
+be the user's own repo — so a user who kept skills in `.claude/skills` or
+`.kiro/skills` had them **deleted outright**. Silent data loss, not just
+breakage. Both now reclaim only what is theirs and merge otherwise.
+
+All of this applies to `.claude/skills` too — the logic is shared, and the
+same latent bug was there for Claude Code users the whole time. Kiro just
+surfaced it, because a Kiro workspace is far more likely to already have a
+`skills` directory in use.
+
+Regression coverage: case 45 in `e2e-bootstrap.sh` and its twin case 46 in
+`e2e-bootstrap.ps1` exercise all three directory states plus the surgical
+uninstall. Verified to fail against the pre-fix installer.
+
 ### Fixed — 3 skills had no frontmatter and were invisible to Kiro
 
 `assert-iq-bootstrap`, `define-quality-rubric` and `grade-with-rubric`

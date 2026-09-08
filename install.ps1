@@ -106,6 +106,27 @@ $kiroSkillsDst = Join-Path $root '.kiro\skills'
 function Say($msg) { Write-Host $msg }
 function Fail($msg) { throw "install.ps1: $msg" }
 
+function Test-SkillsDestDisposable {
+    # $true if replacing directory -Dst loses NOTHING: every file under it also
+    # exists under -Src with identical content. An empty directory is
+    # disposable by definition. Mirrors the helper in scripts\bootstrap.ps1.
+    param(
+        [Parameter(Mandatory)][string]$Dst,
+        [Parameter(Mandatory)][string]$Src
+    )
+    if (-not (Test-Path -LiteralPath $Dst -PathType Container)) { return $false }
+    if (-not (Test-Path -LiteralPath $Src -PathType Container)) { return $false }
+    $dstFull = (Resolve-Path -LiteralPath $Dst).Path
+    foreach ($f in (Get-ChildItem -LiteralPath $Dst -Recurse -File -Force -ErrorAction SilentlyContinue)) {
+        $rel = $f.FullName.Substring($dstFull.Length).TrimStart([char]92)
+        $peer = Join-Path $Src $rel
+        if (-not (Test-Path -LiteralPath $peer -PathType Leaf)) { return $false }
+        if ((Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash -ne
+            (Get-FileHash -LiteralPath $peer      -Algorithm SHA256).Hash) { return $false }
+    }
+    return $true
+}
+
 function Remove-SkillsPath {
     # PS 5.1 will follow a directory symlink/junction with -Recurse and delete
     # the REAL .github\skills source. Detect the link and unlink instead.
@@ -337,6 +358,23 @@ function Link-Skills {
         [Parameter(Mandatory)][string]$SrcRel,
         [Parameter(Mandatory)][string]$Label
     )
+    # Remove-SkillsPath used to run unconditionally. install.ps1 is documented
+    # as "run after dropping the pack into a repo", so $root can be the USER'S
+    # repo -- and if they already kept their own skills in .kiro\skills or
+    # .claude\skills, that deleted them outright. Silent data loss, and a
+    # harsher version of the sidecar bug reported from the field.
+    #
+    # Only reclaim a destination that is ours (empty, or byte-identical to the
+    # canonical tree). Where the user has their own skills, MERGE ours in
+    # alongside and never delete.
+    if ((Test-Path -LiteralPath $Dst -PathType Container) -and
+        ((Get-Item -LiteralPath $Dst -Force).LinkType -notin @('SymbolicLink','Junction')) -and
+        (-not (Test-SkillsDestDisposable -Dst $Dst -Src $skillsSrcAbs))) {
+        Copy-Item -Path (Join-Path $skillsSrcAbs '*') -Destination $Dst -Recurse -Force
+        Say "[ok] merged .github\skills -> $Label (your existing skills kept; re-run install.ps1 after skill changes)"
+        return
+    }
+
     Remove-SkillsPath -Path $Dst
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Dst) | Out-Null
     try {

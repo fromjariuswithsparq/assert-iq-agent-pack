@@ -999,6 +999,62 @@ case_44_upgrade_preserves_trial_mode() {
   cleanup_fixture "$pair"
 }
 
+case_45_skills_dest_reclaimed_not_sidecarred() {
+  # FIELD REPORT: a developer installed into a Kiro workspace and could not
+  # invoke a single skill. `.kiro/skills.assert-iq-new` held all 31 skills
+  # while `.kiro/skills` -- the only path Kiro reads -- held none.
+  #
+  # Cause: the pack-owned test recognised ONLY a symlink. Where symlinks are
+  # unavailable (Windows without Developer Mode) the installer COPIES the tree,
+  # and a copy is not a symlink, so the next run treated the pack's own files
+  # as user content and sidecarred them. An empty directory hit the same path.
+  # Sidecar-ing is correct only when it protects something; here it protected
+  # nothing and broke the install.
+  #
+  # Three states, one contract: replace what is ours, never touch what is not.
+  # (Twin of case 46 in e2e-bootstrap.ps1.)
+  local pair ws
+
+  # (a) EMPTY pre-existing dir -- the exact reported state.
+  pair="$(mkfixture)"; ws="${pair%:*}"
+  mkdir -p "$ws/.kiro/skills"
+  run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
+  assert_file_exists 45 "$ws/.kiro/skills/dream/SKILL.md"
+  assert_dir_missing 45 "$ws/.kiro/skills.assert-iq-new"
+  cleanup_fixture "$pair"
+
+  # (b) A pack COPY from a previous run -- must be reclaimed, not sidecarred.
+  pair="$(mkfixture)"; ws="${pair%:*}"
+  mkdir -p "$ws/.kiro"
+  cp -R "$PACK/.github/skills" "$ws/.kiro/skills"
+  run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
+  assert_file_exists 45 "$ws/.kiro/skills/dream/SKILL.md"
+  assert_dir_missing 45 "$ws/.kiro/skills.assert-iq-new"
+  cleanup_fixture "$pair"
+
+  # (c) GENUINE user content -- MERGE, do not sidecar and do not clobber.
+  # This is the case that reached a real developer: he installed into a Kiro
+  # workspace that already held his own skills. Sidecar-ing protected his work
+  # but left every Assert.IQ skill unreachable, because Kiro reads only
+  # .kiro/skills. Both must be true afterwards: his skill still there, and ours
+  # usable in the same directory.
+  pair="$(mkfixture)"; ws="${pair%:*}"
+  mkdir -p "$ws/.kiro/skills/my-own-skill"
+  printf 'do not delete me\n' > "$ws/.kiro/skills/my-own-skill/SKILL.md"
+  run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
+  assert_contains    45 "$ws/.kiro/skills/my-own-skill/SKILL.md" "do not delete me"
+  assert_file_exists 45 "$ws/.kiro/skills/dream/SKILL.md"
+  assert_dir_missing 45 "$ws/.kiro/skills.assert-iq-new"
+
+  # And UNINSTALL must be surgical: our skills go, his stays, and the directory
+  # itself survives because it is not empty.
+  run_boot "$pair" --uninstall --yes >/dev/null
+  assert_contains     45 "$ws/.kiro/skills/my-own-skill/SKILL.md" "do not delete me"
+  assert_file_missing 45 "$ws/.kiro/skills/dream/SKILL.md"
+  assert_dir_exists   45 "$ws/.kiro/skills"
+  cleanup_fixture "$pair"
+}
+
 # ============================================================================
 # RUN
 # ============================================================================
@@ -1065,6 +1121,7 @@ run_case "41 uninstall preserves sink content"        case_41_uninstall_preserve
 run_case "42 uninstall removes un-consolidated memory" case_42_uninstall_removes_unconsolidated_memory
 run_case "43 upgrade orphans de-payloaded path"  case_43_upgrade_orphans_depayloaded_path
 run_case "44 upgrade preserves trial mode"       case_44_upgrade_preserves_trial_mode
+run_case "45 skills dest reclaimed not sidecar"  case_45_skills_dest_reclaimed_not_sidecarred
 
 echo ""
 echo "Summary: $(grn $CASES_PASS pass)  $(red $CASES_FAIL fail)  $(ylw $CASES_SKIP skip)"

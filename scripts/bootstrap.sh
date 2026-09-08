@@ -2370,6 +2370,32 @@ process_claude_skills_link() {
   link_workspace_skills "$WORKSPACE/.claude/skills" ".claude/skills"
 }
 
+skills_dest_disposable() {
+  # 0 (disposable) if replacing directory $1 with a link to $2 loses NOTHING:
+  # every file under $1 also exists under $2 with identical bytes. An empty
+  # directory is disposable by definition -- the loop body never runs.
+  #
+  # Deliberately conservative in one direction only: a file the user added, or
+  # any file whose content differs from the canonical tree, makes the whole
+  # directory non-disposable and we sidecar instead. Missing files are fine --
+  # a partial or interrupted copy is still ours to replace.
+  #
+  # Content comparison rather than a manifest lookup on purpose. The manifest
+  # is exactly what is unreliable in this situation: it can be stale, it can
+  # predate the entry, and it has been observed written as 0 bytes when a jq
+  # invocation blew the Windows argv limit. Bytes on disk cannot lie.
+  local dst="$1" src="$2" f rel
+  [[ -d "$dst" ]] || return 1
+  [[ -d "$src" ]] || return 1
+  while IFS= read -r f; do
+    [[ -n "$f" ]] || continue
+    rel="${f#"$dst"/}"
+    [[ -f "$src/$rel" ]] || return 1
+    cmp -s "$f" "$src/$rel" || return 1
+  done < <(find "$dst" -type f 2>/dev/null)
+  return 0
+}
+
 link_workspace_skills() {
   # Link <dst> -> ../.github/skills, preferring a relative symlink and falling
   # back to a recursive copy. Shared by .claude/skills and .kiro/skills so the
@@ -2402,12 +2428,52 @@ link_workspace_skills() {
     return
   fi
 
-  if [[ -e "$dst" ]]; then
+  # A plain DIRECTORY here has two very different meanings, and the installer
+  # used to sidecar both of them. Reported from the field twice over:
+  #
+  #   * A developer with his OWN skills already in .kiro/skills got
+  #     `.kiro/skills.assert-iq-new` holding all 31 Assert.IQ skills while
+  #     .kiro/skills kept only his. The sidecar protected his work correctly,
+  #     but Kiro reads ONLY .kiro/skills, so not one Assert.IQ skill could be
+  #     invoked and the sidecar was invisible to the IDE.
+  #   * A leftover pack COPY (Windows without Developer Mode falls back to
+  #     copying, and a copy is not a symlink) was mistaken for user content on
+  #     the next run, so a plain re-install broke itself.
+  #
+  # So: reclaim what is ours, MERGE into what is not.
+  if [[ -d "$dst" ]] && ! [[ -L "$dst" ]]; then
+    if skills_dest_disposable "$dst" "$target_abs"; then
+      # Empty, or every file identical to the canonical tree — nothing to
+      # preserve. Drop it and fall through to the symlink branch, which is the
+      # better arrangement because it cannot go stale.
+      rm -rf "$dst"
+    else
+      # The user has their own skills here. A symlink cannot express "both",
+      # so switch to a per-skill merge: copy the pack's skills in ALONGSIDE
+      # theirs. copy_tree does this per FILE, which buys three things that
+      # matter more than the symlink's freshness:
+      #   1. their skills are never touched — ours are simply added;
+      #   2. every file we add gets its own manifest entry, so --uninstall
+      #      removes exactly our files and leaves theirs (the parent directory
+      #      survives too: the empty-dir sweep uses rmdir, which refuses a
+      #      non-empty directory);
+      #   3. a name collision is handled per file by copy_file's existing
+      #      sha-compare + conflict resolver, so a skill of theirs that shares
+      #      a name with one of ours is backed up rather than clobbered.
+      # The cost is that the merged copies do not auto-update when
+      # .github/skills changes — re-running the installer refreshes them.
+      record "$label" "merging into your existing skills directory (yours kept, ours added)" "$dst"
+      copy_tree "$label" "$SOURCE/.github/skills" "$dst" "workspace"
+      return
+    fi
+  elif [[ -e "$dst" ]]; then
+    # Not a directory and not a symlink — a regular FILE named `skills`. We
+    # have no idea what that is, so leave it strictly alone.
     local side="$dst.assert-iq-new"
     rm -rf "$side"
     ln -s "$target_rel" "$side" 2>/dev/null || cp -R "$target_abs" "$side"
     manifest_add "sidecar" "$side" "workspace"
-    record "$label" "sidecar (path exists) -> .assert-iq-new" "$side"
+    record "$label" "sidecar ($label is a file, not a directory) -> .assert-iq-new — SKILLS WILL NOT LOAD until you resolve it" "$side"
     return
   fi
 
