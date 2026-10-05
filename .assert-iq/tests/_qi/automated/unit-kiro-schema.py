@@ -336,8 +336,15 @@ def check_hook_template(path, want_interp):
         triggers.append(trig)
 
         action = h.get("action") or {}
+        if action.get("type") == "agent":
+            # Agent hooks carry a `prompt`, not a `command`, so none of the
+            # interpreter / ${WORKSPACE_ROOT} / __PACK_ROOT__ checks below
+            # apply. check_waking_capture validates this half.
+            if not (action.get("prompt") or "").strip():
+                bad("%s [%s]: agent action needs a non-empty prompt" % (base, nm))
+            continue
         if action.get("type") != "command":
-            bad("%s [%s]: action.type must be 'command' for Dreaming" % (base, nm))
+            bad("%s [%s]: action.type must be 'command' or 'agent'" % (base, nm))
             continue
         cmd = action.get("command") or ""
         if not cmd.strip():
@@ -381,6 +388,84 @@ def check_hook_template(path, want_interp):
     for need in ("SessionStart", "Stop"):
         if need not in triggers:
             bad("%s: no %s hook (Dreaming needs the gate and the recorder)" % (base, need))
+
+
+def check_waking_capture(path):
+    """Kiro needs an agent-type Stop hook, or Dreaming records nothing.
+
+    Kiro's Stop payload is session_id / hook_event_name / cwd / user_decision.
+    There is NO transcript_path -- the string does not appear anywhere in the
+    1.0.337 bundle -- and Kiro writes no transcript file. The shell recorder
+    reads transcript_path and writes a heartbeat plus a pointer, so on Kiro
+    every line takes the `else` branch and the daily log degrades to pure
+    heartbeats. The counter still advances and the dream gate still fires, so
+    it LOOKS healthy: /dream runs, finds no signal, and consolidates nothing.
+
+    Reported from the field 2026-09-17 after the harness shipped. The retrofit
+    adapted the hook OUTPUT protocol (AIQ_HOOK_OUTPUT=plain) and never touched
+    the input side that actually feeds Dreaming.
+
+    Kiro cannot hand a transcript to a shell hook, but it can run an
+    action.type "agent" hook, and the agent has the finished turn in context.
+    So both hooks are load-bearing and both must be present: the command hook
+    for the counter and the daily file, the agent hook for the substance.
+    """
+    doc = load_json(path)
+    if doc is None:
+        return
+    base = os.path.basename(path)
+    hooks = doc.get("hooks") or []
+
+    stop_command = [h for h in hooks
+                    if h.get("trigger") == "Stop"
+                    and (h.get("action") or {}).get("type") == "command"]
+    stop_agent = [h for h in hooks
+                  if h.get("trigger") == "Stop"
+                  and (h.get("action") or {}).get("type") == "agent"]
+
+    if not stop_command:
+        bad("%s: no Stop command hook -- the session counter would never "
+            "advance and the dream gate would never fire" % base)
+    if not stop_agent:
+        bad("%s: no Stop AGENT hook -- Kiro gives no transcript_path, so "
+            "without it the daily log is heartbeats only and every /dream "
+            "consolidates nothing" % base)
+        return
+
+    prompt = (stop_agent[0].get("action") or {}).get("prompt") or ""
+
+    # The note shape /dream Phase 2 greps for. If the prompt does not name it,
+    # the agent is free to invent a format nothing can mine.
+    if "note[" not in prompt:
+        bad("%s: capture prompt never specifies the note[CATEGORY] line "
+            "format -- /dream Phase 2 greps for it" % base)
+    missing_cat = [c for c in ("DECISION", "CORRECTION", "GOTCHA", "PREFERENCE")
+                   if c not in prompt]
+    if missing_cat:
+        bad("%s: capture prompt omits categor(ies) %s"
+            % (base, ", ".join(missing_cat)))
+
+    # The write sandbox. An agent hook can write anywhere; the prompt is the
+    # only thing holding it to the memory store.
+    if ".assert-iq/memory/" not in prompt:
+        bad("%s: capture prompt does not confine writes to "
+            ".assert-iq/memory/" % base)
+    if ".github/instructions" not in prompt:
+        bad("%s: capture prompt does not forbid touching the immutable "
+            "rules tier" % base)
+
+    # Guardrails that keep the store decision-grade rather than noisy.
+    low = prompt.lower()
+    for needle, why in (
+        ("write nothing", "must say to write nothing on a trivial turn, or it fabricates signal"),
+        ("absolute dates", "must require absolute dates (relative dates rot)"),
+    ):
+        if needle not in low:
+            bad("%s: capture prompt %s" % (base, why))
+
+    if not missing_cat and "note[" in prompt:
+        ok("%s: Stop command + Stop agent capture hook, note[CATEGORY] format "
+           "and write sandbox specified" % base)
 
 
 def check_hook_parity():
@@ -561,6 +646,8 @@ def main():
     print("--- hook templates ---")
     check_hook_template(KIRO_POSIX_TPL, "bash")
     check_hook_template(KIRO_WIN_TPL, "powershell")
+    check_waking_capture(KIRO_POSIX_TPL)
+    check_waking_capture(KIRO_WIN_TPL)
     check_hook_parity()
     print("")
     print("--- mcp ---")

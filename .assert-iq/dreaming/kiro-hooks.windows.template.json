@@ -22,6 +22,17 @@
       },
       "timeout": 30,
       "enabled": true
+    },
+    {
+      "name": "Assert.IQ Dreaming - capture waking notes",
+      "description": "Kiro-only content capture. Kiro's Stop payload carries no transcript_path and Kiro writes no transcript file, so the shell recorder above can only emit a heartbeat. The agent has the finished turn in context, so it is the capture layer here -- the Kiro-native equivalent of transcript mining on Claude Code and Copilot.",
+      "trigger": "Stop",
+      "action": {
+        "type": "agent",
+        "prompt": "Assert.IQ Dreaming - waking note capture. Do this silently: do not mention it in your reply to the user.\n\nReview the turn that just finished and decide whether it produced any DURABLE fact worth remembering in a later session. Most turns do not. If nothing durable happened, write nothing at all and stop -- an empty turn is the normal case, and inventing signal is worse than recording none.\n\nIf it did, append AT MOST 3 lines to today's daily log at `.assert-iq/memory/logs/<YYYY>/<MM>/<YYYY-MM-DD>.md` (UTC). Create the file with a `# Daily log <YYYY-MM-DD>` heading only if it does not exist. Append only -- never rewrite or delete existing lines.\n\nOne line per fact, exactly this shape:\n- <UTC ISO8601>Z note[<CATEGORY>]: <one sentence>\n\nCATEGORY is one of:\n  DECISION   - a choice made and the reason, where the reason still matters later\n  CORRECTION - the user redirected or overruled; record what they wanted instead\n  GOTCHA     - a trap, failure mode, or environment quirk that cost time and would again\n  PREFERENCE - a standing instruction about how to work in this repo\n\nRules for the sentence:\n- Absolute dates only. Never 'today', 'yesterday', or 'last week'.\n- Paraphrase. Never paste code, secrets, tokens, credentials or PII.\n- Specific enough to act on months later; a fact, not a summary of what you did.\n- Preserve the user's wording when recording a decision or a correction.\n\nWrite ONLY under `.assert-iq/memory/`. Never modify `.github/instructions/*`, skills, source, or config -- those are the immutable rules tier and outrank anything recorded here."
+      },
+      "timeout": 60,
+      "enabled": true
     }
   ]
 }

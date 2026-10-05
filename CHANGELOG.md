@@ -175,6 +175,70 @@ count), and both branches stage to a temp and `mv` only on success, so a
 failed write leaves the previous manifest intact and returns non-zero.
 `bootstrap.ps1` was never affected — it builds JSON natively.
 
+### Fixed — Dreaming recorded nothing but heartbeats on Kiro
+
+Reported from the field on 2026-09-17 (Kiro, v2.1.3, trial install, `mid`
+tier) by the GEMS API Test Automation team. Every daily log under
+`.assert-iq/memory/logs/**` held only:
+
+```
+- 2026-09-16T20:39:55Z session sess_f6157a2e-... ended
+```
+
+No decisions, corrections or gotchas — so `/dream` Phase 2 found no signal
+and every consolidation was a no-op. The same pack recorded content
+correctly on Copilot and Claude Code.
+
+**The waking loop was built transcript-first, and Kiro has no transcript.**
+`dream-record-session.{sh,ps1}` reads `transcript_path` from the Stop hook's
+stdin and writes a heartbeat plus a *pointer*; `/dream` Phase 2 then mines
+the transcript. Kiro's Stop payload is `session_id`, `hook_event_name`,
+`cwd` and an optional `user_decision` — and that is all. Confirmed against
+the shipped binary: **`transcript_path` appears zero times in the entire
+1.0.337 bundle**, and Kiro writes no transcript file to point at. So every
+line took the `else` branch.
+
+It looked healthy, which is why it survived: the counter still advanced and
+the dream gate still fired on schedule. `/dream` ran, found nothing, and
+reported nothing to do.
+
+Worth naming the shape of the mistake, because a retrofit invites it.
+Adding Kiro adapted the hook **output** protocol — `AIQ_HOOK_OUTPUT=plain`,
+so a Kiro user does not get `{"continue":true}` pasted into chat. The hook
+**input** side, which is what actually feeds Dreaming, was never adapted.
+Output was fixed; capture was not.
+
+**The fix uses the other half of the action union.** Kiro cannot hand a
+transcript to a shell hook, but it can run an `action.type: "agent"` hook,
+and the agent has the finished turn in context — so on Kiro the agent *is*
+the capture layer, the native equivalent of transcript mining. Both Kiro
+templates gain a third hook (`Stop` → `agent`) that appends at most three
+categorised facts to today's daily log:
+
+```
+- <UTC ISO8601>Z note[DECISION|CORRECTION|GOTCHA|PREFERENCE]: <one sentence>
+```
+
+The prompt carries the guardrails: write nothing on a trivial turn (an
+invented fact is worse than none), absolute dates only, paraphrase with no
+secrets or PII, append-only, write only under `.assert-iq/memory/`, never
+touch `.github/instructions/*` or source or config, and do it silently.
+
+The two existing command hooks are **byte-unchanged** — verified, not
+assumed. The heartbeat still creates the daily file and bumps the counter
+that drives the gate; the agent hook only adds the substance. Claude Code
+and Copilot are untouched: their `transcript_path` still works, and this
+hook is Kiro-only.
+
+`unit-kiro-schema.py` now asserts both halves are present and that the
+capture prompt specifies the `note[CATEGORY]` format, all four categories,
+and the write sandbox. Mutation-tested: removing the agent hook reproduces
+the reported pre-fix state and fails the check.
+
+Credit to the reporting team — the RCA they wrote identified the root cause
+precisely, and this is their recommended fix adopted essentially as
+proposed.
+
 ### Fixed — installing into a workspace that already had its own skills broke every Assert.IQ skill
 
 Reported from the field. A developer installed into an existing Kiro

@@ -238,6 +238,47 @@ Verified at the spawn site:
   (`session_id`, `hook_event_name`, `cwd`, plus per-trigger fields).
 - `timeout` is **seconds** (converted to ms; `0` disables).
 
+### There is no transcript. Content capture must be agent-driven.
+
+The `Stop` payload is **`session_id`, `hook_event_name`, `cwd`, and an
+optional `user_decision`** — and that is all. There is no `transcript_path`;
+the string does not appear **anywhere** in the 1.0.337 bundle, and Kiro
+writes no Claude-style transcript file to point at.
+
+This matters more than it looks, because the Dreaming waking loop was built
+transcript-first. `dream-record-session.{sh,ps1}` reads `transcript_path`
+from stdin and writes a heartbeat plus a **pointer**; `/dream` Phase 2 then
+mines the transcript. On Claude Code and Copilot that contract holds. On Kiro
+the field is absent, every line takes the `else` branch, and the daily log
+degrades to pure heartbeats — the session counter still advances and the
+dream gate still fires, but **Phase 2 finds no signal and every consolidation
+is a no-op.**
+
+Reported from the field on 2026-09-17 (Kiro, v2.1.3, trial install, `mid`
+tier). It is a real gap, not a misconfiguration: the hooks were installed,
+enabled, firing every turn, and writing UTF-8 correctly.
+
+The cause is worth naming precisely, because it is the shape of mistake a
+retrofit invites. Adding Kiro adapted the hook **output** protocol —
+`AIQ_HOOK_OUTPUT=plain`, so a Kiro user does not get `{"continue":true}`
+pasted into chat. The hook **input** side, which is what actually feeds
+Dreaming, was never adapted. Output was fixed; capture was not.
+
+The fix uses the other half of the action union. Kiro cannot hand a
+transcript to a shell hook, but it can run an `action.type: "agent"` hook,
+and the agent has the finished turn in context — so on Kiro **the agent is
+the capture layer**. `kiro-hooks.{posix,windows}.template.json` ship a third
+hook, `Stop` → `agent`, that appends at most three categorised facts to
+today's daily log:
+
+```
+- <UTC ISO8601>Z note[DECISION|CORRECTION|GOTCHA|PREFERENCE]: <one sentence>
+```
+
+The shell heartbeat hook stays: it creates the daily file and bumps the
+counter that drives the dream gate. The agent hook only adds the substance.
+Both are needed, and `unit-kiro-schema.py` asserts both are present.
+
 ### Hooks do not run in an untrusted workspace
 
 `hooks.v2.executionDisabledUntrustedWorkspace` — if the user has not trusted
