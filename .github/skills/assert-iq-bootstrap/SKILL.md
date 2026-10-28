@@ -38,7 +38,7 @@ ship into the target repo.
 |---|---|
 | `.assert-iq/` | Per-client config: `config.yaml`, `governance.md`, `maturity-profile.md`, `signal-schema.json` |
 | `.github/instructions/*.instructions.md` | Five QI rule sheets that load via `applyTo` globs |
-| `.github/skills/` | All 26 QI skills — Copilot Chat reads them from this workspace path |
+| `.github/skills/` | All 32 QI skills — Copilot Chat reads them from this workspace path |
 | `.github/agents/` | `Assert-IQ.agent.md` and `Assert-IQ-PLAN.agent.md` custom chat modes |
 | `.claude/agents/` | Claude Code subagent counterparts (`assert-iq.md`, `assert-iq-plan.md`) |
 | `.claude/skills` | Symlink to `../.github/skills` (copy fallback when symlinks unavailable) so Claude Code discovers the same skills |

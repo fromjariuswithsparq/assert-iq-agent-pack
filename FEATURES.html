@@ -561,7 +561,7 @@
   <table>
     <thead><tr><th>If you're trying to…</th><th>Go to</th></tr></thead>
     <tbody>
-      <tr><td>Write tests, review a PR, or produce any QE artifact</td><td><a href="#skills">The 31 Skills</a></td></tr>
+      <tr><td>Write tests, review a PR, or produce any QE artifact</td><td><a href="#skills">The 32 Skills</a></td></tr>
       <tr><td>Get a deep, multi-angle read on a risky change</td><td><a href="#multi-agent-orchestration">Multi-Agent Orchestration</a></td></tr>
       <tr><td>Show leadership what quality work is worth in dollars</td><td><a href="#business-impact-dashboards">Business Impact Dashboards</a></td></tr>
       <tr><td>Define what "good" means before you generate anything</td><td><a href="#oracle-layer">Oracle Layer</a></td></tr>
@@ -573,7 +573,7 @@
   </table>
 
   <div class="toc">
-    <a href="#skills"><span class="n">01</span> The 31 Skills</a>
+    <a href="#skills"><span class="n">01</span> The 32 Skills</a>
     <a href="#multi-agent-orchestration"><span class="n">02</span> Multi-Agent Orchestration</a>
     <a href="#business-impact-dashboards"><span class="n">03</span> Business Impact Dashboards</a>
     <a href="#oracle-layer"><span class="n">04</span> Oracle Layer</a>
@@ -604,7 +604,7 @@
 
 <section class="fx">
   <span class="fx-num">FEATURE 01</span>
-  <h2 id="skills">The <span class="accent">31 Skills</span></h2>
+  <h2 id="skills">The <span class="accent">32 Skills</span></h2>
   <div class="oneline"><strong>In one sentence:</strong> thirty-one slash commands that turn "I need a test plan / a risk read / a bug report" into a finished, standards-conforming artifact in under a minute.</div>
 
   <div class="wq">
@@ -636,7 +636,7 @@
     <p>You also stop paying the "blank page" tax. The expensive part of quality work has never been the typing — it's deciding what to write. The skills carry that decision structure with them.</p>
   </div>
 
-  <h3 id="the-31-skills-one-by-one">The 31 skills, one by one</h3>
+  <h3 id="the-32-skills-one-by-one">The 32 skills, one by one</h3>
   <p>Each skill below has its own link. Grouped by where they land in the delivery lifecycle.</p>
 
   <div class="phase" id="phase-plan"><span class="phase-label">Plan</span><span class="rule"></span></div>
@@ -668,6 +668,16 @@
       <dt>How to use it</dt><dd><code>/generate-tests-from-ac</code> with a work item ID or pasted ACs.</dd>
       <dt>When to use it</dt><dd>When a story is accepted and you need full coverage across every AC, not just the ones that are easy to automate.</dd>
       <dt>Why it matters</dt><dd>Teams over-automate the deterministic and under-test the subjective. This forces an explicit routing decision per AC, and records <em>why</em> anything went to manual.</dd>
+    </dl>
+  </div>
+
+  <div class="skill">
+    <div class="skill-head"><h3 class="skill-h" id="estimate-story"><a href="#estimate-story">/estimate-story</a></h3></div>
+    <dl>
+      <dt>What it is</dt><dd>Evidence-based story sizing. It reads the same signals the pack uses for PR risk (hotspots, coverage, flaky areas, past escapes, AC quality, and how similar stories actually went for this team), then returns two separate things. The first is a <strong>point range with a confidence level</strong>, worked out without knowing who will pick the story up, so points stay a team-relative size. The second is a <strong>team-fit view</strong> drawn from a role-slot team profile: which roles the story needs, an elapsed-time range for a junior, mid, or senior engineer, and modules where knowledge is concentrated in one seat. The profile lists seats like <code>DEV_SENIOR_1</code>, never names.</dd>
+      <dt>How to use it</dt><dd><code>/estimate-story &lt;work item ID&gt;</code>, or paste the story. On first run it offers to set up <code>.assert-iq/team-profile.yaml</code> with you. At the end you choose what happens with the result. At every tier you can write a markdown report or post a comment on the work item. At <code>mid</code> and above you can also set the Story Points field, after confirming each item. The skill never picks the final number; you pick it from inside the range.</dd>
+      <dt>When to use it</dt><dd>Refinement and backlog grooming, especially for stories the team can't agree on or that touch fragile code. It returns <strong>Refine first</strong> when the ACs are too weak to size and <strong>Split</strong> when the range runs too high.</dd>
+      <dt>Why it matters</dt><dd>Points usually leave out testing effort and ignore what the code is like underneath. This puts both on the table. Seniority still counts, but as time, not size: a story is the same size whoever picks it up, it just takes a junior engineer longer. That keeps velocity honest without hiding the difference. It never ranks people, and it never turns points into hours for performance tracking.</dd>
     </dl>
   </div>
 

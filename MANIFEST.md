@@ -64,6 +64,9 @@ is there — your file browser is filtering it.
 | 33 | `.github/skills/risk-assess-pr/SKILL.md` | Skill: `/risk-assess-pr` |
 | 33b | `.github/skills/generate-hotspot-map/SKILL.md` | Skill: `/generate-hotspot-map` — audits churn, structural complexity, and historical defect density to produce a Hotspot Risk Index registry consumed by `/risk-assess-pr`, `/check-test-coverage`, `/release-confidence`. Mid+ tier full registry; Early tier degrades to a churn-only Volatility Watchlist. |
 | 33c | `.github/skills/calibration-report/SKILL.md` | Skill: `/calibration-report` — longitudinal verdict accuracy from the verdict archive: Brier score per band, confusion matrix, per-layer signal fidelity, and rolling-window drift. Wraps `.assert-iq/analysis/calibration.py` (the single implementation) and interprets its output against the maturity tier. Pairs with `/measure-qi-impact` for the quarterly review. |
+| 33d | `.github/skills/estimate-story/SKILL.md` + `references/estimate-report-template.md` | Skill: `/estimate-story` — sizes a story through the four signal layers. Output A is a team-relative point range with confidence, computed without the team profile; Output B is team fit (roles needed, elapsed-time band per level, bus-factor and capacity flags). The human picks the final number. Output modes are tier-capped: report or tracker comment at Early, plus the Story Points field at Mid and above, each confirmed per item. |
+| 33e | `.assert-iq/team-profile.template.yaml` | Role-slot team profile template for `/estimate-story` Output B. Slots, levels, capacity, and module familiarity — never names. Scaffolded to `.assert-iq/team-profile.yaml` on first run after human confirmation. |
+| 33f | `.assert-iq/estimates/.gitignore` | Keeps the `/estimate-story` log (`archive/YYYY/MM/estimates-DD.jsonl`) local-only. Additive pattern only, per `unit-gitignore-hygiene.sh`. |
 | 33a | `.github/skills/assert-iq-bootstrap/SKILL.md` | Skill: `/assert-iq-bootstrap` — cross-platform bootstrap for new workspaces. Three install modes (`trial` / `committed` / `ask`), per-file conflict resolver with SHA256 fast-path, manifest tracking, `--graduate` to reverse trial mode. |
 | 34 | `.vscode/mcp.json` | MCP wiring for 20 servers: GitHub, ADO, Jira/Atlassian, git, GitLab, Bitbucket, filesystem, Postgres, SQLite, AWS, Sentry, Grafana, Datadog, Honeycomb, Playwright, Puppeteer, Notion, Confluence, Slack, Teams. All credentials via `${input:…}` prompts — file is safe to commit. |
 | 34a | `.vscode/MCP.md` | Per-server setup guide: prerequisites (`uv`, `node`), VS Code quick start, Claude Code / Claude Desktop equivalents, credential sourcing, and troubleshooting for every MCP server in `mcp.json`. |
@@ -122,7 +125,7 @@ is there — your file browser is filtering it.
 ---
 
 **Pack root**: `assert-iq-agent-pack/`
-**Skill count**: 31 (in `.github/skills/`)
+**Skill count**: 32 (in `.github/skills/`)
 **Instruction count**: 6 (in `.github/instructions/`)
 **Agents (Copilot)**: 10 (in `.github/agents/`) — `Assert-IQ` (default, delegates via `agent/runSubagent`), `Assert-IQ-PLAN` (planner), plus 8 in `specialists/` **generated** from the Claude sources by `scripts/sync-agents.sh` (do not hand-edit).
 **Subagents (Claude)**: 11 (in `.claude/agents/`) — `assert-iq` (lead orchestrator), `assert-iq-plan` (planner), `grader` (Oracle-layer independent grader), plus 8 in `specialists/`: `risk-scorer`, `coverage-analyst`, `flake-adjudicator`, `oracle-grader`, `calibration-specialist`, `memory-curator`, `traceability-auditor`, `hotspot-analyzer`

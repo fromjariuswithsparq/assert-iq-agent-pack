@@ -5,6 +5,86 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added (story sizing through the QI lens)
+
+A cross-functional group (Dev, QA, BA, PM) asked whether Assert.IQ could help
+with story pointing based on team dynamics, with the team's makeup captured as
+an artifact. The pack had nothing for estimation, roles, or levels.
+
+- **New `/estimate-story` skill.** It sizes a story by reading the same
+  evidence the pack already uses for PR risk:
+  - **Change risk:** hotspot tier and dependency reach.
+  - **Protection:** coverage on the touched modules, plus an explicit
+    QA/test-effort line.
+  - **Trust:** AC quality and flaky areas.
+  - **Outcome:** escapes, and how similar stories actually went for this
+    team.
+- **It returns two outputs, kept apart on purpose:**
+  - **A. Size:** a point *range* with a confidence band, computed without the
+    team profile, so points stay a team-relative size and velocity stays
+    comparable across assignees.
+  - **B. Team fit:** roles needed, an elapsed-time band per level, bus-factor
+    and capacity flags, and waits (review, environments, other teams).
+  - The verdict is **Estimable**, **Refine first** (ACs too weak to size), or
+    **Split**. A missing input is UNGRADED with a reason and widens the range;
+    it is never guessed.
+- **The human always picks the final number.** Output modes are chosen per run
+  and capped by maturity tier:
+  - `early`: report or tracker comment.
+  - `mid` and above: also the Story Points field.
+  - Every write is confirmed per item. `story_estimation.maturity_override`
+    can only lower the tier.
+- **New `.assert-iq/team-profile.template.yaml`:** a role-slot profile (role,
+  level, capacity, module familiarity) with no names. `/estimate-story`
+  scaffolds `.assert-iq/team-profile.yaml` on first run after the human
+  confirms it. `.assert-iq/governance.md` § 5 now states that the profile is
+  slots-only and planning-only. It must not be used to evaluate people, and
+  levels are never inferred from git or the tracker. Story-estimate tracker
+  writes join the always-on human review gates.
+- **New `story_estimation:` section in `config.yaml`:** scale, profile path,
+  history window, tracker story-point fields, reference stories, range
+  shaping, and allowed output modes.
+- **New `estimate.generated` signal in `signal-schema.json`.**
+- **New estimates log at `.assert-iq/estimates/archive/`:** local-only, with
+  an additive `.gitignore`. It reserves `actual_*` fields for later
+  calibration and records a level, never a person. Both installers and both
+  bootstrap scripts create the folder and prune it on uninstall when it is
+  empty, the same as the other runtime sinks.
+- **32 skills total** (was 31). The skill is registered in both lead agents
+  and both planners. The Claude planner was also missing `/calibration-report`;
+  it now has it.
+
+### Fixed (upgrade instructions described a destructive path)
+
+- **`README.assert-iq` (.md and .html) told users to upgrade by uninstalling
+  and reinstalling**, which throws away their edits to pack files. The real
+  path already existed. The section now documents:
+  - re-running the installer for the pack clone;
+  - `bootstrap.sh --upgrade` / `bootstrap.ps1 -Upgrade` from each target
+    repo, which three-way merges user edits, keeps the original trial or
+    committed mode, and writes `.assert-iq-new` sidecars on conflict;
+  - that `--dry-run` previews uninstall only, not upgrade.
+- **Stale skill counts:** `assert-iq-bootstrap/SKILL.md` said 26 and
+  `bootstrap.sh --help` said 24.
+
+### Fixed (`bootstrap.sh --uninstall` could hang forever on Windows)
+
+- **The manifest-driven empty-directory sweep never ended under Git Bash with
+  a native Windows `jq`.** MSYS path-converts arguments passed to a native
+  `jq`, so the manifest holds `C:/Users/...` paths while `$WORKSPACE` is
+  `/tmp/...`. The walk up each path's parents never met the workspace root,
+  ran on to `C:/`, `C:` and `.`, and `dirname .` is `.`. That `jq` also ends
+  lines with CRLF, which left a `\r` on every value. Found when
+  `unit-legacy-exclude-strip.sh` sat for two hours.
+  - The stop roots now go through the same `jq` conversion as the manifest
+    paths, and `\r` is stripped.
+  - The walk only runs for paths strictly under the scope root, so it always
+    terminates and can no longer `rmdir` anything outside the workspace.
+    A path whose root can't be matched is skipped; the hardcoded directory
+    lists still clean up the known pack folders.
+
 ## [2.1.3] — 2026-09-04
 
 ### Added (a feature guide — the pack listed its features but never explained them)

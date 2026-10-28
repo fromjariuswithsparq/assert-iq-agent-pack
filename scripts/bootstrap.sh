@@ -13,7 +13,7 @@
 #   --mode=ask         Interactive prompt (default when TTY). Non-TTY
 #                      falls back to committed.
 #
-# Skills scope (where the 24 QI skills land):
+# Skills scope (where the QI skills land):
 #   --skills-scope=workspace   (default) workspace .github/skills + .claude/skills symlink
 #   --skills-scope=user        only ~/.agents/skills + ~/.claude/skills (every workspace gets them)
 #   --skills-scope=both        workspace AND user-global
@@ -1412,6 +1412,7 @@ uninstall_run() {
     local base="$1"
     prune_runtime_sink "$base/verdicts/archive"         "verdict archive"
     prune_runtime_sink "$base/business-metrics/reports" "business-impact reports"
+    prune_runtime_sink "$base/estimates/archive"         "story-estimate log"
     prune_runtime_sink "$base/dreaming/.snapshots"      "pre-dream memory snapshots"
   }
   prune_runtime_sinks "$WORKSPACE/.assert-iq"
@@ -1445,6 +1446,7 @@ uninstall_run() {
       "$WORKSPACE/.assert-iq/oracles"
       "$WORKSPACE/.assert-iq/verdicts"
       "$WORKSPACE/.assert-iq/business-metrics"
+      "$WORKSPACE/.assert-iq/estimates"
       "$WORKSPACE/.assert-iq/analysis"
       "$WORKSPACE/.assert-iq/tests/_qi/regression"
     )
@@ -1456,6 +1458,7 @@ uninstall_run() {
         "$HOME/.agents/.assert-iq/oracles"
         "$HOME/.agents/.assert-iq/verdicts"
         "$HOME/.agents/.assert-iq/business-metrics"
+        "$HOME/.agents/.assert-iq/estimates"
         "$HOME/.agents/.assert-iq/analysis"
         "$USER_ASSERT_IQ"
       )
@@ -1468,6 +1471,7 @@ uninstall_run() {
       "$WORKSPACE/.assert-iq/oracles"
       "$WORKSPACE/.assert-iq/verdicts"
       "$WORKSPACE/.assert-iq/business-metrics"
+      "$WORKSPACE/.assert-iq/estimates"
       "$WORKSPACE/.assert-iq/analysis"
       "$WORKSPACE/.assert-iq/tests/_qi/regression"
       "$WORKSPACE/.assert-iq/dreaming"
@@ -1490,6 +1494,7 @@ uninstall_run() {
         "$HOME/.agents/.assert-iq/oracles"
         "$HOME/.agents/.assert-iq/verdicts"
         "$HOME/.agents/.assert-iq/business-metrics"
+        "$HOME/.agents/.assert-iq/estimates"
         "$HOME/.agents/.assert-iq/analysis"
         "$USER_ASSERT_IQ"
       )
@@ -1502,14 +1507,27 @@ uninstall_run() {
     # removed (bottom-up, scope-gated, symlink-safe). This means future
     # additions don't have to update the hardcoded lists above — if the
     # path went into the manifest, its empty parent dirs get reaped here.
+    #
+    # The stop roots go through jq the same way the manifest paths did. Under
+    # Git Bash a native Windows jq has its arguments path-converted by MSYS, so
+    # the manifest holds `C:/Users/...` while $WORKSPACE is `/tmp/...`; the
+    # roots never matched, and the walk ran C:/ -> C: -> . -> . forever. That
+    # jq also ends lines with CRLF, hence the \r strips.
     if command -v jq >/dev/null 2>&1 && [[ -f "$MANIFEST_PATH" ]]; then
-      local _p _s _d _stop
+      local _p _s _d _stop _stop_ws _stop_user
+      _stop_ws="$(jq -rn --arg p "$WORKSPACE" '$p' 2>/dev/null | tr -d '\r')"
+      _stop_user="$(jq -rn --arg p "$HOME" '$p' 2>/dev/null | tr -d '\r')"
       while IFS=$'\t' read -r _p _s; do
+        _p="${_p%$'\r'}"; _s="${_s%$'\r'}"
         [[ -n "$_p" ]] || continue
         [[ "$_s" == "user" && $UNINSTALL_USER -eq 0 ]] && continue
-        if [[ "$_s" == "user" ]]; then _stop="$HOME"; else _stop="$WORKSPACE"; fi
+        if [[ "$_s" == "user" ]]; then _stop="$_stop_user"; else _stop="$_stop_ws"; fi
+        # Only walk paths strictly under the scope root. dirname shortens the
+        # path every step, so the walk always lands on $_stop and ends -- and
+        # a root we can't match means we skip, never rmdir outside the scope.
+        [[ -n "$_stop" && "$_stop" != "/" ]] || continue
         _d="$(dirname "$_p")"
-        while [[ -n "$_d" && "$_d" != "/" && "$_d" != "$_stop" ]]; do
+        while [[ "$_d" == "$_stop"/* ]]; do
           [[ -d "$_d" && ! -L "$_d" ]] && rmdir "$_d" 2>/dev/null || true
           _d="$(dirname "$_d")"
         done
@@ -1987,7 +2005,7 @@ seed_memory_store() {
   local aiq_base
   aiq_base="$(dirname "$mem")"
   mkdir -p "$aiq_base/verdicts/archive" "$aiq_base/dreaming/.snapshots" \
-           "$aiq_base/business-metrics/reports"
+           "$aiq_base/business-metrics/reports" "$aiq_base/estimates/archive"
   [[ -f "$mem/.dream/state.json" ]] || \
     printf '{\n  "last_dream_utc": null,\n  "sessions_since_dream": 0\n}\n' > "$mem/.dream/state.json"
   [[ -f "$mem/topics/.gitkeep" ]] || : > "$mem/topics/.gitkeep"
