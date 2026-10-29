@@ -52,7 +52,7 @@ The pack operationalizes Sparq's Quality Intelligence framework:
 
 - The four-layer signal model (Change → Protection → Trust → Outcome →
   Decision Confidence) is loaded as Copilot's reasoning lens on every interaction.
-- 31 skills cover the QE lifecycle: planning, development, review, execution,
+- 32 skills cover the QE lifecycle: planning, development, review, execution,
   decision, post-incident learning, business impact measurement, and meta (setup/optimization).
 - A QI Advisor chat mode provides maturity-aware coaching.
 - MCP wiring connects to ADO or Jira and to GitHub for first-class
@@ -75,7 +75,7 @@ short installer that wires `.claude/settings.json` and the skills symlink.
 |---|---|---|---|
 | Always-on guidance | `.github/copilot-instructions.md` (Copilot-native) + mirrored body in `CLAUDE.md` | `.github/copilot-instructions.md` | `CLAUDE.md` |
 | Scoped instructions | `.github/instructions/*.instructions.md` | same (auto via `applyTo`) | same (via `@`-imports in `CLAUDE.md`; "When this applies" prose) |
-| Skills (31) | `.github/skills/*/SKILL.md` | `.github/skills/` directly | `.claude/skills/` (symlink → `.github/skills/`) |
+| Skills (32) | `.github/skills/*/SKILL.md` | `.github/skills/` directly | `.claude/skills/` (symlink → `.github/skills/`) |
 | Chat mode / subagent | `.github/agents/Assert-IQ.agent.md` + `.github/agents/Assert-IQ-PLAN.agent.md` (Copilot) + `.claude/agents/assert-iq.md` + `.claude/agents/assert-iq-plan.md` (Claude) | agent files | subagent files |
 | Specialist agents (8) | `.claude/agents/specialists/*.md` is the **single source of truth**; `.github/agents/specialists/*.agent.md` is **generated** from it by `scripts/sync-agents.sh` (`.ps1` on Windows), which maps tool names between the two schemas | generated `.agent.md` files | source `.md` files |
 | Dreaming | `.assert-iq/dreaming/` (scripts + optional service) + `.assert-iq/memory/` store | yes (via `chat.hookFilesLocations`) | `.claude/settings.json` (hooks block, synced by installer) |
@@ -250,7 +250,7 @@ the start).
 If you'd rather not put the full pack into your workspace (not even in
 trial mode), use `--preset=portable`. Skills install to
 `~/.agents/skills/` (VS Code Copilot Chat) and `~/.claude/skills/`
-(Claude Code) so every workspace you open has the 31 QI skills
+(Claude Code) so every workspace you open has the 32 QI skills
 available. Workspace footprint shrinks to just the Assert-IQ chat
 agent files (`.github/agents/`, `.claude/agents/`) and the install
 manifest — no instructions, dreaming, settings, MCP config, or `CLAUDE.md`
@@ -299,7 +299,7 @@ The three presets, side by side:
 |---|---|---|---|---|
 | `--preset=pod` (default) | **Workspace** (`.github/instructions/`) | **Workspace** (`.github/skills/`) | Full (12 configuration surfaces) | A whole team adopting Assert.IQ at once in a shared repo. |
 | `--preset=solo` | **User-global** (OS config dir) | **Workspace** (`.github/skills/`) | High (skills & config, no instructions) | One developer who wants the QI reasoning rules active *everywhere*, but skills scoped to this project. |
-| `--preset=portable` | *(not installed)* | **User-global** (`~/.agents/skills/`) | Minimal (chat agents & manifest only) | A developer who wants the 31 QI skills in *any* repo without writing config into the codebase. |
+| `--preset=portable` | *(not installed)* | **User-global** (`~/.agents/skills/`) | Minimal (chat agents & manifest only) | A developer who wants the 32 QI skills in *any* repo without writing config into the codebase. |
 
 Where `--preset=solo` puts the instructions: the instruction files
 (`qi-foundation`, `qi-test-design`, etc.) go to your VS Code user
@@ -331,7 +331,7 @@ aren't physically present in the workspace, so all of them ship in.
 | `.assert-iq/governance.md` | Compliance posture — varies by client / regulatory regime. |
 | `.assert-iq/maturity-profile.md` | Tier rationale — team-specific. |
 | `.github/copilot-instructions.md` + `.github/instructions/qi-*.instructions.md` | Copilot reads these only from the workspace; their `applyTo` globs scope to repo files. |
-| `.github/skills/` | All 31 QI skills — Copilot Chat reads them from this workspace path. |
+| `.github/skills/` | All 32 QI skills — Copilot Chat reads them from this workspace path. |
 | `.github/agents/` | `Assert-IQ.agent.md` (front door; delegates via `agent/runSubagent`) and `Assert-IQ-PLAN.agent.md` custom chat modes, plus `specialists/` — 8 **generated** specialist agents. Do not hand-edit `specialists/`; edit the Claude sources and re-run `scripts/sync-agents.sh`. |
 | `.claude/agents/` | Claude Code subagent counterparts (`assert-iq.md`, `assert-iq-plan.md`, `grader.md`) plus `specialists/` — 8 v2.0 orchestration specialists (risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer, oracle-grader, calibration-specialist, memory-curator, traceability-auditor). |
 | `.claude/skills` | Symlink to `../.github/skills` (copy fallback on Windows without Developer Mode) so Claude Code discovers the same skills. |
@@ -451,22 +451,78 @@ so there are no surprises.
 
 ### Upgrading to a new release
 
-Upgrades are an explicit, intentional act. To move to a later tag:
+Upgrades are an explicit, intentional act. You do **not** need to
+uninstall first. Upgrading in place keeps your edits. To move to a later
+tag:
 
 1. Read the release notes on the
    [Releases page](https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases).
-2. Uninstall the path you used:
-   - **Path A:** `bash install.sh --uninstall` in the cloned pack.
-   - **Path B:** `bash scripts/bootstrap.sh --uninstall` in each
-     target repo.
-3. `git pull` (or re-clone) to the new tag, then re-run the same path
-   to refresh.
+2. Update your pack clone to the new tag:
+
+   ```bash
+   cd ~/assert-iq-agent-pack
+   git pull
+   ```
+
+3. Refresh the path you installed with.
+
+   **Path A** (you work inside the pack clone): re-run the installer. It
+   is idempotent.
+
+   ```bash
+   bash install.sh
+   ```
+
+   ```powershell
+   .\install.ps1
+   ```
+
+   **Path B** (you installed into a target repo): run bootstrap with
+   `--upgrade` from inside **each** target repo.
+
+   ```bash
+   cd ~/code/my-app
+   bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --upgrade
+   ```
+
+   ```powershell
+   cd $HOME\code\my-app
+   pwsh -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Upgrade
+   ```
+
+What `--upgrade` does:
+
+- It reads `.assert-iq/.install-manifest.json` to find what you
+  installed and where.
+- It keeps your original install mode. A trial install stays trial and
+  a committed install stays committed.
+- It three-way merges every file you edited against the version you
+  originally installed, so your changes survive:
+  - When your edits and the pack's changes don't overlap, the merge
+    applies cleanly.
+  - When they overlap, you are asked what to do. In a non-interactive
+    run, or with `--yes` / `-Yes`, the pack's version is written beside
+    yours as `<file>.assert-iq-new` and your file is left untouched.
+- It lists files that the new version no longer ships. An interactive
+  run asks whether to remove each one. A non-interactive run keeps them.
+- The bash script needs `jq`. The PowerShell script does not.
+- It stops with an error if the target repo has no install manifest.
+  That means the repo was never installed with bootstrap, so install it
+  without `--upgrade`, or use Path A if you work in the pack clone.
+
+`--dry-run` previews `--uninstall` only. It does **not** preview an
+upgrade. Before upgrading, commit or stash your work so `git diff` shows
+exactly what changed in a committed install. Afterwards, search for any
+`*.assert-iq-new` files and reconcile them.
+
+Uninstalling and reinstalling is only for a clean reset. It discards
+your edits to pack files.
 
 ### Platform notes (`.claude/skills` symlink)
 
 The installer creates `.claude/skills` as a **directory symlink** pointing
 at `../.github/skills/`, so Copilot and Claude share one canonical copy of
-the 31 skills. Behavior varies by platform:
+the 32 skills. Behavior varies by platform:
 
 | Platform | What happens | What you need to do |
 |---|---|---|
@@ -591,6 +647,7 @@ that requires it.
 | `/review-acceptance-criteria` | Review ACs for testability before generation. |
 | `/generate-test-plan` | Generate a one-page operating test plan. |
 | `/generate-tests-from-ac` | Router — classify each AC and dispatch to automation, manual, or exploratory. |
+| `/estimate-story` | Size a story through the four layers: a team-relative point range with confidence, plus a team-fit view (roles, elapsed-time band per level, bus-factor) from a role-slot team profile. The human picks the final number; tracker write-back is tier-capped and confirmed per item. |
 
 ### Develop
 
@@ -937,6 +994,7 @@ or `qi-traceability.instructions.md` with examples drawn from your codebase.
 | **1.7.0** | **Decision Confidence Calibration — proving verdict accuracy over time.** Every PR risk assessment and release confidence judgment is recorded as an immutable verdict (band, score, per-layer states, assumptions, memory hash) in `.assert-iq/verdicts/`. Escapes link back to their original verdict; over time the pack computes Brier score, confusion matrix, per-layer fidelity, and memory-drift alerts (`.assert-iq/analysis/calibration.py`). Memory versioning via SHA256 hashing gives a reproducibility contract (restore snapshot → re-run assessment → identical verdict). Memory sanity checks (cycle, staleness, contradiction, granularity) guard the `/dream` consolidation pass. Verdict recording is mandatory in `/risk-assess-pr`, `/release-confidence`, and `/analyze-escaped-defect`. |
 | **2.0.0** | **Multi-agent orchestration + commercial instrumentation.** Lead agents (`Assert-IQ`, `Assert-IQ-PLAN`) now orchestrate **8 isolated specialist agents** under `.claude/agents/specialists/` — `risk-scorer`, `coverage-analyst`, `flake-adjudicator`, `hotspot-analyzer` (parallel batch) then `oracle-grader`, `calibration-specialist`, `memory-curator`, `traceability-auditor` (serial chain). Each returns structured JSON; the lead synthesizes findings into one narrative + decision, with the audit trail in `.assert-iq/agent-runs/`. New `/measure-qi-impact` skill converts QI verdicts + baseline metrics (`.assert-iq/business-metrics/baseline.json`) into VP-ready quarterly HTML dashboards: escape reduction %, triage hours reclaimed, cycle-time acceleration, and total economic ROI in dollars. Configured via `.assert-iq/config.yaml` → `business_metrics`. **30 skills total** (was 29). Strict superset of 1.7.0 — zero breaking changes. |
 | **2.1.0** | **Windows verified as a first-class platform for both harnesses.** All four variations (Windows/macOS × Copilot/Claude Code) are now covered, with the PowerShell suites run under **both** Windows PowerShell 5.1 and PowerShell 7 — a green run on one says nothing about the other, and four 5.1-only defects were hiding behind a fully passing 7 run. **Fixed:** Copilot session hooks never fired on Windows (every `$`-prefixed token was stripped before PowerShell parsed the command, so Dreaming recorded nothing and only a `ParserError` surfaced); `bootstrap.ps1 -Upgrade` silently dropped the pack update whenever the baseline came from a git tag; uninstall left `business-metrics/` behind on both platforms and `verdicts/` on Windows; the memory store was preserved on activity rather than consolidated knowledge, so a working hook meant every uninstall orphaned an empty store; `install.ps1` / `bootstrap.ps1` failed to *parse* under 5.1 (non-ASCII, no BOM); trial mode left the pack visible to git; every PowerShell-written JSON carried a BOM the Python tooling rejects; `.claude/skills` was silently a copy rather than a symlink; `install.sh` worked exactly once without `jq` on stock macOS; `validate-documentation-integrity.sh` ran 1 of 10 checks on every platform. **Added:** `scripts/check-environment.sh` / `.ps1` environment doctors, a `.gitattributes` (the pack never had one), and ~16 test files weighted toward executing behaviour over inspecting shape — including hook execution that asserts observable state. **Cross-harness parity:** the 8 specialist agents are now generated for Copilot from the Claude sources by `scripts/sync-agents.sh` / `.ps1`, so the two harnesses cannot drift; `Assert-IQ` gained `agent/runSubagent` and an `agents:` allowlist so Copilot can actually delegate; new parity checks P5 (generated agents stale) and P6 (bash vs PowerShell tool-map divergence). `jq` is no longer a dependency — JSON assertions moved to Python helpers — and the suite resolves `python3` → `python` → `py -3` by execution, because Windows ships a `python3` stub and no `python3.exe`. PowerShell 7 is now the documented Windows default; 5.1 remains supported and tested on every run. |
+| **Unreleased** | **Story sizing joins the pack, and the upgrade instructions match the real upgrade path.** **Added:** `/estimate-story` sizes a story through the four signal layers. It returns a team-relative point range with confidence, computed without the team profile so points stay comparable across assignees. Separately, it returns a team-fit view: roles needed, an elapsed-time band per level, bus-factor and capacity flags. That view is drawn from a new role-slot team profile (`.assert-iq/team-profile.template.yaml`, no names). The human picks the final number. Tracker write-back is tier-capped: report or comment at `early`, plus the Story Points field at `mid` and above, confirmed per item. Estimates are logged to `.assert-iq/estimates/archive/` (local-only) for later calibration. New `story_estimation:` config section, `estimate.generated` signal, and a governance clause on the team profile. **32 skills total** (was 31). **Docs:** the upgrade steps told users to uninstall and reinstall, which discards their edits. They now use `bootstrap --upgrade` / `-Upgrade` (a three-way merge that keeps the install mode) for target repos, and a plain re-run of the installer for the pack clone. |
 | **2.1.3** | **A feature guide ships, the `/dream` safety procedure is implemented, `/calibration-report` exists, and two stale work logs stopped shipping.** **Docs:** New `FEATURES.md` and its HTML sister `FEATURES.html` — the eight features and all 31 skills, each with what it is, how to use it, when to use it and why it matters, written for a first-year engineer and a non-technical reader at once. The README's eight feature cards are now links into it, every feature and skill is individually addressable, and the guide adds 86 headings to site search (all 31 skills by command name). Wiring it in exposed three tooling gaps, now fixed: `build-search-index.py` emitted `<h3id="…">` when injecting an id into a heading that already had attributes; `make-release.sh` did not bump the new pair's version banners; and `unit-doc-parity.py` did not guard the new pair — it now does, with zero declared exceptions. **Fixed:** `qi-foundation.instructions.md` promised four things around `/dream` — sanity checks, a memory snapshot, an append-only provenance record, and a post-dream regression check — and none existed; nothing wrote `provenance.json`, `.snapshots/` stayed empty, and the reproducibility contract's `tar xzf .snapshots/mem-<version>.tar.gz` step could never work because no snapshot was ever taken. `integration-dream-provenance.sh` passed throughout, because it only checked the file existed and parsed. New `.assert-iq/analysis/dream-safety.py` implements the deterministic half (`pre`, `post`, `regression`), gated by maturity tier — `higher` enforces, `early`/`mid` warn — with a blocked run still taking its snapshot. The judgement half stays with the model: `/dream` re-runs the corpus, the script does the divergence maths and the gate. **Added:** `/calibration-report`, tracked as "Phase 6, not yet created" since v1.7.0 — `calibration.py` already computed the metrics but nothing could run and interpret them from chat. **31 skills total** (was 30). **Changed:** `IMPLEMENTATION_SUMMARY.md` and `README_REVIEW_SUMMARY.md` installed into every consumer workspace carrying claims already false ("57/57 tests passing", "No commits made", a Known Limitations table marking three shipped items pending); both are now excluded from the install payload in both installers and stay in the pack repo as bannered history. |
 | **2.1.2** | **Install documentation rewritten for a first-time reader, and split by operating system.** **Changed:** the landing page's Getting Started now covers install, update, and uninstall as separate **On a Mac** / **On Windows** paths, and surfaces trial mode only — `--graduate`, `--mode=committed`, the three presets and Path A moved into this document, along with the *Presets vs modes* explainer and preset table that had existed only on the landing page. The environment check is now an explicit step 3 of 4 rather than a passing mention, placed *after* `cd`-ing into the target project because `check-environment` inspects the directory it runs from and otherwise reports on the wrong one. Every code block in this document mixed both platforms, so copying one ran the macOS command *and* the Windows command; all eight are split. Added a glossary of the terms this page leans on and replaced jargon in place (*idempotent*, *TTY*, *chicken-and-egg*, *à la carte*, *PAT*). **Fixed:** `--uninstall` and `--graduate` were documented as `scripts/bootstrap.sh --uninstall`, a relative path implying you stand in the pack folder — `bootstrap.sh` sets `WORKSPACE="$PWD"`, so run that way it targets the pack folder rather than your project, and following the docs literally did not uninstall the thing you meant; PowerShell paths used `~\…` here but `$HOME\…` on the landing page, now `$HOME\` everywhere; Troubleshooting had no platform entries at all, now six drawn from the codebase (pwsh vs powershell, `python3` absent on Windows, the Developer Mode symlink/copy fallback, the CRLF `$'\r': command not found` error, running from the wrong folder, skills not appearing until reload); and a duplicate `id="get-started"` in `README.html` that would have made the search index emit `get-started-2`. |
 | **2.1.1** | **Patch release — the verdict and calibration tooling was inert, and the traceability rule only worked on .NET.** **Fixed:** `verdict-recorder.py` imported PyYAML at module scope, a dependency the pack declares and installs nowhere, so on a stock Python 3 the whole module — including `compute_memory_hash` — failed to import and verdict recording was dead on every platform and both harnesses (YAML load is now lazy, with a stdlib fallback reader for the config subset it needs); `compute_memory_hash` produced a different `memory_version` for an *unchanged* store depending on host case-collation, checkout line endings, a stray `.DS_Store` or `Thumbs.db`, and unframed concatenation that let distinct stores collide and hid the topic renames `/dream` performs — now length-prefixed `(path, content)` records over NFC-normalized POSIX paths, tagged `sha256-v2` so pre-fix verdicts stay distinguishable; `calibration.py` compared offset-aware `issued_at` values against a naive `utcnow()` and swallowed the resulting `TypeError`, so `--window-days` filtering never applied and drift detection could never fire at all; `bootstrap.ps1` wrote a BOM into every JSON it merged under Windows PowerShell 5.1 (`-Encoding UTF8` means *with* BOM there), which `json.load` and a strict `JSON.parse` both reject — silently un-wiring the Dreaming hooks the installer had just written; `/assert-iq-tailor` never asked about several setup steps, and config shipped two wrong grader/dreaming model IDs (one not a valid ID at all), now `claude-opus-5`. **Changed:** `qi-traceability.instructions.md` is language-agnostic and config-driven — its `applyTo` was `**/*.{cs,xaml}`, the narrowest glob of the six instruction files, so on most stacks it never loaded and the pack's traceability rule silently did not apply. It now covers 21 source extensions (deliberately inclusive; `/assert-iq-tailor` narrows it), names all ten `marker_style` values from `config.yaml`, and states what does *not* carry a marker. **Release tooling:** `make-release.sh` now promotes the version-history **Unreleased** row automatically — 2.1.0 shipped with it unpromoted. |

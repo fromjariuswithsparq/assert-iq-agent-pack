@@ -166,7 +166,7 @@ mkdir -p "$MEMORY_DIR/topics" "$MEMORY_DIR/logs" "$MEMORY_DIR/.dream"
 # git-ignored runtime sinks, so a fresh clone has neither; without them the
 # first /risk-assess-pr or /dream has nowhere to write.
 mkdir -p "$ROOT/.assert-iq/verdicts/archive" "$ROOT/.assert-iq/dreaming/.snapshots" \
-         "$ROOT/.assert-iq/business-metrics/reports"
+         "$ROOT/.assert-iq/business-metrics/reports" "$ROOT/.assert-iq/estimates/archive"
 [[ -f "$MEMORY_DIR/.dream/state.json" ]] || \
   printf '{\n  "last_dream_utc": null,\n  "sessions_since_dream": 0\n}\n' > "$MEMORY_DIR/.dream/state.json"
 # MEMORY.md is git-ignored (never ship maintainer memory); seed a clean index

@@ -1158,6 +1158,7 @@ function Invoke-Uninstall {
     function Remove-RuntimeSinks([string]$base) {
         Remove-RuntimeSink (Join-Path $base 'verdicts\archive')         'verdict archive'
         Remove-RuntimeSink (Join-Path $base 'business-metrics\reports') 'business-impact reports'
+        Remove-RuntimeSink (Join-Path $base 'estimates\archive')        'story-estimate log'
         Remove-RuntimeSink (Join-Path $base 'dreaming\.snapshots')      'pre-dream memory snapshots'
     }
     Remove-RuntimeSinks (Join-Path $Workspace '.assert-iq')
@@ -1193,6 +1194,7 @@ function Invoke-Uninstall {
             (Join-Path $Workspace '.assert-iq\oracles'),
             (Join-Path $Workspace '.assert-iq\verdicts'),
             (Join-Path $Workspace '.assert-iq\business-metrics'),
+            (Join-Path $Workspace '.assert-iq\estimates'),
             (Join-Path $Workspace '.assert-iq\analysis'),
             (Join-Path $Workspace '.assert-iq\tests\_qi\regression'))
         if ($User) {
@@ -1201,6 +1203,7 @@ function Invoke-Uninstall {
                 (Join-Path $env:USERPROFILE '.agents\.assert-iq\oracles'),
                 (Join-Path $env:USERPROFILE '.agents\.assert-iq\verdicts'),
                 (Join-Path $env:USERPROFILE '.agents\.assert-iq\business-metrics'),
+                (Join-Path $env:USERPROFILE '.agents\.assert-iq\estimates'),
                 (Join-Path $env:USERPROFILE '.agents\.assert-iq\analysis'))
         }
         foreach ($tree in $treeRoots) {
@@ -1219,6 +1222,7 @@ function Invoke-Uninstall {
             (Join-Path $Workspace '.assert-iq\oracles'),
             (Join-Path $Workspace '.assert-iq\verdicts'),
             (Join-Path $Workspace '.assert-iq\business-metrics'),
+            (Join-Path $Workspace '.assert-iq\estimates'),
             (Join-Path $Workspace '.assert-iq\analysis'),
             (Join-Path $Workspace '.assert-iq\tests\_qi\regression'),
             (Join-Path $Workspace '.assert-iq\dreaming'),
@@ -1240,6 +1244,7 @@ function Invoke-Uninstall {
                 (Join-Path $env:USERPROFILE '.agents\.assert-iq\oracles'),
                 (Join-Path $env:USERPROFILE '.agents\.assert-iq\verdicts'),
                 (Join-Path $env:USERPROFILE '.agents\.assert-iq\business-metrics'),
+                (Join-Path $env:USERPROFILE '.agents\.assert-iq\estimates'),
                 (Join-Path $env:USERPROFILE '.agents\.assert-iq\analysis'),
                 $userAssertIq)
         }
@@ -1688,6 +1693,7 @@ function Seed-MemoryStore {
     New-Item -ItemType Directory -Path (Join-Path $aiqBase 'verdicts\archive') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $aiqBase 'dreaming\.snapshots') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $aiqBase 'business-metrics\reports') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $aiqBase 'estimates\archive') -Force | Out-Null
     $statePath = Join-Path $MemDir '.dream\state.json'
     if (-not (Test-Path -LiteralPath $statePath)) {
         Write-AiqUtf8 -Path $statePath -Value "{`n  `"last_dream_utc`": null,`n  `"sessions_since_dream`": 0`n}"

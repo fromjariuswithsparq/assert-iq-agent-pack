@@ -203,6 +203,7 @@ skill the executing agent should invoke during implementation.
 | Merge gate check | `/check-merge` |
 | Traceability matrix | `/generate-traceability-matrix` |
 | Hotspot map / churn audit / sprint-zero risk audit | `/generate-hotspot-map` |
+| Story points / size this story / refinement estimate / team profile | `/estimate-story` |
 | AC review (testability) | `/review-acceptance-criteria` |
 | Test design quality review | `/review-test-quality` |
 | File a bug | `/generate-bug-report` |
@@ -214,6 +215,7 @@ skill the executing agent should invoke during implementation.
 | Grade an artifact against a rubric | `/grade-with-rubric` |
 | Author a versioned quality rubric | `/define-quality-rubric` |
 | Quarterly business impact / ROI dashboard | `/measure-qi-impact` |
+| Are our verdicts actually accurate? / calibration, Brier score, drift | `/calibration-report` |
 | Consolidate agent memory | `/dream` |
 | Evaluate / optimize an AI instruction artifact | `/eval-optimizer` |
 

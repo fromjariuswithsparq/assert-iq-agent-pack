@@ -189,6 +189,7 @@ skill the Assert-IQ agent should invoke during implementation.
 | Merge gate check | `/check-merge` |
 | Traceability matrix | `/generate-traceability-matrix` |
 | Hotspot map / churn audit / sprint-zero risk audit | `/generate-hotspot-map` |
+| Story points / size this story / refinement estimate / team profile | `/estimate-story` |
 | AC review (testability) | `/review-acceptance-criteria` |
 | Test design quality review | `/review-test-quality` |
 | File a bug | `/generate-bug-report` |

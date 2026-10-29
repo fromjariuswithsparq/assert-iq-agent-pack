@@ -1188,6 +1188,78 @@ hotspot_map:
 
 
 # -----------------------------------------------------------------------------
+# STORY ESTIMATION  — used by the estimate-story skill
+# -----------------------------------------------------------------------------
+# Sizes a story through the four signal layers: a team-relative point range
+# with confidence (Output A, independent of who is assigned) plus a team-fit
+# view from a role-slot team profile (Output B: roles needed, elapsed-time
+# band per level, bus-factor risk). The human picks the final number.
+# Advisory only; never a commitment or a gate.
+# -----------------------------------------------------------------------------
+story_estimation:
+  enabled: true
+
+  # scale: the team's pointing scale. Ranges move in scale steps.
+  #   fibonacci → [1, 2, 3, 5, 8, 13, 21]
+  #   tshirt    → [XS, S, M, L, XL]
+  #   custom    → uses custom_scale below (ordered, smallest first)
+  scale: "fibonacci"
+  # custom_scale: [1, 2, 4, 8, 16]
+
+  # team_profile_path: role-slot team profile (NO names). Scaffolded from
+  # .assert-iq/team-profile.template.yaml on first run, after human
+  # confirmation. Absent → Output B is UNGRADED (team_profile_missing).
+  team_profile_path: ".assert-iq/team-profile.yaml"
+  profile_staleness_days: 90
+
+  # history: historical delivery data from the tracker, aggregated at team
+  # level only (assignee/author identity is never read into the computation).
+  history:
+    lookback_days: 180
+    min_samples: 5            # fewer similar closed stories → history_insufficient
+    similarity: ["modules", "work_item_type", "labels"]
+    done_states: ["Done", "Closed", "Resolved"]
+
+  # tracker_fields: where story points live, per tracker.type. Used to read
+  # history and (when the human chooses "field" mode) to write the value.
+  tracker_fields:
+    ado: "Microsoft.VSTS.Scheduling.StoryPoints"
+    jira_story_points: "customfield_10016"   # varies per Jira instance — confirm
+    github_project_field: "Estimate"          # GitHub Projects number field
+    linear: "estimate"
+
+  # reference_stories: team-agreed exemplars used as the anchor when history
+  # is thin (typical at early tier).
+  reference_stories: []
+  #   - id: "AB#1201"
+  #     points: 3
+  #     summary: "Add a field to an existing form + API, covered module"
+
+  # range: how the point range is shaped.
+  range:
+    max_width_steps: 2        # wider than this → confidence "low"
+    split_threshold: 13       # upper bound >= this → verdict "Split" (XL on tshirt)
+
+  # output: what the skill may do with the result. The human picks from the
+  # menu every run. This list is intersected with the tier ceiling and can
+  # only LOWER it:
+  #   early  → report, comment
+  #   mid    → report, comment, field
+  #   higher → report, comment, field
+  # Every tracker write requires explicit per-item confirmation at every tier.
+  output:
+    allowed_modes: ["report", "comment", "field"]
+
+  # maturity_override: run this skill at a LOWER tier than maturity.tier
+  # (early | mid). It can never raise the tier — a higher value is ignored
+  # with a warning. Leave unset to inherit.
+  # maturity_override: "early"
+
+  report_path: "./story-estimate.md"
+  log_path: ".assert-iq/estimates/archive/"
+
+
+# -----------------------------------------------------------------------------
 # AC REVIEW  — used by the review-acceptance-criteria skill
 # -----------------------------------------------------------------------------
 # Reviews acceptance criteria for testability before any generation skill

@@ -43,11 +43,12 @@ is `qi-foundation.instructions.md`.
 
 ## Skills
 
-31 QI skills under `.github/skills/`. Each `SKILL.md` carries a
+32 QI skills under `.github/skills/`. Each `SKILL.md` carries a
 `description` field that triggers auto-routing in compatible agents.
 Key skills: `code-review`, `risk-assess-pr`, `release-confidence`,
 `generate-automated-unit-test`, `generate-traceability-matrix`,
-`generate-hotspot-map`, `agentic-heal`, `measure-qi-impact` (v2.0+).
+`generate-hotspot-map`, `agentic-heal`, `measure-qi-impact` (v2.0+),
+`estimate-story`.
 
 ## v2.0+ Multi-Agent Orchestration & Commercial Instrumentation
 

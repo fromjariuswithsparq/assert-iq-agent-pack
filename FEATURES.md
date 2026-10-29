@@ -27,7 +27,7 @@ Every heading has its own link. Copy the URL from any feature or skill and it wi
 
 | If you're trying to… | Go to |
 |---|---|
-| Write tests, review a PR, or produce any QE artifact | [The 31 Skills](#skills) |
+| Write tests, review a PR, or produce any QE artifact | [The 32 Skills](#skills) |
 | Get a deep, multi-angle read on a risky change | [Multi-Agent Orchestration](#multi-agent-orchestration) |
 | Show leadership what quality work is worth in dollars | [Business Impact Dashboards](#business-impact-dashboards) |
 | Define what "good" means before you generate anything | [Oracle Layer](#oracle-layer) |
@@ -57,7 +57,7 @@ Read these once and the rest of the guide reads easily.
 
 <a id="skills"></a>
 
-## The 31 Skills
+## The 32 Skills
 
 > **In one sentence:** thirty-one slash commands that turn "I need a test plan / a risk read / a bug report" into a finished, standards-conforming artifact in under a minute.
 
@@ -100,7 +100,7 @@ You also stop paying the "blank page" tax. The expensive part of quality work ha
 
 ---
 
-### The 31 skills, one by one
+### The 32 skills, one by one
 
 Each skill below has its own link. Grouped by where they land in the delivery lifecycle.
 
@@ -132,6 +132,15 @@ Each skill below has its own link. Grouped by where they land in the delivery li
 - **How to use it** — `/generate-tests-from-ac` with a work item ID or pasted ACs.
 - **When to use it** — When a story is accepted and you need full coverage across every AC, not just the ones that are easy to automate.
 - **Why it matters** — Teams over-automate the deterministic and under-test the subjective. This forces an explicit routing decision per AC, and records *why* anything went to manual.
+
+---
+
+### `/estimate-story`
+
+- **What it is** — Evidence-based story sizing. It reads the same signals the pack uses for PR risk (hotspots, coverage, flaky areas, past escapes, AC quality, and how similar stories actually went for this team), then returns two separate things. The first is a **point range with a confidence level**, worked out without knowing who will pick the story up, so points stay a team-relative size. The second is a **team-fit view** drawn from a role-slot team profile: which roles the story needs, an elapsed-time range for a junior, mid, or senior engineer, and modules where knowledge is concentrated in one seat. The profile lists seats like `DEV_SENIOR_1`, never names.
+- **How to use it** — `/estimate-story <work item ID>`, or paste the story. On first run it offers to set up `.assert-iq/team-profile.yaml` with you. At the end you choose what happens with the result. At every tier you can write a markdown report or post a comment on the work item. At `mid` and above you can also set the Story Points field, after confirming each item. The skill never picks the final number; you pick it from inside the range.
+- **When to use it** — Refinement and backlog grooming, especially for stories the team can't agree on or that touch fragile code. It returns **Refine first** when the ACs are too weak to size and **Split** when the range runs too high.
+- **Why it matters** — Points usually leave out testing effort and ignore what the code is like underneath. This puts both on the table. Seniority still counts, but as time, not size: a story is the same size whoever picks it up, it just takes a junior engineer longer. That keeps velocity honest without hiding the difference. It never ranks people, and it never turns points into hours for performance tracking.
 
 ---
 
