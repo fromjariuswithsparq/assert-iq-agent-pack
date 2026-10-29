@@ -5,7 +5,7 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.2.0] — 2026-10-28
 
 ### Added (story sizing through the QI lens)
 
@@ -1715,6 +1715,7 @@ change in incompatible ways without a major-version bump.
 
 See git history (`git log v0.8.0`). Releases prior to 1.0.0 are pre-stable.
 
+[2.2.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.3...v2.2.0
 [2.1.3]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.2...v2.1.3
 [2.1.2]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.1...v2.1.2
 [2.1.1]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.0...v2.1.1
