@@ -918,6 +918,86 @@ Run-Case "45 upgrade preserves trial mode" $Pattern {
     }
 }
 
+
+Run-Case "46 committed hides dream runtime" $Pattern {
+    # Committed mode exposes the pack on purpose, but the Dreaming runtime is
+    # per-developer: session logs under memory\logs\ and the dream counter in
+    # memory\.dream\. Those must be invisible to git in committed mode too,
+    # while the dream RESULTS (MEMORY.md, topics\*.md) stay visible.
+    # (Twin of case 45 in e2e-bootstrap.sh.)
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    try {
+        Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
+        Assert-FileExists 46 "$ws\.assert-iq\memory\.gitignore"
+        Assert-Contains   46 "$ws\.assert-iq\memory\.gitignore" "logs/"
+        Assert-Contains   46 "$ws\.assert-iq\memory\.gitignore" ".dream/"
+        $logDir = "$ws\.assert-iq\memory\logs\2026\10"
+        New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+        Set-Content -LiteralPath "$logDir\2026-10-29.md" -Value "- session ended"
+        Assert-FileExists 46 "$ws\.assert-iq\memory\.dream\state.json"
+        Push-Location $ws
+        try {
+            git check-ignore --quiet ".assert-iq/memory/logs/2026/10/2026-10-29.md" 2>$null
+            if ($LASTEXITCODE -ne 0) { Fail 46 "dream session log not ignored in committed mode" }
+            git check-ignore --quiet ".assert-iq/memory/.dream/state.json" 2>$null
+            if ($LASTEXITCODE -ne 0) { Fail 46 "dream state.json not ignored in committed mode" }
+            # The results the team DOES want must stay trackable.
+            Set-Content -LiteralPath "$ws\.assert-iq\memory\topics\architecture.md" -Value "- fact"
+            git check-ignore --quiet ".assert-iq/memory/topics/architecture.md" 2>$null
+            if ($LASTEXITCODE -eq 0) { Fail 46 "memory topic wrongly ignored (team content)" }
+            git check-ignore --quiet ".assert-iq/memory/MEMORY.md" 2>$null
+            if ($LASTEXITCODE -eq 0) { Fail 46 "MEMORY.md wrongly ignored (team content)" }
+        } finally { Pop-Location }
+    } finally {
+        Invoke-CleanupFixture $pair $Keep
+    }
+}
+
+Run-Case "47 graduate hides dream runtime" $Pattern {
+    # -Graduate is the other way a workspace becomes team-visible, and it
+    # short-circuits before the memory store is seeded. It must still leave the
+    # Dreaming runtime hidden -- and must untrack it if an older version of the
+    # pack already let it into the index.
+    # (Twin of case 46 in e2e-bootstrap.sh.)
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    try {
+        Invoke-RunBoot $pair @("--preset=pod", "--mode=trial", "--yes") | Out-Null
+        # Stand in for a pre-2.2.1 install: no memory\.gitignore, and the
+        # runtime already committed.
+        Remove-Item -LiteralPath "$ws\.assert-iq\memory\.gitignore" -Force -ErrorAction SilentlyContinue
+        $logDir = "$ws\.assert-iq\memory\logs\2026\10"
+        New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+        Set-Content -LiteralPath "$logDir\2026-10-29.md" -Value "- session ended"
+        Push-Location $ws
+        try {
+            git add -f ".assert-iq/memory/logs/2026/10/2026-10-29.md" ".assert-iq/memory/.dream/state.json" 2>$null | Out-Null
+            git commit -q -m "pre-2.2.1" 2>$null | Out-Null
+        } finally { Pop-Location }
+
+        Invoke-RunBoot $pair @("--graduate") | Out-Null
+
+        Assert-FileExists 47 "$ws\.assert-iq\memory\.gitignore"
+        Assert-Contains   47 "$ws\.git\info\exclude" ".assert-iq/memory/logs/"
+        Assert-Contains   47 "$ws\.git\info\exclude" ".assert-iq/memory/.dream/"
+        Push-Location $ws
+        try {
+            $still = @(git ls-files -- '.assert-iq/memory/logs' '.assert-iq/memory/.dream' 2>$null | Where-Object { $_ })
+            if ($still.Count -gt 0) { Fail 47 "graduate left Dreaming runtime tracked: $($still -join ', ')" }
+            git check-ignore --quiet ".assert-iq/memory/logs/2026/10/2026-10-29.md" 2>$null
+            if ($LASTEXITCODE -ne 0) { Fail 47 "dream session log not ignored after graduate" }
+            git check-ignore --quiet ".assert-iq/memory/.dream/state.json" 2>$null
+            if ($LASTEXITCODE -ne 0) { Fail 47 "dream state.json not ignored after graduate" }
+        } finally { Pop-Location }
+        # Index entry gone, files still on disk.
+        Assert-FileExists 47 "$logDir\2026-10-29.md"
+        Assert-FileExists 47 "$ws\.assert-iq\memory\.dream\state.json"
+    } finally {
+        Invoke-CleanupFixture $pair $Keep
+    }
+}
+
 echo "`nSummary: $($global:CASES_PASS) pass, $($global:CASES_FAIL) fail"
 if ($global:CASES_FAIL -gt 0) {
     echo "Failures:"

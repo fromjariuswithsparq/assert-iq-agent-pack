@@ -893,10 +893,16 @@ write_exclude_block() {
     printf '.assert-iq/.skip-worktree-paths\n'
     printf '.assert-iq/.merge-result-shas\n'
     printf '.assert-iq/.base/\n'
-    # Dreaming per-machine artifacts — never commit in any mode:
+    # Dreaming per-machine artifacts — never commit in any mode, committed
+    # installs and `--graduate` included. Session logs are each developer's own
+    # chat activity and .dream/ is a per-machine counter plus locks; a teammate
+    # pulling either gets noise and merge conflicts, not signal. The dream
+    # *results* (MEMORY.md, topics/*.md) stay visible on purpose.
+    # .assert-iq/memory/.gitignore carries the same two rules and outranks this
+    # file; these lines are the backstop for installs predating it.
     printf '.assert-iq/dreaming/session-events.json\n'
-    printf '.assert-iq/memory/.dream/state.lock\n'
-    printf '.assert-iq/memory/.dream/dream.lock\n'
+    printf '.assert-iq/memory/logs/\n'
+    printf '.assert-iq/memory/.dream/\n'
     printf 'transcripts/\n'
     # Layer 2: per-path entries (trial only).
     if [[ "$MODE" == "trial" && ${#rels[@]} -gt 0 ]]; then
@@ -1017,6 +1023,45 @@ clear_skip_worktree() {
   fi
 }
 
+seed_memory_gitignore() {
+  # Args: destination path. Prefer the pack's own copy so the prose lives in
+  # one file; fall back to the minimal rules if this checkout lacks it.
+  local dest="$1"
+  mkdir -p "$(dirname "$dest")"
+  if [[ -f "$SOURCE/.assert-iq/memory/.gitignore" ]]; then
+    cp "$SOURCE/.assert-iq/memory/.gitignore" "$dest"
+  else
+    cat > "$dest" <<'GIEOF'
+# Dreaming runtime — local-only in every install mode. The results of dreaming
+# (MEMORY.md, topics/*.md) stay tracked; the raw session logs and the
+# per-machine dream counter do not. Additive patterns only, never negations.
+logs/
+.dream/
+GIEOF
+  fi
+}
+
+untrack_local_only_memory() {
+  # logs/ and .dream/ must never be visible to git. Ignore rules only cover
+  # UNtracked files, so an install or graduate that lands on a workspace where
+  # someone already committed them has to take them out of the index. The files
+  # stay on disk — only the tracking is removed, and the user commits that.
+  local gd; gd="$(git_dir)"
+  [[ -n "$gd" ]] || return 0
+  local tracked=() rel
+  while IFS= read -r rel; do
+    [[ -n "$rel" ]] && tracked+=("$rel")
+  done < <( cd "$WORKSPACE" && git ls-files -- \
+              '.assert-iq/memory/logs' '.assert-iq/memory/.dream' 2>/dev/null )
+  ((${#tracked[@]} > 0)) || return 0
+  ( cd "$WORKSPACE" && git rm --cached --quiet -- "${tracked[@]}" >/dev/null 2>&1 ) || return 0
+  echo ""
+  echo "Untracked ${#tracked[@]} Dreaming runtime path(s) — session logs and dream"
+  echo "state are local-only in every mode. The files are untouched on disk;"
+  echo "commit the staged removal to take them out of your team's history:"
+  for rel in "${tracked[@]}"; do printf '  %s\n' "$rel"; done
+}
+
 strip_exclude_block() {
   local excl
   excl="$(exclude_file_path)"
@@ -1057,6 +1102,13 @@ if [[ $GRADUATE -eq 1 ]]; then
   # files may still exist on disk).
   MODE="committed"
   write_exclude_block
+  # Graduate short-circuits before process_dreaming, so seed the memory
+  # ignore rules here too: an install predating them has no .gitignore under
+  # .assert-iq/memory/, and graduating must not be what exposes session logs.
+  if [[ -d "$WORKSPACE/.assert-iq/memory" && ! -f "$WORKSPACE/.assert-iq/memory/.gitignore" ]]; then
+    seed_memory_gitignore "$WORKSPACE/.assert-iq/memory/.gitignore"
+  fi
+  untrack_local_only_memory
   echo ""
   echo "Pack files are now visible to git. Suggested next steps:"
   echo "  git status                       # confirm pack files are untracked"
@@ -2010,6 +2062,12 @@ seed_memory_store() {
     printf '{\n  "last_dream_utc": null,\n  "sessions_since_dream": 0\n}\n' > "$mem/.dream/state.json"
   [[ -f "$mem/topics/.gitkeep" ]] || : > "$mem/topics/.gitkeep"
   [[ -f "$mem/logs/.gitkeep" ]]   || : > "$mem/logs/.gitkeep"
+  # memory/.gitignore keeps logs/ and .dream/ local-only in EVERY mode —
+  # committed installs and `--graduate` included. A .gitignore this deep in the
+  # tree outranks .git/info/exclude, which is what makes it the primary gate.
+  # Seeded only when absent, so an upgrade of an older install gains it while a
+  # hand-edited one is left alone.
+  [[ -f "$mem/.gitignore" ]] || seed_memory_gitignore "$mem/.gitignore"
   # README is static docs (not dream data) — seed it if the pack ships one.
   [[ -f "$mem/README.md" || ! -f "$SOURCE/.assert-iq/memory/README.md" ]] || \
     cp "$SOURCE/.assert-iq/memory/README.md" "$mem/README.md"
@@ -2373,6 +2431,10 @@ manifest_write
 # Backup-glob exclusions are always-on (every mode); per-path entries
 # and skip-worktree apply only in trial mode.
 write_exclude_block
+
+# An upgrade may land on a workspace where a previous version let the Dreaming
+# runtime into git. Ignore rules don't reach tracked files, so pull them out.
+untrack_local_only_memory
 
 if [[ "$MODE" == "trial" ]]; then
   apply_skip_worktree

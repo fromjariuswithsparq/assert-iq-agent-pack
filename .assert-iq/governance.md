@@ -178,9 +178,17 @@ use.
   is local-only by default.
 - **Audit log retention**: The memory store `.assert-iq/memory/` (index,
   topics, and daily logs under `logs/`) is retained for
-  `<N days / sprints / quarters>` per your compliance posture. Its git
-  visibility follows the install mode — committed installs track it (reviewable
-  diffs); trial installs keep it local-only via `.git/info/exclude`.
+  `<N days / sprints / quarters>` per your compliance posture. Git visibility
+  of the dreamed results (`MEMORY.md`, `topics/`) follows the install mode —
+  committed installs track them (reviewable diffs); trial installs keep them
+  local-only via `.git/info/exclude`. The runtime — `logs/` (per-developer
+  session notes) and `.dream/` (per-machine dream state) — is local-only in
+  every mode and is **not** exposed by `--graduate`. Where a compliance
+  posture genuinely requires the raw session stream in version control, that
+  is a deliberate opt-in, not a default: the paths have to be force-added
+  (`git add -f`), and the decision recorded here. The pack will keep excluding
+  them — `.assert-iq/memory/.gitignore` and the installer-managed
+  `.git/info/exclude` block both name them.
 
 
 ## 6. Approval

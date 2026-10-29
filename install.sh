@@ -169,6 +169,17 @@ mkdir -p "$ROOT/.assert-iq/verdicts/archive" "$ROOT/.assert-iq/dreaming/.snapsho
          "$ROOT/.assert-iq/business-metrics/reports" "$ROOT/.assert-iq/estimates/archive"
 [[ -f "$MEMORY_DIR/.dream/state.json" ]] || \
   printf '{\n  "last_dream_utc": null,\n  "sessions_since_dream": 0\n}\n' > "$MEMORY_DIR/.dream/state.json"
+# memory/.gitignore keeps logs/ and .dream/ local-only in every install mode,
+# committed included. Pack-owned, so write it if this checkout lost it (a copy
+# that dropped dotfiles) — a deeper .gitignore outranks .git/info/exclude, so
+# this is what actually keeps session logs and the dream counter out of git.
+[[ -f "$MEMORY_DIR/.gitignore" ]] || cat > "$MEMORY_DIR/.gitignore" <<'GIEOF'
+# Dreaming runtime — local-only in every install mode. The results of dreaming
+# (MEMORY.md, topics/*.md) stay tracked; the raw session logs and the
+# per-machine dream counter do not. Additive patterns only, never negations.
+logs/
+.dream/
+GIEOF
 # MEMORY.md is git-ignored (never ship maintainer memory); seed a clean index
 # if this clone doesn't have one yet.
 [[ -f "$MEMORY_DIR/MEMORY.md" ]] || cat > "$MEMORY_DIR/MEMORY.md" <<'MEOF'

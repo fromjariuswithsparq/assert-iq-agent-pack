@@ -5,6 +5,53 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed (the Dreaming runtime no longer leaks into the team's git)
+
+Graduating a trial install to committed exposed two things that should never
+have been team-visible: `.assert-iq/memory/.dream/state.json` and the daily
+notes under `.assert-iq/memory/logs/`. The reasoning was that committed mode
+tracks the memory store so every dream cycle is a reviewable diff — true of
+the dreamed *results*, wrong for the *inputs*. `logs/` is one note per session,
+which is each developer's own chat activity; `.dream/state.json` is a
+per-machine counter (`sessions_since_dream`, `last_dream_utc`) that every
+teammate rewrites on every session. Pulling each other's session logs and
+merging a counter is noise and conflicts, not signal.
+
+- **`.assert-iq/memory/logs/` and `.assert-iq/memory/.dream/` are now
+  local-only in every install mode** — `trial`, `committed`, and after
+  `--graduate`. The dreamed results the team actually wants (`MEMORY.md`,
+  `topics/*.md`) are unchanged: still tracked in a committed install, still a
+  reviewable diff, still `git revert`-able.
+- **New `.assert-iq/memory/.gitignore`**, shipped into every workspace by all
+  four installers (`bootstrap.sh`/`.ps1`, `install.sh`/`.ps1`). Seeded when
+  absent, so an upgrade of an older install gains it while a hand-edited one is
+  left alone. Additive patterns only, per `unit-gitignore-hygiene.sh`. A
+  `.gitignore` this deep in the tree outranks `.git/info/exclude`, which is
+  what makes it the primary gate rather than a second opinion.
+- **The always-on `.git/info/exclude` block** now carries
+  `.assert-iq/memory/logs/` and `.assert-iq/memory/.dream/` (replacing the two
+  narrower lock-file entries) as a backstop for installs predating the
+  `.gitignore`.
+- **`--graduate` / `-Graduate` seeds the memory `.gitignore` too.** It
+  short-circuits before the memory store is seeded, so without this the one
+  command most likely to expose the runtime was also the one that never
+  installed the rule against it.
+- **Already-tracked runtime paths are untracked.** Ignore rules reach only
+  untracked files, so install, upgrade, and graduate now run
+  `git rm --cached` over `memory/logs/` and `memory/.dream/` when git is
+  already carrying them, print what they untracked, and leave every file on
+  disk for the user to commit.
+- **Tests:** two new E2E cases per platform — committed mode hides the runtime
+  while leaving `MEMORY.md` and `topics/` trackable, and graduate hides it,
+  untracks a pre-existing commit of it, and keeps the files on disk
+  (`e2e-bootstrap.sh` 45–46, `e2e-bootstrap.ps1` 46–47).
+- **Docs:** `memory/README.md` gains a *What git sees* table; `dreaming/README.md`,
+  `governance.md` (with the opt-in path for a compliance posture that really
+  does want the raw stream), `README.assert-iq.md` (mode table + graduate
+  section), the `/dream` skill, and `MANIFEST.md` all updated.
+
 ## [2.2.0] — 2026-10-28
 
 ### Added (story sizing through the QI lens)

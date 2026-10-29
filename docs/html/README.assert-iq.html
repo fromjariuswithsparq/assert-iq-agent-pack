@@ -22,7 +22,7 @@
 </head>
 <body>
     <h1>Assert.IQ Agent Pack</h1>
-    <div class="meta">Generated: 2026-10-28 20:29:52 UTC</div>
+    <div class="meta">Generated: 2026-10-29 10:28:30 UTC</div>
 <p><h1>Assert.IQ Agent Pack</h1></p><p>> The capability layer of Assert.IQ. Quality Intelligence-grounded skills,
 > instructions, modes, and tools that turn GitHub Copilot Chat **and**
 > Claude Code into a QI-aware delivery partner inside the IDE.</p><p>**Version**: v2.2.0
@@ -211,7 +211,7 @@ aren't physically present in the workspace, so all of them ship in.</p><p>| Surf
 (</code>scripts/bootstrap.sh<code> / </code>scripts/bootstrap.ps1<code>):</p><p>| Mode | What happens | Reverse with |
 |---|---|---|
 | </code>--mode=trial<code> | Files land in workspace; their paths added to </code>.git/info/exclude<code> (local-only). </code>.gitignore<code> untouched. | </code>--graduate<code> (promote) or </code>--uninstall<code> (remove) |
-| </code>--mode=committed<code> | Files land in workspace and are visible to git. | </code>--uninstall<code> |
+| </code>--mode=committed<code> | Files land in workspace and are visible to git — except the Dreaming runtime (</code>.assert-iq/memory/logs/<code>, </code>.assert-iq/memory/.dream/<code>), which is local-only in every mode. | </code>--uninstall<code> |
 | </code>--mode=ask<code> (the default when you run it by hand) | Asks you which mode you want. When run by a script or CI, where nobody can answer, it falls back to </code>committed<code>. | — |</p><p>**Pre-existing files are preserved.** The script SHA256-compares each
 file. If the destination matches the pack version, it's silently
 recorded as </code>unchanged_owned<code>. If the user has a different file at that
@@ -248,7 +248,15 @@ pwsh -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Graduate
 team to see them:</p><p></code>`<code>bash
 git add .assert-iq .claude .github CLAUDE.md AGENTS.md
 git commit -m "chore: adopt Assert.IQ agent pack"
-</code>`<code></p><p>#### Removing the pack</p><p>Run this from inside your project, not from the pack folder.</p><p>On a Mac (or Linux / WSL):</p><p></code>`<code>bash
+</code>`<code></p><p>Two things stay local no matter what. </code>--graduate<code> does **not** expose
+</code>.assert-iq/memory/logs/<code> (one daily note per session — your own chat
+activity) or </code>.assert-iq/memory/.dream/<code> (a per-machine dream counter and
+lock files). Your teammates would be pulling each other's session logs and
+fighting over the counter on every merge, for no signal. What the team *does*
+get is the output of dreaming: </code>.assert-iq/memory/MEMORY.md<code> and
+</code>.assert-iq/memory/topics/*.md<code>. If an older install already committed the
+runtime, </code>--graduate<code> stages its removal from the index and leaves the files
+on disk — commit that alongside the rest.</p><p>#### Removing the pack</p><p>Run this from inside your project, not from the pack folder.</p><p>On a Mac (or Linux / WSL):</p><p></code>`<code>bash
 cd ~/code/my-app</p><h1>See what would be removed, without changing anything.</h1>
 bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --uninstall --dry-run</p><h1>Actually remove it.</h1>
 bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --uninstall</p><h1>Add --user to also remove copies installed outside this project</h1>

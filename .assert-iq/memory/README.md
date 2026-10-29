@@ -13,6 +13,13 @@ the `/dream` consolidation pass (see `.assert-iq/dreaming/`).
 | `logs/YYYY/MM/*.md` | Short-term stream | Waking recorder | No | Yes (raw input) |
 | `.dream/state.json` | Dream state | Recorder + `/dream` | No | No |
 
+### What git sees
+
+| Path | In git | Why |
+|------|--------|-----|
+| `MEMORY.md`, `topics/*.md` | Yes, in a committed install | The *results* of dreaming. Synthesized team knowledge, worth reviewing and worth `git revert`. |
+| `logs/`, `.dream/` | **Never, in any mode** | The *inputs*. One daily note per session is your own chat activity, and `.dream/state.json` is a per-machine counter. A teammate pulling either gets noise and merge conflicts. Enforced by `.gitignore` in this directory plus `.git/info/exclude`, in committed installs and after `--graduate` alike. |
+
 ## Conventions
 
 - **Absolute dates only.** Never "yesterday" / "last week".
@@ -26,8 +33,10 @@ the `/dream` consolidation pass (see `.assert-iq/dreaming/`).
 
 - The `/dream` pass may write **only** inside `.assert-iq/memory/`.
 - Instruction/rule files are immutable — dreaming never edits them.
-- **Git visibility follows your install mode.** Committed installs track this
-  directory (every dream cycle is a reviewable diff, and `git revert` is your
-  undo). Trial installs keep it local-only via `.git/info/exclude` — git never
-  sees it and dreams update it autonomously; `bootstrap.sh --graduate` exposes
-  it later.
+- **Git visibility follows your install mode — except for the runtime.**
+  Committed installs track `MEMORY.md` and `topics/` (every dream cycle is a
+  reviewable diff, and `git revert` is your undo). Trial installs keep the
+  whole store local-only via `.git/info/exclude`; `bootstrap.sh --graduate`
+  exposes the dreamed results later. `logs/` and `.dream/` are local-only in
+  **every** mode and `--graduate` does not expose them — see *What git sees*
+  above.

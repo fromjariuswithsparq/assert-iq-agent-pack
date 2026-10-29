@@ -348,7 +348,7 @@ Three install modes, all driven by the bootstrap script
 | Mode | What happens | Reverse with |
 |---|---|---|
 | `--mode=trial` | Files land in workspace; their paths added to `.git/info/exclude` (local-only). `.gitignore` untouched. | `--graduate` (promote) or `--uninstall` (remove) |
-| `--mode=committed` | Files land in workspace and are visible to git. | `--uninstall` |
+| `--mode=committed` | Files land in workspace and are visible to git — except the Dreaming runtime (`.assert-iq/memory/logs/`, `.assert-iq/memory/.dream/`), which is local-only in every mode. | `--uninstall` |
 | `--mode=ask` (the default when you run it by hand) | Asks you which mode you want. When run by a script or CI, where nobody can answer, it falls back to `committed`. | — |
 
 **Pre-existing files are preserved.** The script SHA256-compares each
@@ -410,6 +410,16 @@ team to see them:
 git add .assert-iq .claude .github CLAUDE.md AGENTS.md
 git commit -m "chore: adopt Assert.IQ agent pack"
 ```
+
+Two things stay local no matter what. `--graduate` does **not** expose
+`.assert-iq/memory/logs/` (one daily note per session — your own chat
+activity) or `.assert-iq/memory/.dream/` (a per-machine dream counter and
+lock files). Your teammates would be pulling each other's session logs and
+fighting over the counter on every merge, for no signal. What the team *does*
+get is the output of dreaming: `.assert-iq/memory/MEMORY.md` and
+`.assert-iq/memory/topics/*.md`. If an older install already committed the
+runtime, `--graduate` stages its removal from the index and leaves the files
+on disk — commit that alongside the rest.
 
 #### Removing the pack
 
