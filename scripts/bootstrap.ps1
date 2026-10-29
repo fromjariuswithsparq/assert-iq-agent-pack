@@ -333,6 +333,51 @@ function Backup-IfUserOwned {
     Add-ManifestEntry 'pre_install_backup' $backup $Scope
 }
 
+# SNAPSHOT BEFORE EVERY OVERWRITE.
+#
+# Backup-IfUserOwned keeps the file as it was BEFORE THE PACK ARRIVED, once,
+# for -Uninstall to restore. It is not a recovery copy for later edits: on a
+# re-run it is a no-op because the backup already exists, and the -Upgrade
+# overwrite paths never called it at all. A reinstall that answered [o] on a
+# tailored config.yaml therefore replaced months of /assert-iq-tailor choices
+# with template defaults and left nothing on disk to restore. Found on a real
+# project.
+#
+# This writes a timestamped copy of whatever is about to be replaced, unless it
+# is still byte-identical to the pristine pack content recorded in the base
+# cache (nothing of the user's to lose). Snapshots are not manifest entries, so
+# -Uninstall leaves them alone -- they are the user's data.
+function Save-OverwriteSnapshot([string]$Dst) {
+    if (-not (Test-Path -LiteralPath $Dst -PathType Leaf)) { return }
+    $base = Get-Base $Dst
+    if ($base -and ((Get-Sha256 $base) -eq (Get-Sha256 $Dst))) { return }
+    $stamp = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')
+    $snap = "$Dst.assert-iq.pre-overwrite-$stamp"
+    Copy-Item -LiteralPath $Dst -Destination $snap -Force
+    Write-Host "  saved your previous version: $snap"
+}
+
+# CLIENT CONFIG -- the files /assert-iq-tailor customizes per client. On a
+# re-run these merge three-way against the base cache when one exists, and a
+# bulk choice ([O]all or CONFLICT_BULK_CHOICE=O) never overwrites them:
+# overwriting one takes an explicit per-file [o]. Matched by suffix so the
+# user-scope ~/.assert-iq copies are covered too. Keep in step with
+# CLIENT_CONFIG_SUFFIXES in bootstrap.sh.
+$script:ClientConfigSuffixes = @(
+    '/.assert-iq/config.yaml',
+    '/.assert-iq/governance.md',
+    '/.assert-iq/maturity-profile.md',
+    '/.assert-iq/business-metrics/baseline.json'
+)
+
+function Test-ClientConfig([string]$Dst) {
+    $p = $Dst -replace '\\','/'
+    foreach ($s in $script:ClientConfigSuffixes) {
+        if ($p.EndsWith($s, [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+    }
+    return $false
+}
+
 function Get-FileSha256 {
     param([Parameter(Mandatory)][string] $Path)
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return '' }
@@ -666,6 +711,7 @@ function Write-ExcludeBlock {
     $newLines.Add('*.assert-iq.pre-install') | Out-Null
     $newLines.Add('*.assert-iq.pre-tailor') | Out-Null
     $newLines.Add('*.assert-iq.uninstall-saved') | Out-Null
+    $newLines.Add('*.assert-iq.pre-overwrite-*') | Out-Null
     $newLines.Add('.assert-iq/.skip-worktree-paths') | Out-Null
     $newLines.Add('.assert-iq/.merge-result-shas') | Out-Null
     $newLines.Add('.assert-iq/.base/') | Out-Null
@@ -1436,9 +1482,14 @@ function Resolve-Mode {
 # =============================================================================
 
 function Get-UpgradeRecordedSha([string]$absPath) {
+    # The manifest sha is the file as the LAST RUN LEFT IT, which is pack
+    # content only when that run wrote the pack copy verbatim ('created') or
+    # found it already identical ('unchanged_owned'). After a merge it is the
+    # user's merged content, so it must not answer "is this file pristine?".
     if (-not $script:OldManifest) { return '' }
     foreach ($p in $script:OldManifest.paths) {
         if ($p.path -eq $absPath) {
+            if ($p.action -notin @('created','unchanged_owned')) { return '' }
             if ($p.PSObject.Properties['sha']) { return $p.sha }
             return ''
         }
@@ -1523,11 +1574,24 @@ function Invoke-UpgradeThreeWay {
     # file so their edits AND the pack's updates both land.
     param([string]$Label, [string]$Src, [string]$Dst, [string]$Scope)
     $relUnix = (ConvertTo-WorkspaceRelative $Dst) -replace '\\','/'
-    $recSha = Get-UpgradeRecordedSha $Dst
     $dstSha = Get-Sha256 $Dst
+    $baseFile = Get-Base $Dst
 
-    # Unedited since install -> take the new version outright.
-    if ($recSha -and ($recSha -eq $dstSha)) {
+    # Unedited -> take the new version outright. "Unedited" means the file
+    # still matches the pristine pack copy in the base cache. It used to mean
+    # "unchanged since the last run", which wiped tailoring on the SECOND of two
+    # back-to-back upgrades: the first merged the user's edits in and recorded
+    # the merged file's sha, so the second saw a match and copied the pack
+    # template over it -- no prompt, no backup. Found on a real project. With
+    # no base cache, fall back to the manifest sha, which only counts when the
+    # last run wrote pack content verbatim (see Get-UpgradeRecordedSha).
+    if ($baseFile) {
+        $unedited = ((Get-Sha256 $baseFile) -eq $dstSha)
+    } else {
+        $recSha = Get-UpgradeRecordedSha $Dst
+        $unedited = [bool]($recSha -and ($recSha -eq $dstSha))
+    }
+    if ($unedited) {
         Copy-Item -LiteralPath $Src -Destination $Dst -Force
         Add-ManifestEntry 'overwritten' $Dst $Scope
         Save-Base -Content $Src -Dst $Dst
@@ -1540,7 +1604,6 @@ function Invoke-UpgradeThreeWay {
     # Base resolution: prefer the install-time snapshot (works offline and with
     # no version tags), then fall back to reconstructing from the pack's git
     # history at the installed version.
-    $baseFile = Get-Base $Dst
     if (-not $baseFile -and $script:InstalledVersion -ne 'unknown') {
         & git -C $Source cat-file -e "v$($script:InstalledVersion):$relUnix" 2>$null
         if ($LASTEXITCODE -eq 0) {
@@ -1615,7 +1678,7 @@ function Invoke-UpgradeThreeWay {
                 $ans = Read-Host '  [m]arkers into your file / [o]verwrite w/ pack / [k]eep mine / [s]idecar'
                 switch -Regex ($ans) {
                     '^[mM]' { Copy-Item -LiteralPath $mergedTmp -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-MergeResultSha -Path $Dst; Save-Base -Content $Src -Dst $Dst; Record $Label 'merged (conflict markers written)' $Dst }
-                    '^[oO]' { Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-Base -Content $Src -Dst $Dst; Record $Label 'overwritten (pack)' $Dst }
+                    '^[oO]' { Save-OverwriteSnapshot $Dst; Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-Base -Content $Src -Dst $Dst; Record $Label 'overwritten (pack)' $Dst }
                     '^[sS]' { $side = "$Dst.assert-iq-new"; Copy-Item -LiteralPath $Src -Destination $side -Force; Add-ManifestEntry 'sidecar' $side $Scope; Save-Base -Content $baseFile -Dst $Dst; Record $Label 'sidecar -> .assert-iq-new' $side }
                     default { Save-Base -Content $baseFile -Dst $Dst; Record $Label 'skipped (kept yours)' $Dst }
                 }
@@ -1626,7 +1689,7 @@ function Invoke-UpgradeThreeWay {
         $choice = Resolve-Conflict -Src $Src -Dst $Dst -Label "$Label (no base -- merge unavailable)"
         switch ($choice) {
             'keep'      { Record $Label 'skipped (kept yours)' $Dst }
-            'overwrite' { Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-Base -Content $Src -Dst $Dst; Record $Label 'overwritten' $Dst }
+            'overwrite' { Save-OverwriteSnapshot $Dst; Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-Base -Content $Src -Dst $Dst; Record $Label 'overwritten' $Dst }
             'merge'     { Merge-MarkdownFile -Label $Label -Src $Src -Dst $Dst -Scope $Scope }
             'sidecar'   { $side = "$Dst.assert-iq-new"; Copy-Item -LiteralPath $Src -Destination $side -Force; Add-ManifestEntry 'sidecar' $side $Scope; Record $Label 'sidecar -> .assert-iq-new' $side }
         }
@@ -1669,7 +1732,7 @@ function Invoke-UpgradeOrphans {
         $abs = $p.path
         $relUnix = (ConvertTo-WorkspaceRelative $abs) -replace '\\','/'
         if ($relUnix -like '.assert-iq/memory/*') { continue }
-        if ($relUnix -like '*.assert-iq.pre-install' -or $relUnix -like '*.assert-iq-new' -or $relUnix -like '*.assert-iq.uninstall-saved' -or $relUnix -like '*.assert-iq.pre-tailor') { continue }
+        if ($relUnix -like '*.assert-iq.pre-install' -or $relUnix -like '*.assert-iq-new' -or $relUnix -like '*.assert-iq.uninstall-saved' -or $relUnix -like '*.assert-iq.pre-tailor' -or $relUnix -like '*.assert-iq.pre-overwrite-*') { continue }
         if ($thisRun.ContainsKey($abs)) { continue }
         # "Exists in Source" and "is in the payload" are different questions: a
         # path the new pack deliberately stopped installing IS an orphan even
@@ -1850,9 +1913,16 @@ function Resolve-Conflict {
     # Allowlist: only these markdown files support the merge mode.
     $base = Split-Path -Leaf $Dst
     $mergeEligible = $base -in @('copilot-instructions.md','CLAUDE.md','AGENTS.md')
+    $clientConfig = Test-ClientConfig $Dst
     switch ($script:ConflictBulkChoice) {
         'K' { return 'keep' }
-        'O' { return 'overwrite' }
+        'O' {
+            if ($clientConfig) {
+                Write-Host "Kept $Label -- client config is never bulk-overwritten (re-run and answer [o] on this file to replace it)."
+                return 'keep'
+            }
+            return 'overwrite'
+        }
         'M' {
             if ($mergeEligible) { return 'merge' } else { return 'keep' }
         }
@@ -1864,13 +1934,20 @@ function Resolve-Conflict {
     Write-Host "Conflict: $Label"
     Write-Host "  existing: $Dst"
     Write-Host "  pack:     $Src"
-    if ($mergeEligible) {
+    if ($clientConfig) {
+        Write-Host '  This is client config (/assert-iq-tailor output). Overwriting saves a timestamped copy first.'
+        $prompt = '  [k]eep (default) / [o]verwrite / [s]idecar (.assert-iq-new) / [d]iff / [K/S]all / [a]bort'
+    } elseif ($mergeEligible) {
         $prompt = '  [k]eep / [o]verwrite / [m]erge (recommended) / [s]idecar (.assert-iq-new) / [d]iff / [K/O/M/S]all / [a]bort'
     } else {
         $prompt = '  [k]eep / [o]verwrite / [s]idecar (.assert-iq-new) / [d]iff / [K/O/S]all / [a]bort'
     }
     while ($true) {
         $ans = Read-Host $prompt
+        if ($clientConfig) {
+            if ($ans -ceq '') { return 'keep' }
+            if ($ans -ceq 'O') { Write-Host '  (overwrite-all is not available for client config; type o to replace this file)'; continue }
+        }
         switch ($ans) {
             'k' { return 'keep' }
             'o' { return 'overwrite' }
@@ -1994,8 +2071,10 @@ function Copy-FileScoped {
         return
     }
 
-    # On upgrade, three-way merge to preserve user edits.
-    if ($doUpgrade) {
+    # On upgrade, three-way merge to preserve user edits. A plain re-run does
+    # the same for client config whenever the base cache can supply a merge
+    # baseline, so reinstalling over a tailored workspace keeps the tailoring.
+    if ($doUpgrade -or ((Test-ClientConfig $Dst) -and (Get-Base $Dst))) {
         Invoke-UpgradeThreeWay -Label $Label -Src $Src -Dst $Dst -Scope $Scope
         return
     }
@@ -2007,6 +2086,7 @@ function Copy-FileScoped {
         }
         'overwrite' {
             Backup-IfUserOwned -Path $Dst -Scope $Scope
+            Save-OverwriteSnapshot $Dst
             Copy-Item -LiteralPath $Src -Destination $Dst -Force
             Add-ManifestEntry 'overwritten' $Dst $Scope
             Save-Base -Content $Src -Dst $Dst

@@ -236,6 +236,24 @@ disk are untouched.
   different content from the pack version, the script falls back to an
   interactive resolver: `[k]eep` / `[o]verwrite` / `[s]idecar (writes
   `.assert-iq-new`) / [d]iff / [K/O/S]all / [a]bort`. Non-TTY runs auto-keep.
+- **Upgrades only replace untouched files outright.** On `--upgrade`, a
+  file is replaced without merging only when it still matches the pristine
+  pack copy in the install-time base cache. A file an earlier run merged
+  your edits into always goes through the three-way merge again, so running
+  `--upgrade` several times in a row is safe.
+- **Every overwrite snapshots first.** Before any run (install, re-run,
+  or `--upgrade`) replaces a file you changed, it copies your version to
+  `<file>.assert-iq.pre-overwrite-<UTC timestamp>`. Those snapshots are
+  kept out of git by the managed exclude block, and `--uninstall` leaves
+  them in place.
+- **Client config is protected on re-runs.** `.assert-iq/config.yaml`,
+  `governance.md`, `maturity-profile.md` and
+  `business-metrics/baseline.json` hold your `/assert-iq-tailor` choices.
+  On a re-run they three-way merge against the install-time base cache, so
+  your tailoring survives. When there is no base to merge against, the
+  prompt defaults to keep, and neither `[O]all` nor
+  `CONFLICT_BULK_CHOICE=O` overwrites them. To replace one, answer `[o]`
+  for that file.
 - **JSON deep-merge for settings files.** `.vscode/settings.json`,
   `.vscode/mcp.json` (when pre-existing), and `.claude/settings.json`
   use additive deep-merge instead of the keep/overwrite resolver. User's

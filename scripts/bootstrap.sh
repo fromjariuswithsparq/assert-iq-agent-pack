@@ -277,6 +277,49 @@ backup_if_user_owned() {
   manifest_add "pre_install_backup" "$backup" "$scope"
 }
 
+# SNAPSHOT BEFORE EVERY OVERWRITE.
+#
+# backup_if_user_owned keeps the file as it was BEFORE THE PACK ARRIVED, once,
+# for --uninstall to restore. It is not a recovery copy for later edits: on a
+# re-run it is a no-op because the backup already exists, and the --upgrade
+# overwrite paths never called it at all. A reinstall that answered [o] on a
+# tailored config.yaml therefore replaced months of /assert-iq-tailor choices
+# with template defaults and left nothing on disk to restore. Found on a real
+# project.
+#
+# This writes a timestamped copy of whatever is about to be replaced, unless it
+# is still byte-identical to the pristine pack content recorded in the base
+# cache (nothing of the user's to lose). Snapshots are not manifest entries, so
+# --uninstall leaves them alone -- they are the user's data.
+# Args: dst
+save_overwrite_snapshot() {
+  local dst="$1"
+  [[ -f "$dst" ]] || return 0
+  local base; base="$(base_lookup "$dst")"
+  if [[ -n "$base" && "$(sha256_of "$base")" == "$(sha256_of "$dst")" ]]; then
+    return 0
+  fi
+  local snap; snap="$dst.assert-iq.pre-overwrite-$(date -u +%Y%m%dT%H%M%SZ)"
+  cp -p "$dst" "$snap"
+  echo "  saved your previous version: $snap" >&2
+}
+
+# CLIENT CONFIG -- the files /assert-iq-tailor customizes per client. On a
+# re-run these merge three-way against the base cache when one exists, and a
+# bulk choice ([O]all or CONFLICT_BULK_CHOICE=O) never overwrites them:
+# overwriting one takes an explicit per-file [o]. Matched by suffix so the
+# user-scope ~/.assert-iq copies are covered too. Keep in step with
+# $script:ClientConfigSuffixes in bootstrap.ps1.
+CLIENT_CONFIG_SUFFIXES="/.assert-iq/config.yaml /.assert-iq/governance.md /.assert-iq/maturity-profile.md /.assert-iq/business-metrics/baseline.json"
+
+is_client_config() {
+  local s
+  for s in $CLIENT_CONFIG_SUFFIXES; do
+    [[ "$1" == *"$s" ]] && return 0
+  done
+  return 1
+}
+
 # Stage-then-commit a merged JSON. If the staged content is byte-identical
 # to the existing dst, discards the temp and records unchanged_owned;
 # otherwise backs up (if user-owned) and atomically replaces dst, recording
@@ -444,9 +487,14 @@ OLD_MANIFEST_SNAPSHOT=""
 INSTALLED_VERSION=""
 
 upgrade_recorded_sha() {
-  # Prints the install-time sha recorded for absolute path $1, or empty.
+  # Prints the sha recorded for absolute path $1, or empty. That sha is the
+  # file as the LAST RUN LEFT IT, which is pack content only when that run
+  # wrote the pack copy verbatim ("created") or found it already identical
+  # ("unchanged_owned"). After a merge it is the user's merged content, so it
+  # must not answer "is this file pristine?" -- empty for every other action.
   [[ -n "$OLD_MANIFEST_SNAPSHOT" ]] || { echo ""; return; }
-  jq -r --arg p "$1" '.paths[]? | select(.path==$p) | .sha // empty' \
+  jq -r --arg p "$1" '.paths[]? | select(.path==$p)
+       | select(.action=="created" or .action=="unchanged_owned") | .sha // empty' \
      <<< "$OLD_MANIFEST_SNAPSHOT" 2>/dev/null | head -n1
 }
 
@@ -524,12 +572,25 @@ upgrade_three_way() {
   # file so their edits AND the pack's updates both land.
   local label="$1" src="$2" dst="$3" scope="$4"
   local relpath="${dst#"$WORKSPACE/"}"
-  local rec_sha dst_sha
-  rec_sha="$(upgrade_recorded_sha "$dst")"
+  local rec_sha dst_sha cached_base unedited=0
   dst_sha="$(sha256_of "$dst")"
+  cached_base="$(base_lookup "$dst")"
 
-  # Unedited since install -> take the new version outright.
-  if [[ -n "$rec_sha" && "$rec_sha" == "$dst_sha" ]]; then
+  # Unedited -> take the new version outright. "Unedited" means the file
+  # still matches the pristine pack copy in the base cache. It used to mean
+  # "unchanged since the last run", which wiped tailoring on the SECOND of two
+  # back-to-back upgrades: the first merged the user's edits in and recorded
+  # the merged file's sha, so the second saw a match and copied the pack
+  # template over it -- no prompt, no backup. Found on a real project. With
+  # no base cache, fall back to the manifest sha, which only counts when the
+  # last run wrote pack content verbatim (see upgrade_recorded_sha).
+  if [[ -n "$cached_base" ]]; then
+    if [[ "$(sha256_of "$cached_base")" == "$dst_sha" ]]; then unedited=1; fi
+  else
+    rec_sha="$(upgrade_recorded_sha "$dst")"
+    if [[ -n "$rec_sha" && "$rec_sha" == "$dst_sha" ]]; then unedited=1; fi
+  fi
+  if [[ $unedited -eq 1 ]]; then
     cp "$src" "$dst"
     manifest_add "overwritten" "$dst" "$scope"
     base_snapshot "$src" "$dst"
@@ -542,7 +603,6 @@ upgrade_three_way() {
   # Base resolution: prefer the install-time snapshot (works offline and with
   # no version tags), then fall back to reconstructing from the pack's git
   # history at the installed version.
-  local cached_base; cached_base="$(base_lookup "$dst")"
   if [[ -n "$cached_base" ]]; then
     base_file="$cached_base"
   elif [[ "$INSTALLED_VERSION" != "unknown" ]] \
@@ -594,7 +654,7 @@ upgrade_three_way() {
                manifest_add "overwritten" "$dst" "$scope"; record_merge_result_sha "$dst"
                base_snapshot "$src" "$dst"
                record "$label" "merged (conflict markers written)" "$dst" ;;
-          o|O) cp "$src" "$dst"
+          o|O) save_overwrite_snapshot "$dst"; cp "$src" "$dst"
                manifest_add "overwritten" "$dst" "$scope"; base_snapshot "$src" "$dst"
                record "$label" "overwritten (pack)" "$dst" ;;
           s|S) local side="$dst.assert-iq-new"; cp "$src" "$side"
@@ -610,7 +670,7 @@ upgrade_three_way() {
     local choice; choice="$(resolve_conflict "$src" "$dst" "$label (no base — merge unavailable)")"
     case "$choice" in
       keep)      record "$label" "skipped (kept yours)" "$dst" ;;
-      overwrite) cp "$src" "$dst"
+      overwrite) save_overwrite_snapshot "$dst"; cp "$src" "$dst"
                  manifest_add "overwritten" "$dst" "$scope"; base_snapshot "$src" "$dst"
                  record "$label" "overwritten" "$dst" ;;
       merge)     merge_markdown_file "$label" "$src" "$dst" "$scope" ;;
@@ -890,6 +950,7 @@ write_exclude_block() {
     printf '*.assert-iq.pre-install\n'
     printf '*.assert-iq.pre-tailor\n'
     printf '*.assert-iq.uninstall-saved\n'
+    printf '*.assert-iq.pre-overwrite-*\n'
     printf '.assert-iq/.skip-worktree-paths\n'
     printf '.assert-iq/.merge-result-shas\n'
     printf '.assert-iq/.base/\n'
@@ -1755,10 +1816,20 @@ resolve_conflict() {
   case "$base" in
     copilot-instructions.md|CLAUDE.md|AGENTS.md) merge_eligible=1 ;;
   esac
+  local client_config=0
+  is_client_config "$dst" && client_config=1
   # Honor "-all" shortcut if set.
   case "$CONFLICT_BULK_CHOICE" in
     K) echo keep; return ;;
-    O) echo overwrite; return ;;
+    O)
+      if [[ $client_config -eq 1 ]]; then
+        echo "Kept $label -- client config is never bulk-overwritten (re-run and answer [o] on this file to replace it)." >&2
+        echo keep
+      else
+        echo overwrite
+      fi
+      return
+      ;;
     M)
       # Bulk merge only applies to allowlisted files; otherwise keep (safe).
       if [[ $merge_eligible -eq 1 ]]; then echo merge; else echo keep; fi
@@ -1776,7 +1847,10 @@ resolve_conflict() {
   echo "  existing: $dst" >&2
   echo "  pack:     $src" >&2
   local prompt
-  if [[ $merge_eligible -eq 1 ]]; then
+  if [[ $client_config -eq 1 ]]; then
+    echo "  This is client config (/assert-iq-tailor output). Overwriting saves a timestamped copy first." >&2
+    prompt="  [k]eep (default) / [o]verwrite / [s]idecar (.assert-iq-new) / [d]iff / [K/S]all / [a]bort: "
+  elif [[ $merge_eligible -eq 1 ]]; then
     prompt="  [k]eep / [o]verwrite / [m]erge (recommended) / [s]idecar (.assert-iq-new) / [d]iff / [K/O/M/S]all / [a]bort: "
   else
     prompt="  [k]eep / [o]verwrite / [s]idecar (.assert-iq-new) / [d]iff / [K/O/S]all / [a]bort: "
@@ -1784,6 +1858,12 @@ resolve_conflict() {
   local ans=""
   while :; do
     read -r -p "$prompt" ans </dev/tty
+    if [[ $client_config -eq 1 ]]; then
+      case "$ans" in
+        "") echo keep; return ;;
+        O) echo "  (overwrite-all is not available for client config; type o to replace this file)" >&2; continue ;;
+      esac
+    fi
     case "$ans" in
       k) echo keep; return ;;
       o) echo overwrite; return ;;
@@ -1849,8 +1929,11 @@ copy_file() {
     record "$label" "unchanged (pack-owned)" "$dst"
     return
   fi
-  # Differs. On upgrade, three-way merge to preserve user edits.
-  if [[ ${UPGRADE:-0} -eq 1 ]]; then
+  # Differs. On upgrade, three-way merge to preserve user edits. A plain
+  # re-run does the same for client config whenever the base cache can supply
+  # a merge baseline, so reinstalling over a tailored workspace keeps the
+  # tailoring.
+  if [[ ${UPGRADE:-0} -eq 1 ]] || { is_client_config "$dst" && [[ -n "$(base_lookup "$dst")" ]]; }; then
     upgrade_three_way "$label" "$src" "$dst" "$scope"
     return
   fi
@@ -1863,6 +1946,7 @@ copy_file() {
       ;;
     overwrite)
       backup_if_user_owned "$dst" "$scope"
+      save_overwrite_snapshot "$dst"
       cp "$src" "$dst"
       manifest_add "overwritten" "$dst" "$scope"
       base_snapshot "$src" "$dst"

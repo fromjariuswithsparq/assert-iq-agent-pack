@@ -5,7 +5,7 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.2.1] — 2026-10-29
 
 ### Fixed (the Dreaming runtime no longer leaks into the team's git)
 
@@ -51,6 +51,40 @@ merging a counter is noise and conflicts, not signal.
   `governance.md` (with the opt-in path for a compliance posture that really
   does want the raw stream), `README.assert-iq.md` (mode table + graduate
   section), the `/dream` skill, and `MANIFEST.md` all updated.
+
+
+### Fixed (back-to-back upgrades silently wiped `/assert-iq-tailor` choices)
+
+A workspace that had been tailored for two months was upgraded several times
+in a row. That reset `config.yaml`, `governance.md`, `maturity-profile.md` and
+`business-metrics/baseline.json` to template defaults, with no prompt and no
+backup. The team only noticed after graduating the pack, when the template
+defaults were already committed.
+
+- **A merged file is no longer treated as unedited.** The first upgrade merged
+  the tailoring in correctly and recorded the merged file's SHA in the
+  manifest. The second upgrade saw the file was unchanged since that run, took
+  that to mean "unedited pack content", and copied the template over it.
+  "Unedited" now means the file matches the pristine pack copy in the
+  install-time base cache. With no base cache, the manifest SHA only counts
+  when the last run wrote the pack copy verbatim (`created` or
+  `unchanged_owned`). Fixed in `bootstrap.sh` and `bootstrap.ps1`.
+- **Every overwrite now snapshots your version first.** `bootstrap.sh` and
+  `bootstrap.ps1` copy the file to
+  `<file>.assert-iq.pre-overwrite-<UTC timestamp>` before replacing it. This
+  applies on install, re-run and `--upgrade`. Before this change, the
+  `--upgrade` overwrite paths made no backup. The `.pre-install` backup was
+  only ever written once, before the pack arrived. The snapshot is skipped
+  when the file still matches the pristine pack content. The snapshots are
+  excluded from git, and `--uninstall` leaves them alone.
+- **Client config is protected on re-runs.** Those four files now three-way
+  merge against the install-time base cache on a plain re-run too, not only
+  on `--upgrade`, so your tailoring survives. With no base to merge against,
+  the prompt defaults to keep (Enter), and neither `[O]all` nor
+  `CONFLICT_BULK_CHOICE=O` can overwrite them. Replacing one takes an
+  explicit `[o]` for that file.
+- New regression test `unit-overwrite-snapshot.sh` covers both installers,
+  including two upgrades in a row with and without the base cache.
 
 ## [2.2.0] — 2026-10-28
 
@@ -1762,6 +1796,7 @@ change in incompatible ways without a major-version bump.
 
 See git history (`git log v0.8.0`). Releases prior to 1.0.0 are pre-stable.
 
+[2.2.1]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.3...v2.2.0
 [2.1.3]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.2...v2.1.3
 [2.1.2]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.1...v2.1.2
