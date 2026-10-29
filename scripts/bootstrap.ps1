@@ -669,10 +669,16 @@ function Write-ExcludeBlock {
     $newLines.Add('.assert-iq/.skip-worktree-paths') | Out-Null
     $newLines.Add('.assert-iq/.merge-result-shas') | Out-Null
     $newLines.Add('.assert-iq/.base/') | Out-Null
-    # Dreaming per-machine artifacts -- never commit in any mode:
+    # Dreaming per-machine artifacts -- never commit in any mode, committed
+    # installs and -Graduate included. Session logs are each developer's own
+    # chat activity and .dream/ is a per-machine counter plus locks; a teammate
+    # pulling either gets noise and merge conflicts, not signal. The dream
+    # *results* (MEMORY.md, topics/*.md) stay visible on purpose.
+    # .assert-iq/memory/.gitignore carries the same two rules and outranks this
+    # file; these lines are the backstop for installs predating it.
     $newLines.Add('.assert-iq/dreaming/session-events.json') | Out-Null
-    $newLines.Add('.assert-iq/memory/.dream/state.lock') | Out-Null
-    $newLines.Add('.assert-iq/memory/.dream/dream.lock') | Out-Null
+    $newLines.Add('.assert-iq/memory/logs/') | Out-Null
+    $newLines.Add('.assert-iq/memory/.dream/') | Out-Null
     $newLines.Add('transcripts/') | Out-Null
     # Layer 2: per-path entries (trial only).
     if ($Mode -eq 'trial' -and $rels.Count -gt 0) {
@@ -821,6 +827,51 @@ function Remove-ExcludeBlock {
     }
 }
 
+function Seed-MemoryGitignore {
+    # Prefer the pack's own copy so the prose lives in one file; fall back to
+    # the minimal rules if this checkout lacks it.
+    param([string]$Path)
+    $src = Join-Path $Source '.assert-iq\memory\.gitignore'
+    if (Test-Path -LiteralPath $src -PathType Leaf) {
+        Copy-Item -LiteralPath $src -Destination $Path -Force
+        return
+    }
+    $content = @'
+# Dreaming runtime -- local-only in every install mode. The results of dreaming
+# (MEMORY.md, topics/*.md) stay tracked; the raw session logs and the
+# per-machine dream counter do not. Additive patterns only, never negations.
+logs/
+.dream/
+'@
+    Write-AiqUtf8 -Path $Path -Value $content
+}
+
+function Remove-LocalOnlyMemoryTracking {
+    # logs/ and .dream/ must never be visible to git. Ignore rules only cover
+    # UNtracked files, so an install or graduate that lands on a workspace
+    # where someone already committed them has to take them out of the index.
+    # The files stay on disk -- only the tracking is removed, and the user
+    # commits that.
+    $gd = Get-GitDir
+    if (-not $gd) { return }
+    Push-Location $Workspace
+    try {
+        $tracked = @(git ls-files -- '.assert-iq/memory/logs' '.assert-iq/memory/.dream' 2>$null |
+                     Where-Object { $_ })
+        if ($tracked.Count -eq 0) { return }
+        git rm --cached --quiet -- $tracked 2>$null | Out-Null
+        Write-Host ''
+        Write-Host ("Untracked {0} Dreaming runtime path(s) -- session logs and dream" -f $tracked.Count)
+        Write-Host 'state are local-only in every mode. The files are untouched on disk;'
+        Write-Host "commit the staged removal to take them out of your team's history:"
+        foreach ($t in $tracked) { Write-Host "  $t" }
+    } catch {
+        Write-Warning "Could not untrack Dreaming runtime paths: $_"
+    } finally {
+        Pop-Location
+    }
+}
+
 # =============================================================================
 # -Graduate short-circuit
 # =============================================================================
@@ -845,6 +896,16 @@ if ($doGraduate) {
     # exclusions remain -- only the per-path entries are dropped.
     $Mode = 'committed'
     Write-ExcludeBlock
+    # Graduate short-circuits before Step-Dreaming, so seed the memory ignore
+    # rules here too: an install predating them has no .gitignore under
+    # .assert-iq\memory\, and graduating must not be what exposes session logs.
+    $memDirForIgnore = Join-Path $Workspace '.assert-iq\memory'
+    $memIgnoreForGrad = Join-Path $memDirForIgnore '.gitignore'
+    if ((Test-Path -LiteralPath $memDirForIgnore -PathType Container) -and
+        -not (Test-Path -LiteralPath $memIgnoreForGrad)) {
+        Seed-MemoryGitignore -Path $memIgnoreForGrad
+    }
+    Remove-LocalOnlyMemoryTracking
     Write-Host ''
     Write-Host 'Pack files are now visible to git. Suggested next steps:'
     Write-Host '  git status                       # confirm pack files are untracked'
@@ -1702,6 +1763,15 @@ function Seed-MemoryStore {
     if (-not (Test-Path -LiteralPath $topicKeep)) { New-Item -ItemType File -Force -Path $topicKeep | Out-Null }
     $logKeep = Join-Path $MemDir 'logs\.gitkeep'
     if (-not (Test-Path -LiteralPath $logKeep)) { New-Item -ItemType File -Force -Path $logKeep | Out-Null }
+    # memory/.gitignore keeps logs/ and .dream/ local-only in EVERY mode --
+    # committed installs and -Graduate included. A .gitignore this deep in the
+    # tree outranks .git/info/exclude, which is what makes it the primary gate.
+    # Seeded only when absent, so an upgrade of an older install gains it while
+    # a hand-edited one is left alone.
+    $memIgnorePath = Join-Path $MemDir '.gitignore'
+    if (-not (Test-Path -LiteralPath $memIgnorePath)) {
+        Seed-MemoryGitignore -Path $memIgnorePath
+    }
     # README is static docs (not dream data) -- seed it if the pack ships one.
     $srcReadme = Join-Path $Source '.assert-iq\memory\README.md'
     $dstReadme = Join-Path $MemDir 'README.md'
@@ -2466,6 +2536,9 @@ Write-Manifest
 # Always write the managed exclude block -- Layer 1 (backup-globs) applies in
 # every mode; Layer 2 (per-path entries) only fires when $Mode -eq 'trial'.
 Write-ExcludeBlock
+# An upgrade may land on a workspace where a previous version let the Dreaming
+# runtime into git. Ignore rules don't reach tracked files, so pull them out.
+Remove-LocalOnlyMemoryTracking
 if ($Mode -eq 'trial') {
     Invoke-SkipWorktree
 }
