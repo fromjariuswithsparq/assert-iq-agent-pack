@@ -5,15 +5,11 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.4.0] — 2026-11-17
 
-<!-- make-release.sh requires a dated "## [<version>] — YYYY-MM-DD" heading.
-     Promote this one at release time; leaving it as [Unreleased] until then
-     keeps E2E-17b (VERSION matches the newest released entry) green on every
-     commit. -->
-
-A documentation and test-coverage patch. No behaviour changes, nothing
-breaking — but if you are on Kiro, the docs finally say so.
+Documentation and test coverage. **No behaviour changes and nothing
+breaking** — a minor rather than a patch only because it adds a new
+user-facing document. If you are on Kiro, the docs finally say so.
 
 ### Fixed — the Windows half of the legacy-exclude strip was untested
 
@@ -2029,6 +2025,8 @@ change in incompatible ways without a major-version bump.
 
 See git history (`git log v0.8.0`). Releases prior to 1.0.0 are pre-stable.
 
+[2.4.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.3.0...v2.4.0
+[2.3.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.2.1...v2.3.0
 [2.2.1]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.3...v2.2.0
 [2.1.3]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.2...v2.1.3
