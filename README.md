@@ -466,5 +466,5 @@ Tool-specific references:
 - Feature guide — [`FEATURES.md`](FEATURES.md)
 - VS Code / Copilot — [`.github/vscode-readme.md`](.github/vscode-readme.md)
 - Claude Code — [`.claude/claude-readme.md`](.claude/claude-readme.md)
-- Kiro — [`.kiro/steering/00-assert-iq.md`](.kiro/steering/00-assert-iq.md) (the in-IDE entrypoint) and [`.assert-iq/kiro-harness.md`](.assert-iq/kiro-harness.md) (the verified schema contract)
+- Kiro — [`.kiro/kiro-readme.md`](.kiro/kiro-readme.md)
 - MCP servers — [`.vscode/MCP.md`](.vscode/MCP.md), and [`.kiro/settings/MCP.md`](.kiro/settings/MCP.md) on Kiro

@@ -136,7 +136,8 @@ workspace**: if Dreaming looks dead on Kiro, trust the folder first
 
 > **Note on the `.html` siblings.** The `*.html` files at the repo root
 > (`README.html`, `README.assert-iq.html`, `claude-readme.html`,
-> `vscode-readme.html`, `dreaming-readme.html`, `MCP.html`) are rendered
+> `vscode-readme.html`, `kiro-readme.html`, `dreaming-readme.html`,
+> `MCP.html`) are rendered
 > snapshots of the corresponding `.md` files, intended for offline /
 > static-host distribution. They are **not** the source of truth — edit
 > the `.md` files only and regenerate the HTMLs from those. If you change

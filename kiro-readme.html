@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Assert.IQ — .kiro/ folder (Kiro)</title>
+<style>
+  :root {
+    --bg: #18191a; --bg-elev: #242526; --bg-card: #2a2b2d; --border: #3a3b3c;
+    --text: #f5f5f5; --text-dim: #aab0b8; --accent: #e25232; --accent-2: #1e8077;
+    --accent-3: #f58467; --warn:#ffb347; --code-bg: #111213;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent-2);text-decoration:none;transition:color .15s}
+  a:hover{color:var(--accent)}
+  code{font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:.88em;background:var(--code-bg);color:#c8d3ff;padding:2px 6px;border-radius:4px;border:1px solid var(--border)}
+  pre{background:var(--code-bg);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:16px 20px;overflow-x:auto;font-family:'JetBrains Mono','SF Mono',Menlo,monospace;font-size:.86em;line-height:1.55}
+  pre code{background:none;border:none;padding:0;color:#c8d3ff}
+  .topbar{background:var(--bg-elev);border-bottom:1px solid var(--border);padding:12px 24px;font-size:.85em;color:var(--text-dim);position:sticky;top:0;z-index:10;backdrop-filter:blur(8px)}
+  .topbar a{margin-right:18px}
+  main{max-width:980px;margin:0 auto;padding:48px 24px 80px}
+  p{color:var(--text-dim)}
+  p strong,li strong,td strong{color:var(--text)}
+  li{color:var(--text-dim);margin-bottom:6px}
+  .doc-hero{margin-bottom:48px;padding-bottom:28px;border-bottom:1px solid var(--border);background:radial-gradient(ellipse at top right,rgba(0,212,168,.1),transparent 60%);margin-left:-24px;margin-right:-24px;padding:0 24px 32px}
+  .badge{display:inline-flex;align-items:center;gap:8px;padding:4px 12px;background:rgba(0,212,168,.12);border:1px solid rgba(0,212,168,.35);border-radius:999px;font-size:.78em;color:var(--accent-2);font-weight:500;margin-bottom:14px}
+  h1{font-size:clamp(1.8rem,3.4vw,2.4rem);margin:0 0 12px;line-height:1.15;letter-spacing:-.02em;background:linear-gradient(135deg,#fff 30%,var(--accent-2) 70%,var(--accent) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .subtitle{color:var(--text-dim);font-size:1.05rem;max-width:720px;margin:0}
+  h2{font-size:1.5rem;margin:48px 0 14px;letter-spacing:-.01em;padding-bottom:8px;border-bottom:1px solid var(--border);scroll-margin-top:60px}
+  h3{font-size:1.15rem;margin:28px 0 10px;color:var(--text);scroll-margin-top:60px}
+  table{width:100%;border-collapse:collapse;margin:18px 0;background:var(--bg-card);border-radius:10px;overflow:hidden;border:1px solid var(--border);font-size:.92em}
+  thead{background:linear-gradient(135deg,rgba(0,212,168,.15),rgba(124,92,255,.08))}
+  th{text-align:left;padding:12px 16px;color:var(--text);font-weight:600;border-bottom:1px solid var(--border)}
+  td{padding:12px 16px;border-bottom:1px solid var(--border);color:var(--text-dim);vertical-align:top}
+  td:first-child{color:var(--text);font-weight:500}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:rgba(0,212,168,.04)}
+  .callout{background:var(--bg-card);border:1px solid var(--border);border-left:3px solid var(--accent-2);border-radius:8px;padding:14px 18px;margin:18px 0}
+  footer{margin-top:64px;padding-top:32px;border-top:1px solid var(--border);color:var(--text-dim);font-size:.88em;text-align:center}
+  footer a{margin:0 12px}
+</style>
+<!-- aiq-search:head:start -->
+<link rel="stylesheet" href="assets/search.css">
+<!-- aiq-search:head:end -->
+</head>
+<body>
+<!-- aiq-search:widget:start -->
+<div id="aiq-search" role="search">
+  <input id="aiq-search-input" type="search" autocomplete="off" spellcheck="false"
+         placeholder="Search docs (press / to focus)…" aria-label="Search documentation">
+  <div id="aiq-search-results" hidden role="listbox"></div>
+</div>
+<!-- aiq-search:widget:end -->
+
+<div class="topbar">
+  <a href="README.html">← Landing page</a>
+  <a href="README.assert-iq.html">Full Documentation</a>
+  <a href="vscode-readme.html">VS Code / Copilot half</a>
+  <a href="claude-readme.html">Claude Code half</a>
+</div>
+
+<main>
+  <div class="doc-hero">
+    <div class="badge">📁 .kiro/ · Kiro</div>
+    <h1 id="the-kiro-folder">The <code>.kiro/</code> folder</h1>
+    <p class="subtitle">The <strong>Kiro half</strong> of the Assert.IQ Agent Pack. If you open this repository in <a href="https://kiro.dev">Kiro</a>, this is where Kiro looks for its steering, agents, skills, hooks, and MCP servers.</p>
+  </div>
+
+  <p>Kiro reads none of <code>.github/*</code>, none of <code>.claude/*</code>, and no <code>CLAUDE.md</code>. Everything it needs lives here — plus <code>AGENTS.md</code> at the repo root, which Kiro discovers natively as always-on steering.</p>
+
+  <div class="callout">
+    <p><strong>Trust the workspace.</strong> Kiro disables hook execution in an untrusted folder, and it does so <em>silently</em> — no error, no log line. If Dreaming looks dead, that is the first thing to check.</p>
+  </div>
+
+  <h2 id="whats-in-here">What's in here, in plain words</h2>
+  <table>
+    <thead><tr><th>Item</th><th>What it is</th></tr></thead>
+    <tbody>
+      <tr><td><code>steering/00-assert-iq.md</code></td><td>The always-on house rules — the Kiro counterpart to <code>.github/copilot-instructions.md</code> and <code>CLAUDE.md</code>. Hand-authored, because Kiro has no <code>CLAUDE.md</code> equivalent to mirror.</td></tr>
+      <tr><td><code>steering/qi-*.md</code></td><td>Six scoped rule sheets that switch on by file type — tests, traceability, CI config, oracle rubrics, and so on. <strong>Generated</strong> from <code>.github/instructions/</code> by <code>scripts/sync-kiro.sh</code> (<code>.ps1</code> on Windows), which maps each file's <code>applyTo</code> glob onto Kiro's <code>inclusion</code> / <code>fileMatchPattern</code> frontmatter. Don't hand-edit them; the next sync reverts it.</td></tr>
+      <tr><td><code>agents/assert-iq.md</code></td><td>The <strong>default Assert.IQ agent</strong> — the Quality Intelligence front door, full tools. Routes your question to the right skill and executes. Hand-authored: the prose is harness-specific.</td></tr>
+      <tr><td><code>agents/assert-iq-plan.md</code></td><td>The <strong>planning sibling</strong>. Read-only — researches, writes a plan, waits for your approval before anything moves. Reach for it when the task is large or risky.</td></tr>
+      <tr><td><code>agents/&lt;specialist&gt;.md</code></td><td>Eight single-purpose analysts (risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer, oracle-grader, calibration-specialist, memory-curator, traceability-auditor). <strong>Generated</strong> from <code>.claude/agents/specialists/</code> by <code>scripts/sync-kiro.sh</code>, which translates Claude tool <em>names</em> into Kiro tool <em>tags</em>. Don't hand-edit.</td></tr>
+      <tr><td><code>skills</code></td><td>A <strong>symlink</strong> to <code>.github/skills/</code>, so Copilot, Claude and Kiro share one canonical copy of all 32 skills. On <strong>Windows without Developer Mode</strong> the installer copies the folder instead — in that case re-run the installer after editing any skill.</td></tr>
+      <tr><td><code>hooks/assert-iq-dreaming.json</code></td><td><strong>Dreaming</strong> for Kiro — rendered by the installer so the script paths point at this workspace. Three hooks: a <code>SessionStart</code> gate that nudges you to run <code>/dream</code>, a <code>Stop</code> recorder, and a <code>Stop</code> <strong>agent</strong> hook that captures the turn's facts.</td></tr>
+      <tr><td><code>settings/mcp.json</code></td><td>20 pre-configured MCP servers in <strong>Kiro's own schema</strong>. Not interchangeable with <code>.vscode/mcp.json</code> — different shape, different field names. Everything ships <code>"disabled": true</code>; enable only what you use.</td></tr>
+      <tr><td><code>settings/MCP.md</code></td><td>Per-server setup, credentials, and exactly how Kiro's MCP config differs from the VS Code one.</td></tr>
+    </tbody>
+  </table>
+
+  <p>Per-client configuration — maturity tier, governance posture, signal schema — lives in <code>.assert-iq/</code>, shared by all three harnesses.</p>
+
+  <p><strong>The contract this folder is built against is <code>.assert-iq/kiro-harness.md</code>.</strong> It was verified against the shipped Kiro binary rather than the public docs, which are wrong in three places that would each have produced a broken file. Read it before changing anything here; it also records what remains unverified.</p>
+
+  <h2 id="how-to-start">How to start using it</h2>
+  <ol>
+    <li><strong>Install Kiro</strong> if you haven't yet — see <a href="https://kiro.dev">kiro.dev</a>.</li>
+    <li><strong>Check your environment.</strong> <code>bash scripts/check-environment.sh</code> (macOS/Linux/WSL) or <code>pwsh -File scripts/check-environment.ps1</code> (Windows). It names every requirement and the fix for anything missing.</li>
+    <li><strong>Pick an install path.</strong> The pack ships two and you only ever need one:
+      <ul>
+        <li><strong>Path A — try it on the pack repo itself.</strong> From the cloned pack root, run <code>bash install.sh</code> (macOS/Linux/WSL) or <code>pwsh -File install.ps1</code> (Windows — <strong>not</strong> Git Bash). Then open the <strong>pack folder</strong> itself in Kiro. Your team's codebase is never touched.</li>
+        <li><strong>Path B — install it into your codebase.</strong> The real deployment path. Run the bootstrap from a terminal pointed at your target repo. Pass <code>--kiro=skip</code> (<code>-Kiro skip</code>) if you want everything <em>except</em> this folder.</li>
+      </ul>
+    </li>
+    <li><strong>Reload the window</strong>, then <strong>trust the workspace</strong> when Kiro prompts. <code>Cmd/Ctrl + Shift + P</code> → <em>Developer: Reload Window</em>. If you dismissed the trust prompt, reopen it with <em>Workspaces: Manage Workspace Trust</em>.</li>
+    <li><strong>Start chatting.</strong> Type <code>/</code> and a skill name, or just describe what you want and let the agent route it. Pick <code>Assert-IQ</code> for execution, <code>Assert-IQ-PLAN</code> when you want to see the plan first.</li>
+  </ol>
+
+<pre><code># 1. Clone the pack somewhere (one time, anywhere)
+git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack ~/assert-iq-agent-pack
+# 2. cd into YOUR repo
+cd ~/code/my-app
+# 3. Run the bootstrap script from the clone
+bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
+# Windows (PowerShell, NOT Git Bash):
+# pwsh -File $HOME/assert-iq-agent-pack/scripts/bootstrap.ps1 -Mode trial</code></pre>
+
+  <div class="callout">
+    <p><strong>If your workspace already had its own <code>.kiro/skills</code></strong>, the installer <strong>merges</strong> into it rather than claiming it: it reclaims a directory that is empty or byte-identical to the canonical tree, copies alongside anything else, and never deletes what it did not place. Uninstall removes only the pack's own files. Merged skills are copies, so re-run the installer after a pack upgrade.</p>
+  </div>
+
+  <h2 id="three-things-kiro-does-differently">Three things Kiro does differently — each fails silently</h2>
+  <p>These are the ones worth knowing up front, because none of them produces an error message.</p>
+  <ul>
+    <li><strong>Hooks do not run in an untrusted workspace.</strong> Dreaming will look dead — the counter never advances, the gate never fires — and nothing appears in any log you'd think to check. Trust the folder.</li>
+    <li><strong>Agents do not inherit steering or skills.</strong> A Kiro agent loads only what its own <code>resources</code> globs name, and an invalid entry is dropped without error. Every agent the pack ships declares both globs, and a test enforces it — but if you write your own agent and it seems to know nothing about QI, this is why.</li>
+    <li><strong>File-triggered hooks fire only on agent-made edits</strong>, never on a manual save. If you're testing a hook by editing a file yourself, it will never run.</li>
+  </ul>
+  <p>One more, for anyone extending Dreaming: <strong>Kiro writes no transcript.</strong> Its <code>Stop</code> payload carries no <code>transcript_path</code> — the string appears zero times in the entire shipped bundle — so the recorder has nothing to mine. That is why the pack ships a third, <code>agent</code>-type <code>Stop</code> hook on Kiro: the agent has the finished turn in context, so on Kiro <strong>the agent is the capture layer</strong>. Claude Code and Copilot are untouched; their <code>transcript_path</code> still works.</p>
+
+  <h2 id="will-this-work-elsewhere">"Will this also work in Copilot or Claude Code?"</h2>
+  <p>Yes — both. The same content is mirrored to <code>.github/</code> for GitHub Copilot and to <code>.claude/</code> for Claude Code, at the repo root. See <a href="vscode-readme.html"><code>vscode-readme.html</code></a> and <a href="claude-readme.html"><code>claude-readme.html</code></a>.</p>
+  <p>You can use any of the three — they share the same skills, instructions, and Dreaming memory. Because the Kiro steering and specialists are <em>generated</em> from the same sources the other two read, the three cannot drift apart. After editing <code>.github/instructions/*</code> or <code>.claude/agents/specialists/*</code>, re-run <strong>both</strong> <code>scripts/sync-agents.sh</code> and <code>scripts/sync-kiro.sh</code> from the pack checkout. Parity checks P7 and P8 fail while the Kiro side is stale, exactly as P5 and P6 do for Copilot.</p>
+
+  <h2 id="uninstalling">Uninstalling the pack</h2>
+  <p>Match the uninstall to the install path you used.</p>
+  <p><strong>Path A — pack-as-workspace</strong> (<code>bash install.sh</code> / <code>pwsh ./install.ps1</code> at the root of the cloned pack):</p>
+<pre><code>bash install.sh --uninstall          # macOS / Linux / WSL
+pwsh ./install.ps1 -Uninstall        # Windows</code></pre>
+  <p>That removes the skills symlinks and the rendered session-event wiring. Your <code>.assert-iq/memory/</code> store is preserved. The committed pack files remain — delete or <code>git rm</code> them when you're done with the clone.</p>
+  <p><strong>Path B — codebase install</strong> (<code>/assert-iq-bootstrap</code> or <code>bash scripts/bootstrap.sh --mode=trial</code> inside your target repo):</p>
+<pre><code>bash scripts/bootstrap.sh --uninstall            # macOS / Linux
+bash scripts/bootstrap.sh --uninstall --dry-run  # preview without changes
+pwsh -File scripts/bootstrap.ps1 -Uninstall      # Windows</code></pre>
+  <p>The uninstall reads <code>.assert-iq/.install-manifest.json</code>, restores any pre-existing files from their <code>&lt;file&gt;.assert-iq.pre-install</code> snapshots, removes pack-owned files — including the generated steering and agents, the rendered hooks, and the <code>.kiro/skills</code> link — and strips the trial-mode block from <code>.git/info/exclude</code>. Skills you had before the install are left alone. Files you edited post-install are preserved at <code>&lt;file&gt;.assert-iq.uninstall-saved</code> so nothing is silently lost.</p>
+  <p>To disable just Dreaming without uninstalling: set <code>dreaming.enabled: false</code> in <code>.assert-iq/config.yaml</code> (or export <code>AIQ_DREAMING_DISABLED=1</code>), or delete <code>hooks/assert-iq-dreaming.json</code>.</p>
+
+  <h2 id="not-auto-wired">What the bootstrap does <strong>not</strong> auto-wire — and how to fix it</h2>
+  <p>The bootstrap delivers <strong>every file in the pack to disk</strong> at the right location, but Kiro only auto-loads some of them from a specific set of paths. These have to live in the <strong>workspace</strong> to be picked up:</p>
+  <ul>
+    <li><code>.kiro/steering/</code> — the always-on entrypoint plus the six scoped rule sheets. Kiro reads steering only from the workspace.</li>
+    <li><code>.kiro/agents/</code> — the lead, the planner, and the eight specialists.</li>
+    <li><code>.kiro/skills</code> — the link to <code>.github/skills/</code>. Without it, <code>/</code> shows nothing.</li>
+    <li><code>.kiro/hooks/</code> — Dreaming. Rendered at bootstrap time so the script paths resolve to the workspace copies, which is why this one cannot simply be copied from the pack.</li>
+    <li><code>.kiro/settings/mcp.json</code> — workspace MCP config. Merges over your user-global <code>~/.kiro/settings/mcp.json</code>, so personal credentials can stay in your home directory while the workspace file stays committed and secret-free.</li>
+    <li><code>AGENTS.md</code> — the generic agent pointer, which Kiro reads as always-on steering.</li>
+    <li><code>.assert-iq/</code> — per-client config. The agents read <code>.assert-iq/maturity-profile.md</code> and <code>.assert-iq/governance.md</code> on every quality or release question, and fall back to defaults if they're missing.</li>
+  </ul>
+  <p><strong>Run the bootstrap script once per new workspace.</strong> From a terminal inside your target repo:</p>
+<pre><code>bash /path/to/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
+# Windows: pwsh -File &lt;pack&gt;\scripts\bootstrap.ps1 -Mode trial</code></pre>
+  <p>The script walks you through where each surface should live, supports the <code>solo</code>, <code>pod</code>, and <code>portable</code> presets, and copies the templates from the cloned pack into the right places. Pre-existing files are preserved (SHA256 compare plus an interactive resolver) and snapshotted to <code>&lt;file&gt;.assert-iq.pre-install</code> for a clean uninstall. Safe to re-run.</p>
+  <div class="callout">
+    <p><strong>No user-global Kiro scope.</strong> <code>--kiro</code> takes <code>workspace</code> or <code>skip</code>, not <code>user</code>. Kiro does resolve <code>~/.kiro/steering</code> and <code>~/.kiro/agents</code>, but global-versus-workspace precedence <em>per file name</em> is unverified against a real Kiro, and shipping an unverified scope is exactly the quiet half-support this pack avoids. See <code>kiro-harness.md</code> §8.</p>
+  </div>
+
+  <h2 id="something-off">Something feels off?</h2>
+  <ul>
+    <li><strong>Dreaming not firing?</strong> Trust the workspace first — that is the usual cause, and it fails without a message. Then check that <code>hooks/assert-iq-dreaming.json</code> exists and that <code>dreaming.enabled</code> is not <code>false</code> in <code>.assert-iq/config.yaml</code>.</li>
+    <li><strong>Skills not showing up?</strong> <code>skills</code> here should be a link (or a populated folder on Windows without Developer Mode), not empty. Re-run the installer.</li>
+    <li><strong>An agent seems to know nothing about QI?</strong> Check its <code>resources</code> globs — Kiro agents inherit nothing, and invalid entries are dropped silently.</li>
+    <li><strong>A generated file keeps reverting?</strong> That's working as intended. Edit the source under <code>.github/instructions/</code> or <code>.claude/agents/specialists/</code> and re-run <code>scripts/sync-kiro.sh</code>.</li>
+    <li>Need the full file map? See <code>MANIFEST.md</code>.</li>
+    <li>Need the day-one onboarding doc? See <a href="README.assert-iq.html">README.assert-iq.html</a>.</li>
+  </ul>
+
+  <footer>
+    <div>Assert.IQ Agent Pack · v2.3.0 · Owned by Jarius Hayes · Sparq Intelligence Studio</div>
+    <div style="margin-top:12px;">
+      <a href="README.html">← Landing page</a>
+      <a href="README.assert-iq.html">Full Docs</a>
+      <a href="vscode-readme.html">VS Code half</a>
+      <a href="claude-readme.html">Claude Code half</a>
+      <a href=".kiro/kiro-readme.md">Markdown source</a>
+    </div>
+  </footer>
+</main>
+<!-- aiq-search:scripts:start -->
+<script src="assets/search-index.js"></script>
+<script src="assets/search.js"></script>
+<!-- aiq-search:scripts:end -->
+</body>
+</html>

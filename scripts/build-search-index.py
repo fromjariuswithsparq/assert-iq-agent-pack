@@ -36,6 +36,7 @@ PAGES = [
     ("MCP.html",               "MCP servers"),
     ("vscode-readme.html",     "VS Code guide"),
     ("claude-readme.html",     "Claude Code guide"),
+    ("kiro-readme.html",       "Kiro guide"),
     ("oracles-readme.html",    "Oracle quick start"),
     ("dreaming-readme.html",   "Dreaming"),
 ]

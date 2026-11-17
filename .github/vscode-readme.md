@@ -42,8 +42,9 @@ folder on their own.
 
 Yes — and in Kiro too. The same content is mirrored to the `.claude/`
 folder for Claude Code and to `.kiro/` for Kiro, both at the repo root. See
-[`.claude/claude-readme.md`](../.claude/claude-readme.md) for the Claude
-side. You can use any of the three — they share the same skills,
+[`.claude/claude-readme.md`](../.claude/claude-readme.md) and
+[`.kiro/kiro-readme.md`](../.kiro/kiro-readme.md) for those two sides.
+You can use any of the three — they share the same skills,
 instructions, and Dreaming memory.
 
 > **Before installing**, run the environment check — `bash scripts/check-environment.sh`

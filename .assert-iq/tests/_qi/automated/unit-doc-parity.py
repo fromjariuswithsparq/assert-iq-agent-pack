@@ -46,6 +46,7 @@ PAIRS = [
     ("README.assert-iq.md",           "README.assert-iq.html"),
     (".claude/claude-readme.md",      "claude-readme.html"),
     (".github/vscode-readme.md",      "vscode-readme.html"),
+    (".kiro/kiro-readme.md",          "kiro-readme.html"),
     (".vscode/MCP.md",                "MCP.html"),
     (".assert-iq/dreaming/README.md", "dreaming-readme.html"),
     ("ORACLE_QUICK_START.md",         "oracles-readme.html"),

@@ -73,9 +73,11 @@ The instructions ("house rules") that Copilot reads from
 
 ## "Will this also work in GitHub Copilot?"
 
-Yes. The same content is mirrored to the `.github/` folder at the repo
-root, and Copilot reads it automatically — no installer needed for the
-Copilot side. See [`../.github/vscode-readme.md`](../.github/vscode-readme.md).
+Yes — and in Kiro too. The same content is mirrored to the `.github/`
+folder at the repo root, where Copilot reads it automatically (no installer
+needed for the Copilot side), and to `.kiro/` for Kiro. See
+[`../.github/vscode-readme.md`](../.github/vscode-readme.md) and
+[`../.kiro/kiro-readme.md`](../.kiro/kiro-readme.md).
 
 You can use any of the three — they share the same skills, instructions, and
 Dreaming memory.
@@ -170,10 +172,6 @@ are deep-merged additively and snapshotted to
 > `~/.agents/skills/` and `~/.claude/skills/`. The workspace still gets
 > `.github/agents/`, `.claude/agents/`, and the install manifest, but
 > instructions, dreaming, settings, MCP config, and `CLAUDE.md` stay out.
-
-> If the cloned pack is open in Claude Code, or its skills are
-> installed user-globally to `~/.agents/skills/`, the same wizard is
-> available from chat as `/assert-iq-bootstrap`.
 
 > If the cloned pack itself is open in Claude Code, or its skills are
 > installed user-globally to `~/.agents/skills/`, the same wizard is

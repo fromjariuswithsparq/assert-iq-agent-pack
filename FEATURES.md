@@ -962,7 +962,8 @@ Run [`/measure-qi-impact`](#business-impact-dashboards) and [`/calibration-repor
 | [`.kiro/settings/MCP.md`](.kiro/settings/MCP.md) | The same servers on Kiro, and what differs |
 | [`.claude/claude-readme.md`](.claude/claude-readme.md) | Claude Code specifics |
 | [`.github/vscode-readme.md`](.github/vscode-readme.md) | VS Code and Copilot specifics |
-| [`.assert-iq/kiro-harness.md`](.assert-iq/kiro-harness.md) | Kiro specifics — the verified schema contract |
+| [`.kiro/kiro-readme.md`](.kiro/kiro-readme.md) | Kiro specifics |
+| [`.assert-iq/kiro-harness.md`](.assert-iq/kiro-harness.md) | The verified Kiro schema contract — read before changing anything under `.kiro/` |
 
 ---
 

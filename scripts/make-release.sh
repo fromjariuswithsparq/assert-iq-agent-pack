@@ -73,6 +73,7 @@ bump_doc_banners() {
     "FEATURES.html"
     "claude-readme.html"
     "vscode-readme.html"
+    "kiro-readme.html"
     "dreaming-readme.html"
     "MCP.html"
   )
@@ -219,7 +220,7 @@ fi
 RELEASE_PATHS=(
   VERSION CHANGELOG.md README.md MANIFEST.md README.assert-iq.md
   README.assert-iq.html README.html FEATURES.md FEATURES.html
-  claude-readme.html vscode-readme.html
+  claude-readme.html vscode-readme.html kiro-readme.html
   dreaming-readme.html MCP.html assets/search-index.js docs/html
 )
 if ! git diff --quiet -- "${RELEASE_PATHS[@]}" 2>/dev/null; then

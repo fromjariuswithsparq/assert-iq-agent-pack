@@ -46,6 +46,26 @@ test compares CR-stripped so a line-ending difference can never masquerade as
 data loss. It did exactly that once during review, and read like a
 user's ignore rules had been eaten.
 
+### Added — `.kiro/kiro-readme.md`, the Kiro guide
+
+Copilot and Claude Code each had a plain-language guide to their half of the
+pack. Kiro did not, so the only Kiro-specific document was
+`.assert-iq/kiro-harness.md` — a schema contract written for whoever maintains
+the harness, not for whoever uses it.
+
+The new guide covers what each `.kiro/` surface is and which files are
+generated, the install and uninstall paths, what the bootstrap does *not*
+auto-wire, and a section on **the three Kiro behaviours that fail silently**:
+hooks don't run in an untrusted workspace, agents inherit no steering or
+skills, and file-triggered hooks ignore manual saves. None of those produces
+an error message, and all three have cost someone an afternoon.
+
+It joins the doc family properly rather than sitting beside it: an HTML
+sister (`kiro-readme.html`) with heading parity enforced by
+`unit-doc-parity.py`, an entry in the cross-page search index, a row in
+`MANIFEST.md`, and registration in `make-release.sh` so its version banner
+is bumped with everything else.
+
 ### Changed — the docs now say Kiro everywhere they say Copilot and Claude Code
 
 Kiro shipped as a first-class harness in 2.3.0, but most of the
@@ -76,6 +96,11 @@ after it.
   `FEATURES.md`, against 32 shipped skills and "32" everywhere else.
 - `README.md`'s "Testing an unreleased branch" example still checked out
   `feat/kiro-ide-support`, a branch merged in 2.3.0.
+- `.claude/claude-readme.md` carried the same paragraph twice, two lines
+  apart, differing by one word.
+- The HTML version-history table had no 2.3.0 row at all. `make-release.sh`
+  promotes an `Unreleased` row and the HTML had none to promote — the same
+  miss that failed E2E-17c on the markdown table last release. Backfilled.
 
 ## [2.3.0] — 2026-11-17
 
