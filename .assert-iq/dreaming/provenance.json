@@ -2,5 +2,24 @@
   "schema_version": "1.0",
   "description": "Append-only log of dream cycles with memory versioning for reproducibility",
   "dream_cycles": [
+    {
+      "cycle_id": "dream-20260909T132440Z",
+      "status": "aborted",
+      "started_at": "2026-09-09T13:24:40.954381Z",
+      "completed_at": "2026-10-05T21:02:41.304325Z",
+      "maturity_tier": "early",
+      "memory_version_before": "sha256-v2:5821d45b2b9f311cb31aeb6681d2ad4e7ee3de65b1bf511191be9f7fe14f0746",
+      "memory_version_after": "sha256-v2:5821d45b2b9f311cb31aeb6681d2ad4e7ee3de65b1bf511191be9f7fe14f0746",
+      "snapshot": ".assert-iq/dreaming/.snapshots/mem-20260909T132440Z.tar.gz",
+      "sanity": {
+        "clean": true,
+        "topics": 0,
+        "issues": 0,
+        "detail": {},
+        "note": "no topics in the memory store yet"
+      },
+      "regression": null,
+      "memory_changed": false
+    }
   ]
 }

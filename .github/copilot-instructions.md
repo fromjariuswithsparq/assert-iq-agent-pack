@@ -12,8 +12,18 @@ Follow that file. Do not duplicate its rules here.
 Client-specific configuration is read from `.assert-iq/`:
 `config.yaml`, `governance.md`, `maturity-profile.md`, `signal-schema.json`.
 
-For the parallel Claude Code entrypoint see `CLAUDE.md`. For non-Copilot,
-non-Claude tooling (Codex CLI, Cursor, Aider) see `AGENTS.md`.
+For the parallel Claude Code entrypoint see `CLAUDE.md`; for Kiro see
+`.kiro/steering/00-assert-iq.md`. For other tooling (Codex CLI, Cursor,
+Aider) see `AGENTS.md`. If you change behavior in one entrypoint, update
+the other two — three harnesses drift silently otherwise.
+
+Kiro is the third harness (v2.2+). It reads none of `.github/*`, so its
+instructions and specialist agents are **generated** into `.kiro/` by
+`scripts/sync-kiro.sh` (`sync-kiro.ps1` on Windows). After editing
+`.github/instructions/*` or `.claude/agents/specialists/*`, re-run that
+sync alongside `sync-agents`, or checks P7/P8 in
+`.assert-iq/tests/_qi/automated/e2e-agent-parity.sh` will fail. Contract:
+`.assert-iq/kiro-harness.md`.
 
 ## Agent definitions in this repo (read before editing them)
 

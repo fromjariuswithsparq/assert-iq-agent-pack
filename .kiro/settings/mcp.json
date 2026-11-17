@@ -1,0 +1,220 @@
+{
+  "mcpServers": {
+    "github": {
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_PAT}"
+      },
+      "disabled": true
+    },
+    "azure-devops": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@azure-devops/mcp",
+        "${ADO_ORG}"
+      ],
+      "env": {
+        "AZURE_DEVOPS_EXT_PAT": "${ADO_PAT}"
+      },
+      "disabled": true
+    },
+    "atlassian": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@atlassian/mcp-remote"
+      ],
+      "env": {
+        "ATLASSIAN_BASE_URL": "${JIRA_BASE_URL}",
+        "ATLASSIAN_API_TOKEN": "${JIRA_API_TOKEN}",
+        "ATLASSIAN_EMAIL": "${JIRA_EMAIL}"
+      },
+      "disabled": true
+    },
+    "git": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-git",
+        "--repository",
+        "${AIQ_REPO_PATH}"
+      ],
+      "disabled": true
+    },
+    "gitlab": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-gitlab"
+      ],
+      "env": {
+        "GITLAB_PERSONAL_ACCESS_TOKEN": "${GITLAB_PAT}",
+        "GITLAB_API_URL": "${GITLAB_API_URL}"
+      },
+      "disabled": true
+    },
+    "bitbucket": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@nexus2520/bitbucket-mcp-server"
+      ],
+      "env": {
+        "BITBUCKET_WORKSPACE": "${BITBUCKET_WORKSPACE}",
+        "BITBUCKET_EMAIL": "${BITBUCKET_EMAIL}",
+        "BITBUCKET_APP_PASSWORD": "${BITBUCKET_APP_PASSWORD}"
+      },
+      "disabled": true
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "${FS_ALLOWED_PATH}"
+      ],
+      "disabled": true
+    },
+    "postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "${PG_CONNECTION_STRING}"
+      ],
+      "disabled": true
+    },
+    "sqlite": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-sqlite",
+        "--db-path",
+        "${SQLITE_DB_PATH}"
+      ],
+      "disabled": true
+    },
+    "aws": {
+      "command": "uvx",
+      "args": [
+        "awslabs.core-mcp-server@latest"
+      ],
+      "env": {
+        "AWS_PROFILE": "${AWS_PROFILE}",
+        "AWS_REGION": "${AWS_REGION}"
+      },
+      "disabled": true
+    },
+    "sentry": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-sentry"
+      ],
+      "env": {
+        "SENTRY_AUTH_TOKEN": "${SENTRY_TOKEN}",
+        "SENTRY_ORG": "${SENTRY_ORG}"
+      },
+      "disabled": true
+    },
+    "grafana": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@grafana/mcp-grafana"
+      ],
+      "env": {
+        "GRAFANA_URL": "${GRAFANA_URL}",
+        "GRAFANA_API_KEY": "${GRAFANA_API_KEY}"
+      },
+      "disabled": true
+    },
+    "datadog": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@winor30/mcp-server-datadog"
+      ],
+      "env": {
+        "DD_API_KEY": "${DD_API_KEY}",
+        "DD_APP_KEY": "${DD_APP_KEY}",
+        "DD_SITE": "${DD_SITE}"
+      },
+      "disabled": true
+    },
+    "honeycomb": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@honeycombio/honeycomb-mcp"
+      ],
+      "env": {
+        "HONEYCOMB_API_KEY": "${HONEYCOMB_API_KEY}"
+      },
+      "disabled": true
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ],
+      "disabled": true
+    },
+    "puppeteer": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-puppeteer"
+      ],
+      "disabled": true
+    },
+    "notion": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@notionhq/notion-mcp-server"
+      ],
+      "env": {
+        "OPENAPI_MCP_HEADERS": "${NOTION_HEADERS}"
+      },
+      "disabled": true
+    },
+    "confluence": {
+      "command": "uvx",
+      "args": [
+        "mcp-atlassian",
+        "--confluence-only"
+      ],
+      "env": {
+        "CONFLUENCE_URL": "${JIRA_BASE_URL}",
+        "CONFLUENCE_USERNAME": "${JIRA_EMAIL}",
+        "CONFLUENCE_API_TOKEN": "${JIRA_API_TOKEN}"
+      },
+      "disabled": true
+    },
+    "slack": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-slack"
+      ],
+      "env": {
+        "SLACK_BOT_TOKEN": "${SLACK_BOT_TOKEN}",
+        "SLACK_TEAM_ID": "${SLACK_TEAM_ID}"
+      },
+      "disabled": true
+    },
+    "teams": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@inditextech/mcp-teams-server"
+      ],
+      "env": {
+        "TEAMS_APP_ID": "${TEAMS_APP_ID}",
+        "TEAMS_APP_PASSWORD": "${TEAMS_APP_PASSWORD}",
+        "TEAMS_TENANT_ID": "${TEAMS_TENANT_ID}"
+      },
+      "disabled": true
+    }
+  }
+}

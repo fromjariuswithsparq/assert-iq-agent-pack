@@ -14,9 +14,15 @@
 #                      falls back to committed.
 #
 # Skills scope (where the QI skills land):
-#   --skills-scope=workspace   (default) workspace .github/skills + .claude/skills symlink
+#   --skills-scope=workspace   (default) workspace .github/skills + .claude/skills
+#                              + .kiro/skills symlinks
 #   --skills-scope=user        only ~/.agents/skills + ~/.claude/skills (every workspace gets them)
 #   --skills-scope=both        workspace AND user-global
+#
+# Harnesses (each surface can be scoped or skipped independently):
+#   --kiro=workspace           (default in solo/pod) .kiro/steering, agents,
+#                              settings/mcp.json, rendered hooks, skills link
+#   --kiro=skip                (default in portable) no Kiro wiring at all
 #
 # Presets:
 #   --preset=pod        (default) team install — everything in workspace
@@ -48,6 +54,7 @@ AGENTS_MD=""
 VSCODE=""
 DREAMING=""
 CLAUDE_SETTINGS=""
+KIRO=""
 SKILLS_SCOPE=""
 WORKSPACE="$PWD"
 MODE=""
@@ -90,6 +97,7 @@ for arg in "$@"; do
     --dreaming=*)        DREAMING="${arg#*=}" ;;
     --hooks=*)           DREAMING="${arg#*=}" ;;   # deprecated alias for --dreaming
     --claude-settings=*) CLAUDE_SETTINGS="${arg#*=}" ;;
+    --kiro=*)            KIRO="${arg#*=}" ;;
     --skills-scope=*)    SKILLS_SCOPE="${arg#*=}" ;;
     --workspace=*)       WORKSPACE="${arg#*=}" ;;
     --source=*)          SOURCE="${arg#*=}" ;;
@@ -433,11 +441,28 @@ manifest_write() {
       IFS='|' read -r a p s <<< "$e"
       new_json="$(jq --arg a "$a" --arg p "$p" --arg s "$s" --arg sha "$(sha256_of "$p")" '. + [{action:$a, path:$p, scope:$s, sha:$sha}]' <<< "$new_json")"
     done
+    # The entry array goes to jq through a FILE, never --argjson.
+    #
+    # --argjson puts the whole array on the COMMAND LINE. A pod install is ~138
+    # entries of absolute paths, which is tens of KB -- comfortably past the
+    # ~32KB argv limit on MSYS/Windows. Adding the Kiro surfaces (+21 entries)
+    # crossed it, and the failure was ugly: execve returned "Argument list too
+    # long", but `> "$MANIFEST_PATH"` had ALREADY truncated the file, so the
+    # install printed success and left a 0-BYTE MANIFEST. An empty manifest
+    # means uninstall removes nothing and upgrade cannot diff -- the pack
+    # silently loses track of everything it installed.
+    #
+    # --slurpfile reads the same JSON from disk with no argv cost. It wraps the
+    # file's contents in an array, so the single array we wrote is $new[0].
+    local njf="$MANIFEST_PATH.entries.tmp"
+    printf '%s' "$new_json" > "$njf" || { rm -f "$njf"; return 1; }
+    local mtmp="$MANIFEST_PATH.tmp"
     if [[ -f "$MANIFEST_PATH" ]]; then
       # Merge: prefer new entry for same path, keep older paths not touched this run.
       jq --arg v "$pack_version" --arg t "$now" --arg m "$MODE" \
-         --argjson new "$new_json" \
-         '{
+         --slurpfile new "$njf" \
+         '($new[0]) as $new |
+          {
             version:$v,
             installed_at:$t,
             mode:$m,
@@ -445,11 +470,22 @@ manifest_write() {
               ([.paths[]? | select((.path) as $p | ($new | map(.path) | index($p)) == null)])
               + $new
             )
-          }' "$MANIFEST_PATH" > "$MANIFEST_PATH.tmp" && mv "$MANIFEST_PATH.tmp" "$MANIFEST_PATH"
+          }' "$MANIFEST_PATH" > "$mtmp"
     else
-      jq -n --arg v "$pack_version" --arg t "$now" --arg m "$MODE" --argjson new "$new_json" \
-        '{version:$v, installed_at:$t, mode:$m, paths:$new}' > "$MANIFEST_PATH"
+      jq -n --arg v "$pack_version" --arg t "$now" --arg m "$MODE" --slurpfile new "$njf" \
+        '{version:$v, installed_at:$t, mode:$m, paths:$new[0]}' > "$mtmp"
     fi
+    # Only replace the real manifest if jq actually produced something. Both
+    # branches now stage first, so a jq failure can no longer leave a truncated
+    # or empty manifest behind.
+    if [[ -s "$mtmp" ]]; then
+      mv "$mtmp" "$MANIFEST_PATH"
+    else
+      rm -f "$mtmp" "$njf"
+      echo "ERROR: manifest write failed (jq produced no output); $MANIFEST_PATH left unchanged" >&2
+      return 1
+    fi
+    rm -f "$njf"
   else
     # No jq: write a simple, valid JSON ourselves (replace, no merge — best we can do).
     json_escape() {
@@ -1539,7 +1575,14 @@ uninstall_run() {
   # the snapshots are now meaningless — clean them up rather than leave litter.
   # Confined to the dirs the tailor skill writes to, and the suffix is unique
   # to our tooling, so this can't touch unrelated user files.
-  for d in "$WORKSPACE/.assert-iq" "$WORKSPACE/.github/instructions" "$WORKSPACE/.vscode"; do
+  local -a tailor_dirs=(
+    "$WORKSPACE/.assert-iq"
+    "$WORKSPACE/.github/instructions"
+    "$WORKSPACE/.vscode"
+    "$WORKSPACE/.kiro/steering"
+    "$WORKSPACE/.kiro/settings"
+  )
+  for d in "${tailor_dirs[@]}"; do
     [[ -d "$d" ]] || continue
     while IFS= read -r snap; do
       [[ -n "$snap" ]] && remove_path "$snap"
@@ -1555,6 +1598,9 @@ uninstall_run() {
       "$WORKSPACE/.github/skills"
       "$WORKSPACE/.github/agents"
       "$WORKSPACE/.claude/agents"
+      "$WORKSPACE/.kiro/agents"
+      "$WORKSPACE/.kiro/steering"
+      "$WORKSPACE/.kiro/settings"
       "$WORKSPACE/.assert-iq/dreaming"
       "$WORKSPACE/.assert-iq/oracles"
       "$WORKSPACE/.assert-iq/verdicts"
@@ -1592,6 +1638,12 @@ uninstall_run() {
       "$WORKSPACE/.claude/agents"
       "$WORKSPACE/.claude/skills"
       "$WORKSPACE/.claude"
+      "$WORKSPACE/.kiro/hooks"
+      "$WORKSPACE/.kiro/skills"
+      "$WORKSPACE/.kiro/agents"
+      "$WORKSPACE/.kiro/steering"
+      "$WORKSPACE/.kiro/settings"
+      "$WORKSPACE/.kiro"
       "$WORKSPACE/.github/instructions"
       "$WORKSPACE/.github/agents"
       "$WORKSPACE/.github/skills"
@@ -1752,6 +1804,7 @@ case "$PRESET" in
     : "${VSCODE:=workspace}"
     : "${DREAMING:=workspace}"
     : "${CLAUDE_SETTINGS:=workspace}"
+    : "${KIRO:=workspace}"
     : "${SKILLS_SCOPE:=workspace}"
     ;;
   portable)
@@ -1769,6 +1822,7 @@ case "$PRESET" in
     : "${VSCODE:=skip}"
     : "${DREAMING:=skip}"
     : "${CLAUDE_SETTINGS:=skip}"
+    : "${KIRO:=skip}"
     : "${SKILLS_SCOPE:=user}"
     ;;
   pod|"")
@@ -1780,6 +1834,7 @@ case "$PRESET" in
     : "${VSCODE:=workspace}"
     : "${DREAMING:=workspace}"
     : "${CLAUDE_SETTINGS:=workspace}"
+    : "${KIRO:=workspace}"
     : "${SKILLS_SCOPE:=workspace}"
     ;;
   *)
@@ -2049,6 +2104,36 @@ render_events_json() {
   # Caller must rm it.
   local pack_root="$1"
   local template="$SOURCE/.assert-iq/dreaming/session-events.template.json"
+  [[ -f "$template" ]] || { echo ""; return; }
+  local lib="$SOURCE/.assert-iq/dreaming/scripts/lib/render-events.sh"
+  [[ -f "$lib" ]] || { echo ""; return; }
+  # shellcheck source=../.assert-iq/dreaming/scripts/lib/render-events.sh
+  source "$lib"
+  local tmp
+  tmp="$(mktemp)"
+  if ! render_events_template "$template" "$tmp" "$pack_root"; then
+    rm -f "$tmp"
+    echo ""
+    return
+  fi
+  echo "$tmp"
+}
+
+render_kiro_hooks_json() {
+  # Renders the KIRO-shaped hook template with __PACK_ROOT__ -> $1. Echoes the
+  # path to a temp file; caller must rm it.
+  #
+  # A THIRD shape, not a variant of the other two. Kiro's contract:
+  #   { "version": "v1", "hooks": [ { name, trigger, action:{type,command}, ... } ] }
+  # Flat array with PascalCase trigger names on each entry -- no matcher-group
+  # wrapper (Claude), no per-event arrays with platform overrides (Copilot), no
+  # "shell" field. Kiro spawns with shell:true, so the command names its own
+  # interpreter.
+  #
+  # bootstrap.sh only ever renders the POSIX template: it refuses to run on
+  # MSYS, and bootstrap.ps1 handles the Windows side. See kiro-harness.md §4.
+  local pack_root="$1"
+  local template="$SOURCE/.assert-iq/dreaming/kiro-hooks.posix.template.json"
   [[ -f "$template" ]] || { echo ""; return; }
   local lib="$SOURCE/.assert-iq/dreaming/scripts/lib/render-events.sh"
   [[ -f "$lib" ]] || { echo ""; return; }
@@ -2442,7 +2527,47 @@ process_claude_skills_link() {
     return
   fi
 
-  local dst="$WORKSPACE/.claude/skills"
+  link_workspace_skills "$WORKSPACE/.claude/skills" ".claude/skills"
+}
+
+skills_dest_disposable() {
+  # 0 (disposable) if replacing directory $1 with a link to $2 loses NOTHING:
+  # every file under $1 also exists under $2 with identical bytes. An empty
+  # directory is disposable by definition -- the loop body never runs.
+  #
+  # Deliberately conservative in one direction only: a file the user added, or
+  # any file whose content differs from the canonical tree, makes the whole
+  # directory non-disposable and we sidecar instead. Missing files are fine --
+  # a partial or interrupted copy is still ours to replace.
+  #
+  # Content comparison rather than a manifest lookup on purpose. The manifest
+  # is exactly what is unreliable in this situation: it can be stale, it can
+  # predate the entry, and it has been observed written as 0 bytes when a jq
+  # invocation blew the Windows argv limit. Bytes on disk cannot lie.
+  local dst="$1" src="$2" f rel
+  [[ -d "$dst" ]] || return 1
+  [[ -d "$src" ]] || return 1
+  while IFS= read -r f; do
+    [[ -n "$f" ]] || continue
+    rel="${f#"$dst"/}"
+    [[ -f "$src/$rel" ]] || return 1
+    cmp -s "$f" "$src/$rel" || return 1
+  done < <(find "$dst" -type f 2>/dev/null)
+  return 0
+}
+
+link_workspace_skills() {
+  # Link <dst> -> ../.github/skills, preferring a relative symlink and falling
+  # back to a recursive copy. Shared by .claude/skills and .kiro/skills so the
+  # sidecar rules -- never overwrite a path the user owns -- are identical for
+  # both rather than duplicated and drifting.
+  #
+  # $1 = absolute destination, $2 = label for the manifest/summary.
+  #
+  # The relative target is load-bearing: `unchanged (pack-owned symlink)` is
+  # decided by comparing readlink output against this exact string, and that is
+  # what makes re-running the bootstrap idempotent instead of sidecar-spamming.
+  local dst="$1" label="$2"
   local target_rel="../.github/skills"
   local target_abs="$WORKSPACE/.github/skills"
 
@@ -2451,7 +2576,7 @@ process_claude_skills_link() {
     current="$(readlink "$dst" 2>/dev/null || echo "")"
     if [[ "$current" == "$target_rel" ]]; then
       manifest_add "unchanged_owned" "$dst" "workspace"
-      record ".claude/skills" "unchanged (pack-owned symlink)" "$dst"
+      record "$label" "unchanged (pack-owned symlink)" "$dst"
       return
     fi
     # User-owned symlink pointing elsewhere — write a sidecar, never overwrite.
@@ -2459,29 +2584,134 @@ process_claude_skills_link() {
     rm -f "$side"
     ln -s "$target_rel" "$side" 2>/dev/null || cp -R "$target_abs" "$side"
     manifest_add "sidecar" "$side" "workspace"
-    record ".claude/skills" "sidecar (existing symlink) -> .assert-iq-new" "$side"
+    record "$label" "sidecar (existing symlink) -> .assert-iq-new" "$side"
     return
   fi
 
-  if [[ -e "$dst" ]]; then
+  # A plain DIRECTORY here has two very different meanings, and the installer
+  # used to sidecar both of them. Reported from the field twice over:
+  #
+  #   * A developer with his OWN skills already in .kiro/skills got
+  #     `.kiro/skills.assert-iq-new` holding all 31 Assert.IQ skills while
+  #     .kiro/skills kept only his. The sidecar protected his work correctly,
+  #     but Kiro reads ONLY .kiro/skills, so not one Assert.IQ skill could be
+  #     invoked and the sidecar was invisible to the IDE.
+  #   * A leftover pack COPY (Windows without Developer Mode falls back to
+  #     copying, and a copy is not a symlink) was mistaken for user content on
+  #     the next run, so a plain re-install broke itself.
+  #
+  # So: reclaim what is ours, MERGE into what is not.
+  if [[ -d "$dst" ]] && ! [[ -L "$dst" ]]; then
+    if skills_dest_disposable "$dst" "$target_abs"; then
+      # Empty, or every file identical to the canonical tree — nothing to
+      # preserve. Drop it and fall through to the symlink branch, which is the
+      # better arrangement because it cannot go stale.
+      rm -rf "$dst"
+    else
+      # The user has their own skills here. A symlink cannot express "both",
+      # so switch to a per-skill merge: copy the pack's skills in ALONGSIDE
+      # theirs. copy_tree does this per FILE, which buys three things that
+      # matter more than the symlink's freshness:
+      #   1. their skills are never touched — ours are simply added;
+      #   2. every file we add gets its own manifest entry, so --uninstall
+      #      removes exactly our files and leaves theirs (the parent directory
+      #      survives too: the empty-dir sweep uses rmdir, which refuses a
+      #      non-empty directory);
+      #   3. a name collision is handled per file by copy_file's existing
+      #      sha-compare + conflict resolver, so a skill of theirs that shares
+      #      a name with one of ours is backed up rather than clobbered.
+      # The cost is that the merged copies do not auto-update when
+      # .github/skills changes — re-running the installer refreshes them.
+      record "$label" "merging into your existing skills directory (yours kept, ours added)" "$dst"
+      copy_tree "$label" "$SOURCE/.github/skills" "$dst" "workspace"
+      return
+    fi
+  elif [[ -e "$dst" ]]; then
+    # Not a directory and not a symlink — a regular FILE named `skills`. We
+    # have no idea what that is, so leave it strictly alone.
     local side="$dst.assert-iq-new"
     rm -rf "$side"
     ln -s "$target_rel" "$side" 2>/dev/null || cp -R "$target_abs" "$side"
     manifest_add "sidecar" "$side" "workspace"
-    record ".claude/skills" "sidecar (path exists) -> .assert-iq-new" "$side"
+    record "$label" "sidecar ($label is a file, not a directory) -> .assert-iq-new — SKILLS WILL NOT LOAD until you resolve it" "$side"
     return
   fi
 
   mkdir -p "$(dirname "$dst")"
   if ln -s "$target_rel" "$dst" 2>/dev/null; then
     manifest_add "created" "$dst" "workspace"
-    record ".claude/skills" "linked -> $target_rel" "$dst"
+    record "$label" "linked -> $target_rel" "$dst"
   elif [[ -d "$target_abs" ]]; then
     cp -R "$target_abs" "$dst"
     manifest_add "created" "$dst" "workspace"
-    record ".claude/skills" "copied (symlink unavailable)" "$dst"
+    record "$label" "copied (symlink unavailable)" "$dst"
   else
-    record ".claude/skills" "missing-source" "$target_abs"
+    record "$label" "missing-source" "$target_abs"
+  fi
+}
+
+process_kiro() {
+  # Kiro is the third harness. It reads none of .github/* or .claude/*, so all
+  # four of its surfaces need installing separately:
+  #
+  #   .kiro/steering/      generated + hand-authored instructions (committed source)
+  #   .kiro/agents/        lead, planner, 8 specialists (committed source)
+  #   .kiro/settings/      mcp.json + MCP.md (committed source)
+  #   .kiro/hooks/         Dreaming wiring (RENDERED here, pack root baked in)
+  #   .kiro/skills         symlink -> ../.github/skills
+  #
+  # The first three are plain trees: sync-kiro.sh generated them at authoring
+  # time, so at install time they are ordinary payload. Only the hook file is
+  # rendered, and only the skills link is special-cased.
+  #
+  # There is no `user` scope. Kiro resolves ~/.kiro/steering and ~/.kiro/agents,
+  # so a user-global install is possible in principle -- but it is NOT verified
+  # against a real Kiro (kiro-harness.md §8 records that global-vs-workspace
+  # precedence per file NAME is unconfirmed), and shipping an unverified scope
+  # would be exactly the kind of quiet half-support this branch exists to fix.
+  # workspace|skip only.
+  case "$KIRO" in
+    workspace) ;;
+    skip)
+      record ".kiro/" "skipped (user choice)" "-"
+      return
+      ;;
+    *) echo "ERROR: invalid --kiro value '$KIRO' (workspace|skip)" >&2; exit 2 ;;
+  esac
+
+  if [[ ! -d "$SOURCE/.kiro" ]]; then
+    record ".kiro/" "missing-source" "$SOURCE/.kiro"
+    return
+  fi
+
+  local d
+  for d in steering agents settings; do
+    if [[ -d "$SOURCE/.kiro/$d" ]]; then
+      copy_tree ".kiro/$d" "$SOURCE/.kiro/$d" "$WORKSPACE/.kiro/$d" "workspace"
+    fi
+  done
+
+  # Dreaming hooks. Rendered with __PACK_ROOT__ = workspace, matching
+  # process_dreaming: the hook falls back to that path when Kiro's runtime
+  # ${WORKSPACE_ROOT} does not resolve to an installed pack.
+  local rendered
+  rendered="$(render_kiro_hooks_json "$WORKSPACE")"
+  if [[ -z "$rendered" ]]; then
+    record ".kiro/hooks/assert-iq-dreaming.json" "missing-template" \
+      "$SOURCE/.assert-iq/dreaming/kiro-hooks.posix.template.json"
+  else
+    mkdir -p "$WORKSPACE/.kiro/hooks"
+    copy_file ".kiro/hooks/assert-iq-dreaming.json" "$rendered" \
+      "$WORKSPACE/.kiro/hooks/assert-iq-dreaming.json" "workspace"
+    rm -f "$rendered"
+  fi
+
+  # Skills link. Gated on SKILLS_SCOPE like the Claude one: with
+  # --skills-scope=user the user-global copy is already handled by
+  # process_github_skills / process_claude_skills_link, and a workspace symlink
+  # would contradict the "minimal workspace footprint" the scope asks for.
+  if skills_scope_has_workspace; then
+    link_workspace_skills "$WORKSPACE/.kiro/skills" ".kiro/skills"
   fi
 }
 
@@ -2505,6 +2735,7 @@ process_github_skills
 process_github_agents
 process_claude_agents
 process_claude_skills_link
+process_kiro
 
 # =============================================================================
 # Finalize: manifest + git-exclude wiring (trial mode only)
@@ -2593,3 +2824,8 @@ fi
 echo "Reload your editor window so the new instructions and config are picked up:"
 echo "  - VS Code:    Cmd/Ctrl + Shift + P -> 'Developer: Reload Window'"
 echo "  - Claude Code: restart the session"
+if [[ "${KIRO:-skip}" != "skip" ]]; then
+  echo "  - Kiro:       Cmd/Ctrl + Shift + P -> 'Developer: Reload Window'"
+  echo "                Kiro will not run the Dreaming hooks until you TRUST"
+  echo "                this folder — it disables them silently otherwise."
+fi

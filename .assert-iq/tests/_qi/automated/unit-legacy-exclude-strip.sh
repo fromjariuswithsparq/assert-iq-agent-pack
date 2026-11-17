@@ -19,6 +19,40 @@
 # The removal is allowlist-driven, so the other half of the contract matters
 # just as much: entries the USER put in the same file must survive.
 
+# NOT APPLICABLE ON WINDOWS (exit 2).
+#
+# This is the only test in the suite that EXECUTES scripts/bootstrap.sh rather
+# than grepping it, and bootstrap.sh deliberately REFUSES to run under
+# MSYS/Git Bash: it exits 2 and tells the user to run bootstrap.ps1 instead,
+# because MSYS process creation makes a full install take 9+ minutes.
+#
+# So on Windows the install and uninstall this test depends on never happen,
+# and 4 of its 11 assertions fail against an exclude file nothing ever touched.
+# That is a false alarm about a real feature -- the same shape of bug the pack
+# keeps fixing (P5/P6 telling consumers their install was broken;
+# /assert-iq-tailor blaming a missing check-environment.sh).
+#
+# Forcing it with AIQ_ALLOW_MSYS=1 is not the answer either: the test drives
+# two installs and two uninstalls, which is 30+ minutes of MSYS process churn
+# for a code path Windows users are explicitly told not to take.
+#
+# Exit 2 = "not applicable", the same three-valued convention
+# e2e-agent-parity.sh uses off-pack. run-all.sh reports it as SKIP, NOT as a
+# pass -- a run that never checked must never be reported as green.
+#
+# Windows coverage for the same behaviour belongs in a bootstrap.ps1 twin.
+case "$(uname -s 2>/dev/null)" in
+  MINGW*|MSYS*|CYGWIN*)
+    echo "=== UNIT: legacy .git/info/exclude block removal ==="
+    echo "⏭️  SKIP — not applicable on Windows (MSYS)."
+    echo "   This test executes scripts/bootstrap.sh, which refuses to run here"
+    echo "   by design (exit 2; use bootstrap.ps1 — MSYS installs take 9+ min)."
+    echo "   Nothing is wrong with the pack or this checkout."
+    echo "   Run it on macOS/Linux/WSL for real coverage."
+    exit 2
+    ;;
+esac
+
 _AIQ_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$_AIQ_LIB_DIR/../../../.." && pwd)"
 PASSED=0

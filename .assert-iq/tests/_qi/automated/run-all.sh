@@ -31,23 +31,64 @@ cd "$REPO_ROOT"
 PARITY="e2e-agent-parity.sh"
 PREFLIGHT="unit-test-dependencies.sh"
 
+# On Windows, exercise the PowerShell installer half only.
+#
+# unit-overwrite-snapshot.sh drives the real installers and defaults to running
+# BOTH halves (sh and ps1). Under MSYS the sh half is pathological: bootstrap.sh
+# takes ~9 minutes per install there, and that test performs five of them, so a
+# Windows suite run spends ~45 minutes inside one test. Measured here at 15+
+# minutes with no output before it was killed.
+#
+# The test already anticipates this -- its own comment says the sh half "belongs
+# on macOS/Linux" and it reads AIQ_TEST_INSTALLERS to narrow the run. Nothing
+# set it, so the default lost. Set it here rather than inside the test so the
+# choice is visible to whoever runs the suite, and so a maintainer can still
+# force the slow half with AIQ_TEST_INSTALLERS="sh ps1".
+#
+# This is NOT a coverage trade: the ps1 half is the installer Windows users
+# actually run, and the sh half still runs in full on macOS, Linux and WSL.
+# Contrast unit-legacy-exclude-strip.sh, which has no ps1 twin and therefore
+# SKIPs here outright.
+case "$(uname -s 2>/dev/null)" in
+  MINGW*|MSYS*|CYGWIN*)
+    export AIQ_TEST_INSTALLERS="${AIQ_TEST_INSTALLERS:-ps1}"
+    ;;
+esac
+
 pass=0
 fail=0
+skipped=0
 failed_names=()
+skipped_names=()
 
 run_one() {
-  local file="$1" name
+  local file="$1" name rc
   name="$(basename "$file")"
   # .py tests run under the RESOLVED interpreter: `python3` does not exist on
   # Windows even when Python is installed correctly.
-  if case "$name" in *.py) aiq_py "$file" ;; *) bash "$file" ;; esac >/dev/null 2>&1; then
-    printf '  PASS  %s\n' "$name"
-    pass=$((pass + 1))
-  else
-    printf '  FAIL  %s\n' "$name"
-    fail=$((fail + 1))
-    failed_names+=("$name")
-  fi
+  case "$name" in *.py) aiq_py "$file" ;; *) bash "$file" ;; esac >/dev/null 2>&1
+  rc=$?
+  # Three-valued, matching e2e-agent-parity.sh: 0 pass, 2 NOT APPLICABLE on
+  # this platform, anything else fail. A test that could not run must never be
+  # counted as green -- that is the same quiet lie as reporting an unchecked
+  # parity run as "IN PARITY". Currently used by unit-legacy-exclude-strip.sh,
+  # which executes bootstrap.sh and so cannot run under MSYS.
+  case $rc in
+    0)
+      printf '  PASS  %s\n' "$name"
+      pass=$((pass + 1))
+      ;;
+    2)
+      printf '  SKIP  %s (not applicable on this platform)\n' "$name"
+      skipped=$((skipped + 1))
+      skipped_names+=("$name")
+      ;;
+    *)
+      printf '  FAIL  %s\n' "$name"
+      fail=$((fail + 1))
+      failed_names+=("$name")
+      ;;
+  esac
 }
 
 echo "════════════════════════════════════════════════════════════════"
@@ -92,9 +133,17 @@ echo "  $parity_status"
 
 echo ""
 echo "════════════════════════════════════════════════════════════════"
-echo " Regression: $pass passed, $fail failed"
+if [ $skipped -ne 0 ]; then
+  echo " Regression: $pass passed, $fail failed, $skipped skipped"
+else
+  echo " Regression: $pass passed, $fail failed"
+fi
 echo " Parity:     $parity_status"
 echo "════════════════════════════════════════════════════════════════"
+
+if [ $skipped -ne 0 ]; then
+  printf ' skipped (not applicable here): %s\n' "${skipped_names[*]}"
+fi
 
 if [ $fail -ne 0 ]; then
   printf ' failing: %s\n' "${failed_names[*]}"

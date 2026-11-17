@@ -41,6 +41,19 @@
 # Data and docs: normalize in the repo, let the platform decide on checkout.
 *.json          text
 *.md            text
+
+# GENERATED markdown MUST be LF, even though ordinary .md above is
+# platform-decided. These trees are rendered by scripts/sync-agents.* and
+# scripts/sync-kiro.*, which emit LF, and their --check modes compare rendered
+# bytes against the file on disk. With the platform-decided rule above, a
+# Windows clone (core.autocrlf=true, the default) checks these out as CRLF and
+# every --check reports STALE — telling a maintainer their generated files are
+# out of date when they are byte-correct, and failing parity checks P5/P7 on a
+# clean clone. Verified by converting one file to CRLF: both syncs went STALE.
+# The scripts also strip CR before comparing, so this is belt and braces.
+.github/agents/specialists/*.agent.md   text eol=lf
+.kiro/steering/*.md                     text eol=lf
+.kiro/agents/*.md                       text eol=lf
 *.yaml          text
 *.yml           text
 *.jsonl         text eol=lf

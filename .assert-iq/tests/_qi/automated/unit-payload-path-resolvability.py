@@ -73,6 +73,14 @@ PAYLOAD_TREES = [
     ".github/agents",
     ".github/instructions",
     ".claude/agents",
+    # Kiro (third harness). process_kiro / Step-Kiro copy these three trees
+    # into the workspace, so everything in them is payload an agent will read
+    # and act on -- exactly like .claude/agents. Adding a harness without
+    # widening this list would have let the whole defect class back in through
+    # the new surface, which is how the original two bugs shipped.
+    ".kiro/steering",
+    ".kiro/agents",
+    ".kiro/settings",
 ]
 PAYLOAD_FILES = [
     "CLAUDE.md",

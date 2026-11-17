@@ -611,12 +611,12 @@
     <h3 data-k="WHAT" id="skills-what">What it is</h3>
     <p>A skill is a pre-written expert procedure the agent follows on request. You type <code>/generate-automated-unit-test</code>; the agent reads your config, your framework, your acceptance criteria, and your existing test conventions, then produces a test that looks like your team wrote it.</p>
     <p>The difference between a skill and just asking the chat window for a test is repeatability. The chat window gives you whatever it feels like today. A skill gives you the same structure, the same required headers, and the same traceability every single time, for every person on the team.</p>
-    <p>Skills live in <code>.github/skills/</code> and are mirrored to <code>.claude/skills/</code>, so the same 31 commands work in <strong>GitHub Copilot Chat</strong> and <strong>Claude Code</strong>. One pack, both tools.</p>
+    <p>Skills live in <code>.github/skills/</code> and are mirrored to <code>.claude/skills/</code> and <code>.kiro/skills/</code>, so the same 31 commands work in <strong>GitHub Copilot Chat</strong>, <strong>Claude Code</strong> and <strong>Kiro</strong>. One pack, three tools — and because the mirrors are symlinks to one canonical tree, the three cannot drift apart.</p>
   </div>
 
   <div class="wq">
     <h3 data-k="HOW" id="skills-how">How to use it</h3>
-    <p>In Copilot Chat, select the <code>Assert-IQ</code> agent. In Claude Code, just type. Then:</p>
+    <p>In Copilot Chat, select the <code>Assert-IQ</code> agent. In Claude Code, just type. In Kiro, type <code>/</code> and the skill name, or describe what you want and let it route. Then:</p>
 <pre><code>/risk-assess-pr</code></pre>
     <p>That's the whole interface. Some skills take an argument:</p>
 <pre><code>/generate-automated-unit-test src/checkout/totals.ts

@@ -152,12 +152,27 @@ fi
 # ---- 7. Symlink capability --------------------------------------------
 probe="$(mktemp -d "${TMPDIR:-/tmp}/aiq-lnk.XXXXXX")"
 if ln -s "$probe" "$probe/link" 2>/dev/null; then
-  pass "symlinks" ".claude/skills will be a live symlink to ../.github/skills"
+  pass "symlinks" ".claude/skills and .kiro/skills will be live symlinks to ../.github/skills"
 else
+  # Two symlinks now, not one. A stale COPY is worse than it sounds: the skill
+  # tree keeps working, it just silently serves the version from install time.
+  # That was hit for real -- three skills were edited, the copy was not
+  # refreshed, and Kiro kept rejecting the pre-edit files with no clue why.
   warn "symlinks" "cannot create symlinks on this filesystem" \
-       "the installer falls back to copying .github/skills; re-run it after editing a skill"
+       "the installer COPIES .github/skills to .claude/skills and .kiro/skills instead; re-run the installer after editing any skill or those copies go stale"
 fi
 rm -rf "$probe"
+
+# ---- 7b. Kiro (third harness) ------------------------------------------
+# Advisory only. Kiro is optional, so its absence is not a warning -- but when
+# it IS present the tester needs to know about workspace trust, because Kiro
+# disables hook execution in an untrusted folder SILENTLY. Dreaming then looks
+# broken with nothing in any log the user would think to read.
+if command -v kiro >/dev/null 2>&1 || [ -d "$HOME/.kiro" ]; then
+  pass "kiro" "Kiro detected — .kiro/steering, agents, skills and hooks will install"
+  printf '         note: after installing, TRUST the workspace in Kiro. It disables hook\n'
+  printf '               execution in untrusted folders SILENTLY, so Dreaming looks dead.\n'
+fi
 
 # ---- 8. Installed-pack sanity (only if already installed) -------------
 SETTINGS="$PACK/.claude/settings.json"

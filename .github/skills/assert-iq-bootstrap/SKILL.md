@@ -1,3 +1,8 @@
+---
+name: assert-iq-bootstrap
+description: "Bootstrap the Assert.IQ Agent Pack into a workspace — choose per-surface placement (workspace, user-global, or skip), pick an install mode (committed / trial / ask), then run the right script with explicit flags. Cross-platform (bash on macOS/Linux, PowerShell on Windows). WHEN: assert-iq bootstrap, install the pack, set up Assert.IQ in this repo, add the QI pack to my workspace, trial the pack locally, graduate from trial, uninstall the pack."
+---
+
 # /assert-iq-bootstrap
 
 Bootstrap the Assert.IQ Agent Pack into a workspace. Walks the user

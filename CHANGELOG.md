@@ -5,6 +5,148 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+<!-- Release step: rename this heading to `## [2.3.0] — <YYYY-MM-DD>` and
+     then run `scripts/make-release.sh 2.3.0`, which writes VERSION, bumps
+     the doc banners, tags and publishes. make-release REQUIRES the dated
+     heading to already exist -- it does not create it. Left as Unreleased
+     until then so E2E-17b (VERSION matches newest released entry) stays
+     green on every commit; that check skips [Unreleased] deliberately. -->
+
+**Kiro joins Claude Code and GitHub Copilot as a fully supported harness**, and
+four defects this work uncovered are fixed for *all three*. Upgrading is the
+usual `--upgrade`; nothing in this release is breaking.
+
+### Added — Kiro (Amazon's agentic IDE) as a third harness
+
+Before this, a Kiro user got exactly one thing: the root `AGENTS.md`, which
+Kiro discovers natively — and whose every pointer aimed at `.github/*` or
+`.claude/*`, paths Kiro never reads. A table of contents for a book that
+wasn't there.
+
+| Surface | Path | How it is produced |
+|---|---|---|
+| Instructions | `.kiro/steering/qi-*.md` | generated from `.github/instructions/` |
+| Entrypoint | `.kiro/steering/00-assert-iq.md` | hand-authored (Kiro has no `CLAUDE.md` equivalent) |
+| Agents | `.kiro/agents/*.md` | 8 specialists generated from `.claude/agents/specialists/`; lead + planner hand-authored |
+| Skills | `.kiro/skills` | symlink to the one canonical `.github/skills` tree |
+| Dreaming | `.kiro/hooks/assert-iq-dreaming.json` | rendered by the installer |
+| MCP | `.kiro/settings/mcp.json` | hand-maintained |
+
+Install and uninstall are wired on both platforms: `install.{sh,ps1}` and
+`scripts/bootstrap.{sh,ps1}`, the latter gaining `--kiro=workspace|skip`
+(`-Kiro`), with manifest, trial-mode and uninstall coverage.
+
+**Generated, not hand-maintained.** `scripts/sync-kiro.{sh,ps1}` renders the
+steering and specialists from the same sources Copilot uses, so the three
+harnesses cannot drift. Hand-maintaining the rulebook across two harnesses is
+what failed at v2.0, when the 8-specialist orchestrator landed on Claude only
+and Copilot silently kept v1.x routing for a whole release. Parity checks
+**P7** (generated Kiro files current) and **P8** (the two sync implementations
+agree) now guard it, and **P3** was extended to require that the Kiro router
+can reach every shipped skill.
+
+**The schema was verified against the shipped Kiro binary, not its docs** —
+`.assert-iq/kiro-harness.md` records the contract, including what remains
+unverified. The public docs are wrong in three places that would each have
+shipped a broken file: agent files are documented as `.json` but the binary
+requires `.md` with YAML frontmatter; `allowedTools` and `toolsSettings` are
+recommended but sit in the parser's CLI-only list and are ignored by the IDE;
+and the hook schema shipped inside the extension is the deprecated format,
+with no shell-command action at all.
+
+**Three Kiro-specific traps, documented because each fails silently:**
+
+- Custom agents do **not** inherit steering or skills — they load only what
+  their `resources` globs name, and invalid entries are dropped without error.
+  Every agent the pack ships declares both globs, and a test enforces it.
+- Hooks do not run in an **untrusted workspace**. If Dreaming appears dead on
+  Kiro, check workspace trust first.
+- File-triggered hooks fire only on agent-made edits, never on a manual save.
+
+### Fixed — Dreaming recorded nothing but heartbeats on Kiro
+
+Reported from the field by the GEMS API Test Automation team. Daily logs held
+only `session … ended` lines, so `/dream` found no signal and every
+consolidation was a no-op — while the session counter advanced and the gate
+fired on schedule, so it looked healthy.
+
+The waking loop was built transcript-first: the recorder reads `transcript_path`
+from the Stop hook and writes a pointer for `/dream` to mine. Kiro's Stop
+payload has no such field — the string appears **zero times** in the entire
+1.0.337 bundle — and Kiro writes no transcript file.
+
+Kiro can run an `agent`-type hook, and the agent has the finished turn in
+context, so on Kiro **the agent is the capture layer**. Both Kiro templates
+gained a third hook that appends at most three categorised facts per turn:
+
+```
+- <UTC ISO8601>Z note[DECISION|CORRECTION|GOTCHA|PREFERENCE]: <one sentence>
+```
+
+Claude Code and Copilot are untouched — their `transcript_path` still works.
+
+### Fixed — four defects that were never Kiro-specific
+
+Adding a strict harness surfaced these; all three harnesses were affected, and
+anyone on 2.2.1 or earlier is exposed today.
+
+- **A full install could write a 0-byte manifest on Windows.** The entry array
+  went to `jq` via `--argjson`, which puts it on the command line: ~36 KB of
+  absolute paths against a ~32 KB argv limit. `jq` died, but the shell had
+  already truncated the target, so the install **reported success and left an
+  empty manifest** — meaning uninstall would remove nothing while claiming it
+  worked, and the next upgrade would see a fresh install. Now uses
+  `--slurpfile` and stages before replacing.
+- **Installing into a workspace that already had its own skills broke every
+  Assert.IQ skill.** The installer wanted to own the whole skills directory, so
+  a user's existing skills forced a sidecar that the IDE could not see. It now
+  **merges**: it reclaims a directory that is empty or byte-identical to the
+  canonical tree, merges alongside anything else, and never deletes what it did
+  not place. Because the merge copies per file, `--uninstall` removes exactly
+  the pack's files and leaves the user's. (Merged skills are copies, so they do
+  not auto-update; re-run the installer after a pack upgrade.)
+- **`install.sh` / `install.ps1` deleted user skills outright.** Their skills
+  step called `rm -rf` on the destination unconditionally, and both are
+  documented as "run after dropping the pack into a repo" — so that path could
+  be the user's own repo. Silent data loss, now merge-or-reclaim like the above.
+- **Three skills were invisible to any strict reader.** `assert-iq-bootstrap`,
+  `define-quality-rubric` and `grade-with-rubric` shipped with no YAML
+  frontmatter at all. Claude Code tolerated it by falling back to the `h1`;
+  Kiro rejected them outright. Now fixed, and asserted for all 32.
+
+### Fixed — generated-file `--check` was line-ending dependent
+
+On Windows with `core.autocrlf=true` (the default), a clean clone checked the
+generated markdown out as CRLF and every `--check` reported STALE — telling a
+maintainer their generated files were out of date when they were byte-correct,
+and failing parity on a clean clone. `.gitattributes` now pins the generated
+trees to `eol=lf`, and the bash syncs strip CR before comparing.
+
+### Verified
+
+Kiro **1.0.337** was run against this repo and its own logs read back: the v1
+hook schema is accepted (`v2 hooks loaded 2 standalone hooks`), skill
+validation went **6 failures → 0**, and the untrusted-workspace behaviour was
+confirmed live. Dreaming was then confirmed end to end in a separate workspace
+with the folder trusted.
+
+Install and uninstall were exercised on `bootstrap.ps1`: 138 manifest paths,
+**0 leftover files**, and `.github/skills` intact afterwards.
+
+### Known gaps
+
+- `unit-legacy-exclude-strip.sh` covers a `bootstrap.sh` path, so it reports
+  NOT APPLICABLE on Windows; that fix has no `bootstrap.ps1` twin yet.
+- On Windows the suite now runs only the PowerShell half of
+  `unit-overwrite-snapshot.sh` — the bash half costs ~45 minutes under MSYS and
+  still runs in full on macOS, Linux and WSL.
+- Brace expansion in Kiro's `fileMatchPattern` is unverified, so `sync-kiro`
+  expands braces rather than betting on it.
+- Steering *content* reaching the model, and specialist sub-agent delegation,
+  were verified structurally rather than from a live conversation.
+
 ## [2.2.1] — 2026-10-29
 
 ### Fixed (the Dreaming runtime no longer leaks into the team's git)
@@ -217,6 +359,7 @@ doc page would have silently drifted:
   visual labels in both files rather than headings, so a divider named "Plan"
   never lands in search results.
 
+---
 ### Fixed (the /dream safety procedure was documented but unwired)
 
 `qi-foundation.instructions.md` > *Memory Poisoning Prevention* promised four

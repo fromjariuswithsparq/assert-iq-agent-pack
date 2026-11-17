@@ -24,7 +24,7 @@
 # function, not a formality. If a divergence is a deliberate product decision,
 # encode that decision here explicitly rather than loosening the check.
 #
-# WHY P5/P6 SKIP OFF-PACK
+# WHY P5/P6/P7/P8 SKIP OFF-PACK
 #
 # This suite used to ship in the install payload while `scripts/` did not. P5
 # and P6 drive scripts/sync-agents.{sh,ps1}, so in an INSTALLED workspace they
@@ -73,6 +73,7 @@ CLAUDE_DIR=".claude/agents"
 COPILOT_DIR=".github/agents"
 CLAUDE_ROUTER="$CLAUDE_DIR/assert-iq.md"
 COPILOT_ROUTER="$COPILOT_DIR/Assert-IQ.agent.md"
+KIRO_ROUTER=".kiro/agents/assert-iq.md"
 
 echo "=== E2E: Cross-Harness Agent Parity ==="
 echo ""
@@ -121,12 +122,13 @@ fi
 echo ""
 
 # ---------------------------------------------------------------------------
-# P3: every shipped skill must be routable from BOTH routers
+# P3: every shipped skill must be routable from EVERY router
 # ---------------------------------------------------------------------------
 echo "--- P3: Skill-routing coverage ---"
 skill_total=0
 claude_missing=()
 copilot_missing=()
+kiro_missing=()
 
 # Extract the set of /slash-commands each router mentions with ONE grep per
 # router, then test membership with `case`. Two greps per skill (60
@@ -136,6 +138,10 @@ copilot_missing=()
 # /check-merge cannot satisfy a lookup for /check-merge-gate.
 claude_routed=" $(grep -oE '/[a-z0-9][a-z0-9-]*' "$CLAUDE_ROUTER"  | sort -u | tr '\012' ' ')"
 copilot_routed=" $(grep -oE '/[a-z0-9][a-z0-9-]*' "$COPILOT_ROUTER" | sort -u | tr '\012' ' ')"
+# Kiro is the third harness. Adding it without extending P3 is exactly how a
+# router goes stale unnoticed: /calibration-report landed on main and the Kiro
+# lead did not route it, which nothing caught until a human went looking.
+kiro_routed=" $(grep -oE '/[a-z0-9][a-z0-9-]*' "$KIRO_ROUTER" 2>/dev/null | sort -u | tr '\012' ' ')"
 
 for skill_dir in .github/skills/*/; do
   [ -d "$skill_dir" ] || continue
@@ -143,6 +149,7 @@ for skill_dir in .github/skills/*/; do
   skill_total=$((skill_total + 1))
   case "$claude_routed"  in *" /$skill "*) ;; *) claude_missing[${#claude_missing[@]}]="$skill" ;; esac
   case "$copilot_routed" in *" /$skill "*) ;; *) copilot_missing[${#copilot_missing[@]}]="$skill" ;; esac
+  case "$kiro_routed"    in *" /$skill "*) ;; *) kiro_missing[${#kiro_missing[@]}]="$skill" ;; esac
 done
 
 if [ ${#claude_missing[@]} -eq 0 ]; then
@@ -157,6 +164,15 @@ if [ ${#copilot_missing[@]} -eq 0 ]; then
 else
   fail "P3: Copilot router misses ${#copilot_missing[@]}/$skill_total skills"
   printf '        - %s\n' "${copilot_missing[@]}"
+fi
+
+if [ ! -f "$KIRO_ROUTER" ]; then
+  fail "P3: Kiro router is missing ($KIRO_ROUTER)"
+elif [ ${#kiro_missing[@]} -eq 0 ]; then
+  pass "P3: Kiro router covers all $skill_total skills"
+else
+  fail "P3: Kiro router misses ${#kiro_missing[@]}/$skill_total skills"
+  printf '        - %s\n' "${kiro_missing[@]}"
 fi
 
 echo ""
@@ -246,6 +262,63 @@ else
 fi
 
 echo ""
+
+# ---------------------------------------------------------------------------
+# P7: generated Kiro surfaces must be current w.r.t. their sources
+# ---------------------------------------------------------------------------
+# Kiro is the third harness. Two of its surfaces are generated:
+#   .github/instructions/*.instructions.md -> .kiro/steering/*.md
+#   .claude/agents/specialists/*.md        -> .kiro/agents/*.md
+# The same staleness trap as P5, one harness over: edit the source, forget the
+# sync, and Kiro users silently run last week's rules.
+echo "--- P7: Generated Kiro surface freshness ---"
+if [ "$PACK_CHECKOUT" -eq 0 ]; then
+  skip "P7: not the pack checkout — no scripts/ tree, so there is nothing to"
+  echo "        regenerate here. The .kiro files in this workspace are install"
+  echo "        output, not a build product. This is NOT a broken install."
+elif [ ! -f scripts/sync-kiro.sh ]; then
+  fail "P7: scripts/sync-kiro.sh is missing (Kiro surfaces cannot be generated)"
+else
+  if sync_out="$(bash scripts/sync-kiro.sh --check 2>&1)"; then
+    pass "P7: generated Kiro steering + agents are current"
+  else
+    fail "P7: generated Kiro files are STALE — re-run: bash scripts/sync-kiro.sh"
+    printf '%s\n' "$sync_out" | sed 's/^/        /'
+  fi
+fi
+
+echo ""
+
+# ---------------------------------------------------------------------------
+# P8: sync-kiro tool map agrees across implementations
+# ---------------------------------------------------------------------------
+# Same rationale as P6, for the Kiro map. A drift here means the Kiro
+# specialists get different capability tags depending on whether a Mac or a
+# Windows box ran the sync.
+echo "--- P8: sync-kiro tool map agrees across implementations ---"
+if [ "$PACK_CHECKOUT" -eq 0 ]; then
+  skip "P8: not the pack checkout — the sync implementations live in the pack"
+  echo "        and are correctly absent from an installed workspace."
+elif [ ! -f scripts/sync-kiro.ps1 ]; then
+  fail "P8: scripts/sync-kiro.ps1 is missing (no Windows-native sync)"
+else
+  k_sh_map="$(bash scripts/sync-kiro.sh --print-map | tr -d '\r')"
+  k_ps_map="$(grep -oE "'[A-Za-z]+' *= *'[^']*'" scripts/sync-kiro.ps1 | tr -d " '" | tr -d '\r' | sort -u)"
+  k_count="$(echo "$k_sh_map" | grep -c .)"
+  if [ -z "$k_sh_map" ] || [ -z "$k_ps_map" ]; then
+    fail "P8: could not extract a tool map from one or both implementations (sh=$k_count entries, ps=$(echo "$k_ps_map" | grep -c .))"
+  elif [ "$k_sh_map" = "$k_ps_map" ]; then
+    pass "P8: tool map identical in sync-kiro.sh and sync-kiro.ps1 ($k_count entries)"
+  else
+    fail "P8: tool map DIVERGES between sync-kiro.sh and sync-kiro.ps1"
+    echo "        only in .sh:"
+    comm -23 <(echo "$k_sh_map") <(echo "$k_ps_map") | sed 's/^/          /'
+    echo "        only in .ps1:"
+    comm -13 <(echo "$k_sh_map") <(echo "$k_ps_map") | sed 's/^/          /'
+  fi
+fi
+
+echo ""
 echo "=== Results: $PASSED PASS, $FAILED FAIL, $SKIPPED SKIP ==="
 
 # Exit codes are three-valued so run-all.sh can tell "checked and clean" from
@@ -255,7 +328,7 @@ if [ $FAILED -eq 0 ] && [ $SKIPPED -gt 0 ]; then
   cat <<'EOF'
 ⏭️  Parity NOT fully checked — this is an installed workspace, not the pack
    checkout. The structural checks above passed; the generator-backed checks
-   (P5/P6) do not apply here because scripts/ is pack-only by design.
+   (P5/P6/P7/P8) do not apply here because scripts/ is pack-only by design.
 
    Nothing is wrong with this install. To run the full parity check, run this
    script from the pack checkout.

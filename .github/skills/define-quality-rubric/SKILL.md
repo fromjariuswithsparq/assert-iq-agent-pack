@@ -1,3 +1,8 @@
+---
+name: define-quality-rubric
+description: "Author a versioned quality rubric — an immutable acceptance contract (dimensions, weights, PASS/CONDITIONAL/FAIL levels, passing criteria) saved to .assert-iq/oracles/rubrics/ for /grade-with-rubric to apply. WHEN: define a quality rubric, author an acceptance contract, create a rubric, what does done mean for this artifact, version an existing rubric."
+---
+
 # /define-quality-rubric
 
 **Define versioned quality rubrics** — acceptance contracts for artifacts.
