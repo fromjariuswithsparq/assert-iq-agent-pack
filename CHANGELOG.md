@@ -5,6 +5,76 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+<!-- make-release.sh requires a dated "## [<version>] — YYYY-MM-DD" heading.
+     Promote this one at release time; leaving it as [Unreleased] until then
+     keeps E2E-17b (VERSION matches the newest released entry) green on every
+     commit. -->
+
+### Added — `unit-changelog-integrity.py`, a check on the release record itself
+
+`e2e-version-consistency.sh` asserts that `VERSION` matches the **newest**
+CHANGELOG heading and that a version-history row exists for it. That is a
+real check, but it only ever looks at the top of the file — and three
+separate defects walked straight past it:
+
+- The **entire Kiro changelog**, 304 lines, sat *inside* the released
+  `[2.1.3]` section for three commits, reading as though it had shipped on
+  2026-09-04. It landed there when main's `[2.1.3]` heading was inserted
+  above in-progress content during a merge. `VERSION` still matched the
+  newest heading, so everything stayed green.
+- `README.assert-iq.html`'s version-history table **had no 2.3.0 row at
+  all** — `make-release.sh` promotes an `Unreleased` row and the HTML had
+  none to promote, so the table stopped at 2.2.1 while its markdown twin
+  moved on. E2E-17c reads the markdown table only.
+- The CHANGELOG **link-reference block stopped at `[2.2.1]`**, so the 2.3.0
+  heading rendered as plain text instead of a diff link. Nothing read that
+  block.
+
+Each is a consistency fact *across* the release record — heading vs tag,
+markdown table vs HTML table, section vs link ref — and the existing check
+compares one value against one heading. Six new checks close that:
+
+| | Check |
+|---|---|
+| **C1** | A released section is **frozen** — its body must match the body at its own tag. This is the direct guard for the misfile: content appended to a shipped section changes a section that shipped. |
+| **C2** | Every released section has a `[x.y.z]:` link reference. |
+| **C3** | The markdown and HTML version-history tables agree. |
+| **C4** | Every version-history row has a CHANGELOG section behind it. |
+| **C5** | The newest version agrees across `VERSION`, the CHANGELOG, and both tables — compared by version order, never by row position. |
+| **C6** | Every released section has a git tag. |
+
+C1 compares 38 sections against their own tags on this repo. Two have no
+baseline and are reported as **notes rather than failures**, because nothing
+to compare against is not the same thing as a mismatch: `v2.0.0` was tagged
+before its own section was written, and `CHANGELOG.md` did not exist at
+`v0.9.0`.
+
+All six checks are verified to **fail** on a reconstruction of each original
+defect, not merely to pass on today's tree.
+
+A `MODERN_FLOOR` of 2.0.0 bounds C2–C4, because the history below it is
+deliberately condensed — the tables carry range rows like `1.3.0–1.4.x` that
+are not versions at all. Raising the floor is a one-line decision; loosening
+a check to accommodate old data is not the same thing.
+
+**Pack checkout only.** An installed workspace is still a git repo, so
+`git tag` there succeeds and returns *the user's* tags — C6 would report
+every Assert.IQ version as untagged, a confident lie about someone else's
+repository. The test detects the workspace the same way `e2e-agent-parity.sh`
+does and reports **NOT APPLICABLE** (exit 2), which `run-all.sh` prints as
+SKIP rather than as a pass.
+
+### Fixed — three defects the new check found immediately
+
+- A stray `---` rule was left **inside the released `[2.1.3]` section** by the
+  repair that rescued the Kiro changelog from it. Removed, restoring the
+  section to exactly what it was at `v2.1.3`.
+- `[2.0.0]`, `[2.0.1]` and `[2.0.2]` had no link references.
+- `[2.3.0]` had no link reference either — backfilled when 2.4.0 shipped,
+  and now guarded.
+
 ## [2.4.0] — 2026-11-17
 
 Documentation and test coverage. **No behaviour changes and nothing
@@ -445,7 +515,6 @@ doc page would have silently drifted:
   visual labels in both files rather than headings, so a divider named "Plan"
   never lands in search results.
 
----
 ### Fixed (the /dream safety procedure was documented but unwired)
 
 `qi-foundation.instructions.md` > *Memory Poisoning Prevention* promised four
@@ -2033,6 +2102,9 @@ See git history (`git log v0.8.0`). Releases prior to 1.0.0 are pre-stable.
 [2.1.2]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.1...v2.1.2
 [2.1.1]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.0.2...v2.1.0
+[2.0.2]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.0.1...v2.0.2
+[2.0.1]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.0.0...v2.0.1
+[2.0.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v1.7.0-alpha1...v2.0.0
 [1.1.1]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v0.9.0...v1.0.0
