@@ -5,14 +5,7 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-<!-- Release step: rename this heading to `## [2.3.0] — <YYYY-MM-DD>` and
-     then run `scripts/make-release.sh 2.3.0`, which writes VERSION, bumps
-     the doc banners, tags and publishes. make-release REQUIRES the dated
-     heading to already exist -- it does not create it. Left as Unreleased
-     until then so E2E-17b (VERSION matches newest released entry) stays
-     green on every commit; that check skips [Unreleased] deliberately. -->
+## [2.3.0] — 2026-11-17
 
 **Kiro joins Claude Code and GitHub Copilot as a fully supported harness**, and
 four defects this work uncovered are fixed for *all three*. Upgrading is the
