@@ -76,7 +76,7 @@
       <tr><td><code>agents/assert-iq-plan.md</code></td><td>The <strong>planning sibling</strong> of <code>assert-iq</code>. Read-only — researches, writes a plan, and waits for your approval before handing off. Invoke with <code>@assert-iq-plan</code> when the task is large or risky.</td></tr>
       <tr><td><code>agents/grader.md</code></td><td>The <strong>Oracle-layer grader</strong> — evaluates an artifact against a pre-authored rubric in an isolated context, with no access to how the artifact was produced.</td></tr>
       <tr><td><code>agents/specialists/</code></td><td>Eight single-purpose analysts (risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer, oracle-grader, calibration-specialist, memory-curator, traceability-auditor). The lead delegates to them and each returns JSON only. <strong>These files are also the source of truth for Copilot</strong> — <code>.github/agents/specialists/</code> is generated from them by <code>scripts/sync-agents.sh</code>, so edit them here and re-run the sync.</td></tr>
-      <tr><td><code>skills/</code></td><td>Step-by-step playbooks Claude can run when you ask. This is a <strong>symlink</strong> to <code>.github/skills/</code>, so Copilot and Claude share the exact same set. Examples: <code>/generate-bug-report</code>, <code>/code-review</code>. On <strong>Windows without Developer Mode</strong>, the installer falls back to copying the folder — in that case, re-run <code>install.ps1</code> after editing any skill. See <a href="README.assert-iq.html">README.assert-iq.html</a> for the full matrix.</td></tr>
+      <tr><td><code>skills/</code></td><td>Step-by-step playbooks Claude can run when you ask. This is a <strong>symlink</strong> to <code>.github/skills/</code>, so Copilot, Claude and Kiro share the exact same set. Examples: <code>/generate-bug-report</code>, <code>/code-review</code>. On <strong>Windows without Developer Mode</strong>, the installer falls back to copying the folder — in that case, re-run <code>install.ps1</code> after editing any skill. See <a href="README.assert-iq.html">README.assert-iq.html</a> for the full matrix.</td></tr>
       <tr><td><code>settings.json</code></td><td>Claude Code's settings file. The pack installer fills in the session-events (<code>hooks</code>) section here — the Dreaming waking-loop scripts that fire at session start/end to record activity and nudge <code>/dream</code>.</td></tr>
     </tbody>
   </table>
@@ -107,7 +107,7 @@ bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
 
   <h2 id="will-this-also-work-in-github-copilot">"Will this also work in GitHub Copilot?"</h2>
   <p>Yes. The same content is mirrored to the <code>.github/</code> folder at the repo root, and Copilot reads it automatically — no installer needed for the Copilot side. See <a href="vscode-readme.html"><code>vscode-readme.html</code></a>.</p>
-  <p>You can use either tool — they share the same skills, instructions, and Dreaming memory.</p>
+  <p>You can use any of the three — they share the same skills, instructions, and Dreaming memory.</p>
 
   <h2 id="uninstalling-the-pack">Uninstalling the pack</h2>
   <p>Match the uninstall to the install path you used.</p>

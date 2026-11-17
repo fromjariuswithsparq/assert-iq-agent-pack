@@ -611,7 +611,7 @@
     <h3 data-k="WHAT" id="skills-what">What it is</h3>
     <p>A skill is a pre-written expert procedure the agent follows on request. You type <code>/generate-automated-unit-test</code>; the agent reads your config, your framework, your acceptance criteria, and your existing test conventions, then produces a test that looks like your team wrote it.</p>
     <p>The difference between a skill and just asking the chat window for a test is repeatability. The chat window gives you whatever it feels like today. A skill gives you the same structure, the same required headers, and the same traceability every single time, for every person on the team.</p>
-    <p>Skills live in <code>.github/skills/</code> and are mirrored to <code>.claude/skills/</code> and <code>.kiro/skills/</code>, so the same 31 commands work in <strong>GitHub Copilot Chat</strong>, <strong>Claude Code</strong> and <strong>Kiro</strong>. One pack, three tools — and because the mirrors are symlinks to one canonical tree, the three cannot drift apart.</p>
+    <p>Skills live in <code>.github/skills/</code> and are mirrored to <code>.claude/skills/</code> and <code>.kiro/skills/</code>, so the same 32 commands work in <strong>GitHub Copilot Chat</strong>, <strong>Claude Code</strong> and <strong>Kiro</strong>. One pack, three tools — and because the mirrors are symlinks to one canonical tree, the three cannot drift apart.</p>
   </div>
 
   <div class="wq">
@@ -1020,7 +1020,7 @@
 <pre><code>/risk-assess-pr
 /check-merge
 /release-confidence</code></pre>
-    <p>In Claude Code you can also address a lead agent by name and describe the problem. Use <code>Assert-IQ-PLAN</code> when the task is large, risky, or spans many files and you want to see the plan before anything moves.</p>
+    <p>In Claude Code and Kiro you can also address a lead agent by name and describe the problem. Use <code>Assert-IQ-PLAN</code> when the task is large, risky, or spans many files and you want to see the plan before anything moves.</p>
     <p>Every run leaves an audit trail in <code>.assert-iq/agent-runs/</code> — each specialist's raw JSON, preserved. When you disagree with a verdict, that's where you go to find out <em>which specialist</em> you disagree with.</p>
   </div>
 

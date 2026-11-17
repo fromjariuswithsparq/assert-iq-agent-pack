@@ -37,7 +37,7 @@ Assert.IQ is the accelerator. It drops a QI reasoning layer directly into **GitH
 Eight features do the work. Each one links to its full write-up in the **[Feature Guide](FEATURES.md)** — what it is, how to use it, when to reach for it, and why it earns its place, written to be readable whether or not you write code.
 
 - **[32 skills](FEATURES.md#skills)** covering the full QE lifecycle — test generation, code review, risk assessment, hotspot mapping, traceability matrices, release confidence, escaped-defect analysis, exploratory charters, oracle-based grading, business metrics dashboards, and more. Every skill is broken down individually [in the guide](FEATURES.md#the-32-skills-one-by-one).
-- **[Multi-agent orchestration](FEATURES.md#multi-agent-orchestration) (v2.0)** — available on **both** harnesses: two lead agents (`Assert-IQ` for full execution, `Assert-IQ-PLAN` for plan-first workflows) orchestrate **8 isolated specialist agents** (risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer, oracle-grader, calibration-specialist, memory-curator, traceability-auditor) that run in parallel then serially, each returning structured JSON the lead synthesizes into one decision.
+- **[Multi-agent orchestration](FEATURES.md#multi-agent-orchestration) (v2.0)** — available on **all three** harnesses: two lead agents (`Assert-IQ` for full execution, `Assert-IQ-PLAN` for plan-first workflows) orchestrate **8 isolated specialist agents** (risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer, oracle-grader, calibration-specialist, memory-curator, traceability-auditor) that run in parallel then serially, each returning structured JSON the lead synthesizes into one decision.
 - **[Business impact dashboards](FEATURES.md#business-impact-dashboards) (v2.0)** — the `/measure-qi-impact` skill converts QI verdicts into VP-ready HTML dashboards: escape reduction %, triage hours reclaimed, cycle-time acceleration, and total economic ROI in dollars.
 - **[Oracle Layer](FEATURES.md#oracle-layer)** — rubric-based grading (`/define-quality-rubric`, `/grade-with-rubric`): define what "good" looks like first, then grade artifacts independently. Immutable, versioned specs feed the Outcome layer.
 - **[Maturity-aware behavior](FEATURES.md#maturity-aware)** — a one-file config scales the pack from "early / manual generation only" to "higher / autonomous healing," meeting teams where they are.
@@ -185,7 +185,7 @@ Here's what the pack needs on your machine. You don't have to check these by han
 | **git** | Required | Required |
 | **Python 3** | Required for calibration, memory sanity, verdict recording | Same — the pack resolves `python3` → `python` → `py -3` itself |
 | **jq** | Not needed for the install below. Only required by advanced flows in the [full docs](README.assert-iq.md#installation) | Not used — the PowerShell path parses JSON natively |
-| **Symlinks** | Native | Developer Mode for a live `.claude/skills`; otherwise it is copied |
+| **Symlinks** | Native | Developer Mode for a live `.claude/skills` and `.kiro/skills`; otherwise they are copied |
 
 **Why PowerShell 7 is the recommendation.** Both hosts pass the full suite, so 5.1 is a real fallback, not a warning label — install nothing if you'd rather not. PowerShell 7 is simply the better default: it creates a live `.claude/skills` symlink where 5.1 usually falls back to a copy, and it avoids a family of .NET Framework quirks (native stderr promoted to terminating errors, `-Encoding UTF8` writing a byte-order mark) that the pack now works around explicitly rather than relies on.
 
@@ -201,7 +201,7 @@ These four are the only Windows behaviors that differ enough to matter:
 
 - **Use the PowerShell installers, not Git Bash.** `bootstrap.sh` refuses to run under Git Bash/MSYS and points you at `bootstrap.ps1`. Windows process creation costs ~50–100 ms, and a full install copies and hashes ~1000 files one child process at a time: **9+ minutes** per install under Git Bash versus about a minute under PowerShell, with no output for most of it — indistinguishable from a hang. Override with `--allow-msys` if you truly want it. **WSL is unaffected** — inside WSL this is Linux, and bash is the right path.
 - **`python3` may be a decoy.** The Microsoft Store ships a `python3` stub that resolves on `PATH`, prints an install hint, and exits non-zero; the python.org installer provides `python.exe` with **no** `python3.exe`. Every pack script probes `python3` → `python` → `py -3` by executing it, so a correct install works either way. If you see a Microsoft Store hint where you expected Python, that is the stub.
-- **Developer Mode controls `.claude/skills`.** With it on, `.claude/skills` is a live symlink to `.github/skills` and skill edits appear immediately. Without it the installer copies the directory, so re-run the installer after editing a skill. Windows PowerShell 5.1 often cannot create symlinks even with Developer Mode on, while PowerShell 7 usually can — the main practical reason to prefer `pwsh`. `check-environment.ps1` tells you which you will get.
+- **Developer Mode controls the skills mirrors.** With it on, `.claude/skills` and `.kiro/skills` are live symlinks to `.github/skills` and skill edits appear immediately. Without it the installer copies the directories, so re-run the installer after editing a skill. Windows PowerShell 5.1 often cannot create symlinks even with Developer Mode on, while PowerShell 7 usually can — the main practical reason to prefer `pwsh`. `check-environment.ps1` tells you which you will get.
 - **Line endings.** The pack pins shell scripts to LF via `.gitattributes`. If your checkout predates that file and you also use it from WSL, run `git add --renormalize . && git checkout -- .` — bash on Linux/macOS rejects a CRLF script with `$'\r': command not found`.
 
 > **Contributors — run the PowerShell suites under _both_ hosts.** Windows PowerShell 5.1 and PowerShell 7 are different runtimes with different failure modes, and a green run on one proves nothing about the other. 5.1 is .NET Framework (no `ProcessStartInfo.ArgumentList`), it promotes native-command stderr to a *terminating* error under `$ErrorActionPreference='Stop'`, and its `-Encoding UTF8` writes a BOM that Python's `json.load` rejects. Every one of those produced a real, silent Windows defect that a fully green PowerShell 7 run reported as fine.
@@ -292,7 +292,7 @@ normally**. Nothing else changes:
 ```bash
 cd ~/assert-iq-agent-pack
 git fetch origin
-git checkout feat/kiro-ide-support     # the branch you're testing
+git checkout feat/the-branch-you-want  # the branch you're testing
 
 cd ~/code/my-app
 bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
@@ -324,7 +324,7 @@ That's it. Skip to step 2.
 
 2. **Set your governance posture** in `.assert-iq/governance.md` — compliance constraints the agents must respect (data handling, naming conventions, refusal rules).
 
-3. **Wire your tools** in `.vscode/mcp.json`. The pack ships 20 pre-configured MCP servers. Add credentials when VS Code prompts — they go to your OS keychain, not the file. See [`.vscode/MCP.md`](.vscode/MCP.md) for a per-server setup guide.
+3. **Wire your tools** in `.vscode/mcp.json` — or `.kiro/settings/mcp.json` if you're on Kiro, which the installer writes with the same 20 servers translated to Kiro's schema. The pack ships 20 pre-configured MCP servers. Add credentials when your editor prompts — they go to your OS keychain, not the file. See [`.vscode/MCP.md`](.vscode/MCP.md) for a per-server setup guide, and [`.kiro/settings/MCP.md`](.kiro/settings/MCP.md) for what differs on Kiro.
 
 4. **Tailor `config.yaml` to your codebase.** Open `.assert-iq/config.yaml` — it controls your maturity tier, tracker, test framework, signal sink, and the free-text context the agent uses when generating artifacts. Every field has inline comments, so you can edit it manually. Or let the agent do it:
 
@@ -349,7 +349,11 @@ That's it. Skip to step 2.
 
 ### 3 · Run a skill
 
-In Copilot Chat, select the `Assert-IQ` agent and try:
+Same skill, three front doors:
+
+- **Copilot Chat** — select the `Assert-IQ` agent, then type the skill.
+- **Claude Code** — just type the skill.
+- **Kiro** — type `/` and the skill name, or describe what you want and let it route.
 
 ```
 /risk-assess-pr
@@ -428,6 +432,12 @@ You can delete the `~/assert-iq-agent-pack` folder too if you're done with it en
   agents/                     ← Claude Code lead + grader subagents
     specialists/              ← 8 v2.0 orchestration specialists (JSON-only output)
   skills → ../.github/skills  ← symlink (copy on Windows without Dev Mode)
+.kiro/
+  steering/                   ← always-on + scoped rules, GENERATED by scripts/sync-kiro.sh
+  agents/                     ← Assert-IQ lead + planner, plus 8 GENERATED specialists
+  hooks/                      ← Dreaming hooks, rendered by the installer
+  settings/                   ← mcp.json (Kiro schema) + MCP.md
+  skills → ../.github/skills  ← symlink (copy on Windows without Dev Mode)
 .vscode/
   mcp.json                    ← 20 MCP server definitions
   MCP.md                      ← per-server credential and setup guide
@@ -439,6 +449,7 @@ You can delete the `~/assert-iq-agent-pack` folder too if you're done with it en
 scripts/
   bootstrap.sh / .ps1         ← workspace installer, cross-platform
   sync-agents.sh / .ps1       ← renders the Copilot specialists from .claude sources
+  sync-kiro.sh / .ps1         ← renders .kiro/steering and .kiro/agents from the same sources
 ```
 
 ---
@@ -455,4 +466,5 @@ Tool-specific references:
 - Feature guide — [`FEATURES.md`](FEATURES.md)
 - VS Code / Copilot — [`.github/vscode-readme.md`](.github/vscode-readme.md)
 - Claude Code — [`.claude/claude-readme.md`](.claude/claude-readme.md)
-- MCP servers — [`.vscode/MCP.md`](.vscode/MCP.md)
+- Kiro — [`.kiro/steering/00-assert-iq.md`](.kiro/steering/00-assert-iq.md) (the in-IDE entrypoint) and [`.assert-iq/kiro-harness.md`](.assert-iq/kiro-harness.md) (the verified schema contract)
+- MCP servers — [`.vscode/MCP.md`](.vscode/MCP.md), and [`.kiro/settings/MCP.md`](.kiro/settings/MCP.md) on Kiro

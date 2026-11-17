@@ -22,10 +22,10 @@
 </head>
 <body>
     <h1>Assert.IQ Agent Pack</h1>
-    <div class="meta">Generated: 2026-11-17 09:25:33 UTC</div>
+    <div class="meta">Generated: 2026-11-17 09:56:50 UTC</div>
 <p><h1>Assert.IQ Agent Pack</h1></p><p>> The capability layer of Assert.IQ. Quality Intelligence-grounded skills,
-> instructions, modes, and tools that turn GitHub Copilot Chat **and**
-> Claude Code into a QI-aware delivery partner inside the IDE.</p><p>**Version**: v2.3.0
+> instructions, modes, and tools that turn GitHub Copilot Chat, Claude Code
+> **and** Kiro into a QI-aware delivery partner inside the IDE.</p><p>**Version**: v2.3.0
 **Status**: Internal Sparq asset — Intelligence Studio
 **Owner**: Jarius Hayes
 **Repo**: <https://github.com/fromjariuswithsparq/assert-iq-agent-pack></p><p>**What's New in v2.0**: Multi-agent orchestration (8 specialists), commercial business metrics dashboard (/measure-qi-impact), and quarterly ROI reporting for executive stakeholders.</p><p>---</p><h2>New here? Start with these words</h2></p><p>This page is the deep reference, so it uses a few terms throughout. If any
@@ -37,9 +37,9 @@ of them are unfamiliar, read this once and the rest will make sense.</p><p>| Ter
 | **Trial mode** | An install that git is told to ignore. The files are really there and everything works, but nobody else on your team sees them and nothing gets committed. The safe way to start. |
 | **Committed mode** | The opposite: git tracks the pack files, so when you commit and push, your team gets them too. |
 | **User-global** | Installed into your home folder instead of into one project, so it's available in *every* project you open. |
-| **Symlink** | A shortcut file that points at another folder. The installer uses one so Claude Code and Copilot can share a single copy of the skills instead of keeping two. |
+| **Symlink** | A shortcut file that points at another folder. The installer uses them so Copilot, Claude Code and Kiro can share a single copy of the skills instead of keeping three. |
 | **Surface** | One place the pack writes files that a tool reads — for example <code>.github/skills/</code> is the surface Copilot reads skills from. |
-| **Skill** | One command you can run in chat, like <code>/risk-assess-pr</code>. The pack ships 31. |</p><p>Two things worth knowing before you run anything:</p><p>1. **Commands run from inside your project**, not from the pack folder. You
+| **Skill** | One command you can run in chat, like <code>/risk-assess-pr</code>. The pack ships 32. |</p><p>Two things worth knowing before you run anything:</p><p>1. **Commands run from inside your project**, not from the pack folder. You
    <code>cd</code> into your project first, then point at the pack by its full path.
 2. **Re-running the installer is safe.** It does not duplicate anything, and
    it leaves your own edits to the config files alone.</p><p>---</p><h2>What this is</h2></p><p>This pack drops into a client codebase and gives the development team an
@@ -48,27 +48,39 @@ Kiro** (and any other <code>AGENTS.md</code>-aware tooling: Codex CLI, Cursor,
 Aider). It is *not* a SaaS product. It is *not* a runtime. It is a
 versioned set of files — markdown, YAML, JSON — that lives in the repo
 and is owned by the team.</p><p>The pack operationalizes Sparq's Quality Intelligence framework:</p><p>- The four-layer signal model (Change → Protection → Trust → Outcome →
-  Decision Confidence) is loaded as Copilot's reasoning lens on every interaction.
+  Decision Confidence) is loaded as the agent's reasoning lens on every
+  interaction, in all three harnesses.
 - 32 skills cover the QE lifecycle: planning, development, review, execution,
   decision, post-incident learning, business impact measurement, and meta (setup/optimization).
 - A QI Advisor chat mode provides maturity-aware coaching.
 - MCP wiring connects to ADO or Jira and to GitHub for first-class
   bidirectional context.</p><p>QI is the operating model. Assert.IQ is the commercialized acceleration.
 This pack is one concrete way teams *act* on QI — without ever becoming a
-tooling pitch.</p><p>---</p><h2>Dual-target: Copilot and Claude Code</h2></p><p>The pack ships one canonical copy of every asset and exposes it through both
-tools' native config surfaces. There is no duplicated content — only thin
-entry-point files (<code>CLAUDE.md</code>, <code>AGENTS.md</code>, <code>.claude/agents/*</code>) plus a
-short installer that wires <code>.claude/settings.json</code> and the skills symlink.</p><p>| Asset | Canonical location | Copilot reads | Claude reads |
-|---|---|---|---|
-| Always-on guidance | <code>.github/copilot-instructions.md</code> (Copilot-native) + mirrored body in <code>CLAUDE.md</code> | <code>.github/copilot-instructions.md</code> | <code>CLAUDE.md</code> |
-| Scoped instructions | <code>.github/instructions/*.instructions.md</code> | same (auto via <code>applyTo</code>) | same (via <code>@</code>-imports in <code>CLAUDE.md</code>; "When this applies" prose) |
-| Skills (32) | <code>.github/skills/*/SKILL.md</code> | <code>.github/skills/</code> directly | <code>.claude/skills/</code> (symlink → <code>.github/skills/</code>) |
-| Chat mode / subagent | <code>.github/agents/Assert-IQ.agent.md</code> + <code>.github/agents/Assert-IQ-PLAN.agent.md</code> (Copilot) + <code>.claude/agents/assert-iq.md</code> + <code>.claude/agents/assert-iq-plan.md</code> (Claude) | agent files | subagent files |
-| Specialist agents (8) | <code>.claude/agents/specialists/*.md</code> is the **single source of truth**; <code>.github/agents/specialists/*.agent.md</code> is **generated** from it by <code>scripts/sync-agents.sh</code> (<code>.ps1</code> on Windows), which maps tool names between the two schemas | generated <code>.agent.md</code> files | source <code>.md</code> files |
-| Dreaming | <code>.assert-iq/dreaming/</code> (scripts + optional service) + <code>.assert-iq/memory/</code> store | yes (via <code>chat.hookFilesLocations</code>) | <code>.claude/settings.json</code> (hooks block, synced by installer) |
-| MCP wiring | <code>.vscode/mcp.json</code> | yes | yes (VS Code MCP is tool-agnostic) |
-| Per-client config | <code>.assert-iq/*</code> | yes | yes |
-| Generic agent pointer | <code>AGENTS.md</code> | n/a | n/a (read by Codex CLI / Cursor / Aider) |</p><p>**After dropping the pack into a repo, run the installer once.**</p><p>On a Mac (or Linux / WSL), in Terminal:</p><p>``<code>bash
+tooling pitch.</p><p>---</p><h2>Three harnesses: Copilot, Claude Code and Kiro</h2></p><p>The pack ships one canonical copy of every asset and exposes it through all
+three tools' native config surfaces. There is no duplicated content — only
+thin entry-point files (<code>CLAUDE.md</code>, <code>AGENTS.md</code>, <code>.claude/agents/*</code>,
+<code>.kiro/steering/00-assert-iq.md</code>), generated mirrors, and a short installer
+that wires <code>.claude/settings.json</code>, <code>.kiro/hooks/</code> and the skills symlinks.</p><p>| Asset | Canonical location | Copilot reads | Claude reads | Kiro reads |
+|---|---|---|---|---|
+| Always-on guidance | <code>.github/copilot-instructions.md</code> (Copilot-native) + mirrored body in <code>CLAUDE.md</code> | <code>.github/copilot-instructions.md</code> | <code>CLAUDE.md</code> | <code>.kiro/steering/00-assert-iq.md</code> + <code>AGENTS.md</code> (both always-on) |
+| Scoped instructions | <code>.github/instructions/*.instructions.md</code> | same (auto via <code>applyTo</code>) | same (via <code>@</code>-imports in <code>CLAUDE.md</code>; "When this applies" prose) | <code>.kiro/steering/qi-*.md</code> — **generated** by <code>scripts/sync-kiro.sh</code> (<code>.ps1</code> on Windows), which maps <code>applyTo</code> to Kiro's <code>inclusion</code> / <code>fileMatchPattern</code> |
+| Skills (32) | <code>.github/skills/*/SKILL.md</code> | <code>.github/skills/</code> directly | <code>.claude/skills/</code> (symlink → <code>.github/skills/</code>) | <code>.kiro/skills</code> (symlink → <code>.github/skills/</code>) |
+| Chat mode / subagent | <code>.github/agents/Assert-IQ.agent.md</code> + <code>.github/agents/Assert-IQ-PLAN.agent.md</code> (Copilot) + <code>.claude/agents/assert-iq.md</code> + <code>.claude/agents/assert-iq-plan.md</code> (Claude) + <code>.kiro/agents/assert-iq.md</code> + <code>.kiro/agents/assert-iq-plan.md</code> (Kiro) | agent files | subagent files | agent files (hand-authored — the prose is harness-specific) |
+| Specialist agents (8) | <code>.claude/agents/specialists/*.md</code> is the **single source of truth**; <code>.github/agents/specialists/*.agent.md</code> and <code>.kiro/agents/*.md</code> are **generated** from it by <code>scripts/sync-agents.sh</code> and <code>scripts/sync-kiro.sh</code> (<code>.ps1</code> on Windows), which map tool names into each schema | generated <code>.agent.md</code> files | source <code>.md</code> files | generated <code>.md</code> files (Claude tool names → Kiro tool *tags*) |
+| Dreaming | <code>.assert-iq/dreaming/</code> (scripts + optional service) + <code>.assert-iq/memory/</code> store | yes (via <code>chat.hookFilesLocations</code>) | <code>.claude/settings.json</code> (hooks block, synced by installer) | <code>.kiro/hooks/assert-iq-dreaming.json</code> (rendered by the installer) |
+| MCP wiring | <code>.vscode/mcp.json</code> | yes | yes (VS Code MCP is tool-agnostic) | <code>.kiro/settings/mcp.json</code> — a **separate** file in Kiro's own schema, not interchangeable; see <code>.kiro/settings/MCP.md</code> |
+| Per-client config | <code>.assert-iq/*</code> | yes | yes | yes |
+| Generic agent pointer | <code>AGENTS.md</code> | n/a | n/a (read by Codex CLI / Cursor / Aider) | yes — Kiro reads it natively as always-on steering |</p><p>**Never edit a generated file.** Its header says so, and the next sync
+reverts it. After changing <code>.github/instructions/*</code> or
+<code>.claude/agents/specialists/*</code>, re-run **both** <code>scripts/sync-agents.sh</code> and
+<code>scripts/sync-kiro.sh</code> from the pack checkout. Parity checks **P5**/**P6**
+(Copilot) and **P7**/**P8** (Kiro) in
+<code>.assert-iq/tests/_qi/automated/e2e-agent-parity.sh</code> fail while either
+generated side is stale, and **P3** requires every router — all three — to
+reach every shipped skill.</p><p>**Kiro's schema was verified against the shipped binary, not its public
+docs,** which are wrong in three places that would each have shipped a broken
+file. <code>.assert-iq/kiro-harness.md</code> records the contract and what remains
+unverified. Read it before changing anything under <code>.kiro/</code>.</p><p>**After dropping the pack into a repo, run the installer once.**</p><p>On a Mac (or Linux / WSL), in Terminal:</p><p>``<code>bash
 bash install.sh
 </code>`<code></p><p>On Windows, in PowerShell:</p><p></code>`<code>powershell
 pwsh -File install.ps1
@@ -76,9 +88,18 @@ pwsh -File install.ps1
 changes nothing the second time. It (1) renders and syncs the session-events
 wiring into </code>.claude/settings.json<code> (merging — it preserves any other settings
 keys you have), (2) scaffolds the </code>.assert-iq/memory/<code> store, and (3) creates
-</code>.claude/skills<code> as a symlink to </code>../.github/skills<code>
+</code>.claude/skills<code> and </code>.kiro/skills<code> as symlinks to </code>../.github/skills<code>
 (falling back to a copy on Windows without Developer Mode — in that case
-re-run the installer after editing skills).</p><p>Copilot requires no extra wiring — it reads </code>.github/*<code> natively.</p><p>> **Note on the </code>.html<code> siblings.** The </code>*.html<code> files at the repo root
+re-run the installer after editing skills).</p><p>If the workspace already has its own </code>.kiro/skills<code> directory, the installer
+**merges** into it rather than claiming it: it reclaims a directory that is
+empty or byte-identical to the canonical tree, copies alongside anything
+else, and never deletes what it did not place. Because the merge is per file,
+</code>--uninstall<code> removes exactly the pack's skills and leaves yours. (Merged
+skills are copies, so they do not auto-update — re-run the installer after a
+pack upgrade.)</p><p>Copilot requires no extra wiring — it reads </code>.github/*<code> natively. Kiro reads
+</code>.kiro/*<code> and </code>AGENTS.md<code> natively, but **hooks do not run in an untrusted
+workspace**: if Dreaming looks dead on Kiro, trust the folder first
+(**Workspaces: Manage Workspace Trust**). Kiro fails this one silently.</p><p>> **Note on the </code>.html<code> siblings.** The </code>*.html<code> files at the repo root
 > (</code>README.html<code>, </code>README.assert-iq.html<code>, </code>claude-readme.html<code>,
 > </code>vscode-readme.html<code>, </code>dreaming-readme.html<code>, </code>MCP.html<code>) are rendered
 > snapshots of the corresponding </code>.md<code> files, intended for offline /
@@ -88,7 +109,7 @@ re-run the installer after editing skills).</p><p>Copilot requires no extra wiri
 — pick based on whether you're evaluating Assert.IQ or actually
 deploying it into a team's repo.</p><h3>Path A — try it on the pack repo itself</h3></p><p>Best when you want to play with Assert.IQ without touching your team's
 repository. You clone the pack, run the installer, and open the **pack
-folder** as your VS Code / Claude Code workspace. Everything runs
+folder** as your VS Code, Claude Code or Kiro workspace. Everything runs
 against the pack's own files.</p><p>On a Mac (or Linux / WSL), in Terminal:</p><p></code>`<code>bash
 git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack
 cd assert-iq-agent-pack
@@ -110,9 +131,9 @@ pwsh -File install.ps1
 duplicate or damage anything. Reverse it
 cleanly with </code>bash install.sh --uninstall<code> (or </code>pwsh ./install.ps1
 -Uninstall<code>).</p><h3>Path B — install it into your codebase</h3></p><p>This is the real deployment path. Bootstrap copies the full set of
-workspace-loaded surfaces into a target repo so Copilot Chat and Claude
-Code can discover the skills, agents, instructions, Dreaming machinery, and config
-from that codebase.</p><p>**Run the bootstrap script from a terminal in your target repo.** No
+workspace-loaded surfaces into a target repo so Copilot Chat, Claude Code
+and Kiro can discover the skills, agents, instructions, Dreaming machinery,
+and config from that codebase.</p><p>**Run the bootstrap script from a terminal in your target repo.** No
 editor required, nothing to install in chat first:</p><p>On a Mac (or Linux / WSL), in Terminal:</p><p></code>`<code>bash
 <h1>1. Download the pack. Once, anywhere on your machine.</h1>
 git clone https://github.com/fromjariuswithsparq/assert-iq-agent-pack ~/assert-iq-agent-pack</p><h1>2. Go to YOUR project.</h1>
@@ -193,8 +214,8 @@ copy. Use any stable tag from the
 The pack is on the stable </code>1.x<code> line — bootstrap CLI flags, manifest
 schema, skill names, and workspace surface layout will not change in
 incompatible ways without a major-version bump.</p><h3>What bootstrap delivers (Path B)</h3></p><p>The bootstrap copies the **complete workspace surface** into the target
-repo. Copilot and Claude Code can't auto-discover skills or agents that
-aren't physically present in the workspace, so all of them ship in.</p><p>| Surface | Why it's per-repo |
+repo. Copilot, Claude Code and Kiro can't auto-discover skills or agents
+that aren't physically present in the workspace, so all of them ship in.</p><p>| Surface | Why it's per-repo |
 |---|---|
 | </code>.assert-iq/config.yaml<code> | Maturity tier, tracker, framework, signal sink — varies by repo. |
 | </code>.assert-iq/governance.md<code> | Compliance posture — varies by client / regulatory regime. |
@@ -204,7 +225,12 @@ aren't physically present in the workspace, so all of them ship in.</p><p>| Surf
 | </code>.github/agents/<code> | </code>Assert-IQ.agent.md<code> (front door; delegates via </code>agent/runSubagent<code>) and </code>Assert-IQ-PLAN.agent.md<code> custom chat modes, plus </code>specialists/<code> — 8 **generated** specialist agents. Do not hand-edit </code>specialists/<code>; edit the Claude sources and re-run </code>scripts/sync-agents.sh<code>. |
 | </code>.claude/agents/<code> | Claude Code subagent counterparts (</code>assert-iq.md<code>, </code>assert-iq-plan.md<code>, </code>grader.md<code>) plus </code>specialists/<code> — 8 v2.0 orchestration specialists (risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer, oracle-grader, calibration-specialist, memory-curator, traceability-auditor). |
 | </code>.claude/skills<code> | Symlink to </code>../.github/skills<code> (copy fallback on Windows without Developer Mode) so Claude Code discovers the same skills. |
-| </code>CLAUDE.md<code> / </code>AGENTS.md<code> | Claude and other agent runners read these from the repo root. |
+| </code>.kiro/steering/<code> | </code>00-assert-iq.md<code> (hand-authored entrypoint — Kiro has no </code>CLAUDE.md<code> equivalent) plus </code>qi-*.md<code>, **generated** from </code>.github/instructions/<code> by </code>scripts/sync-kiro.sh<code>. Do not hand-edit the generated files. |
+| </code>.kiro/agents/<code> | </code>assert-iq.md<code> and </code>assert-iq-plan.md<code> (hand-authored) plus the 8 **generated** specialists. Kiro agents do **not** inherit steering or skills — they load only what their </code>resources<code> globs name, and invalid entries are dropped without error, so every agent the pack ships declares both globs and a test enforces it. |
+| </code>.kiro/skills<code> | Symlink to </code>../.github/skills<code> (copy fallback on Windows without Developer Mode), merged rather than claimed if the directory already exists. |
+| </code>.kiro/hooks/assert-iq-dreaming.json<code> | Dreaming for Kiro, rendered at bootstrap time. Three hooks: the </code>SessionStart<code> gate, the </code>Stop<code> recorder, and a </code>Stop<code> **agent** hook that captures the turn's facts — Kiro's Stop payload carries no </code>transcript_path<code>, so on Kiro the agent is the capture layer. |
+| </code>.kiro/settings/mcp.json<code> + </code>.kiro/settings/MCP.md<code> | The same 20 servers in Kiro's own schema. Not interchangeable with </code>.vscode/mcp.json<code>. |
+| </code>CLAUDE.md<code> / </code>AGENTS.md<code> | Claude and other agent runners read these from the repo root. Kiro reads </code>AGENTS.md<code> natively as always-on steering. |
 | </code>.vscode/settings.json<code> + </code>.vscode/mcp.json<code> | Wires VS Code Copilot to read instructions, prompts, and **Dreaming session events** from the workspace; declares optional GitHub / ADO / Jira MCP servers. JSON deep-merged into any pre-existing settings (additive; your values win on conflicts). |
 | </code>.assert-iq/dreaming/<code> (</code>scripts/<code>, </code>service/<code>, </code>session-events.template.json<code>) + </code>.assert-iq/memory/<code> | The Dreaming machinery that fires on </code>SessionStart<code> / </code>Stop<code>, plus the markdown memory store. </code>session-events.json<code> is rendered at bootstrap time so the script paths resolve to the workspace copies. |
 | </code>.claude/settings.json<code> | Claude Code reads the </code>hooks<code> block from here. Bootstrap merges only the </code>hooks<code> key, preserving any other settings you have. |</p><h3>Trial vs Committed (Path B)</h3></p><p>Three install modes, all driven by the bootstrap script
@@ -246,7 +272,7 @@ cd $HOME\code\my-app
 pwsh -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Graduate
 </code>`<code></p><p>Then, on either platform, commit the pack files when you're ready for the
 team to see them:</p><p></code>`<code>bash
-git add .assert-iq .claude .github CLAUDE.md AGENTS.md
+git add .assert-iq .claude .github .kiro CLAUDE.md AGENTS.md
 git commit -m "chore: adopt Assert.IQ agent pack"
 </code>`<code></p><p>Two things stay local no matter what. </code>--graduate<code> does **not** expose
 </code>.assert-iq/memory/logs/<code> (one daily note per session — your own chat
@@ -307,32 +333,41 @@ tag:</p><p>1. Read the release notes on the
 upgrade. Before upgrading, commit or stash your work so </code>git diff<code> shows
 exactly what changed in a committed install. Afterwards, search for any
 </code>*.assert-iq-new<code> files and reconcile them.</p><p>Uninstalling and reinstalling is only for a clean reset. It discards
-your edits to pack files.</p><h3>Platform notes (</code>.claude/skills<code> symlink)</h3></p><p>The installer creates </code>.claude/skills<code> as a **directory symlink** pointing
-at </code>../.github/skills/<code>, so Copilot and Claude share one canonical copy of
-the 32 skills. Behavior varies by platform:</p><p>| Platform | What happens | What you need to do |
+your edits to pack files.</p><h3>Platform notes (the skills symlinks)</h3></p><p>The installer creates </code>.claude/skills<code> and </code>.kiro/skills<code> as **directory
+symlinks** pointing at </code>../.github/skills/<code>, so Copilot, Claude and Kiro
+share one canonical copy of the 32 skills. Behavior varies by platform:</p><p>| Platform | What happens | What you need to do |
 |---|---|---|
 | **macOS / Linux** | Symlink created normally. | Nothing — edits to either path reflect instantly. |
 | **Windows + Developer Mode, PowerShell 7+** | Symlink created normally. | Enable Developer Mode once: </code>Settings → Privacy & security → For developers → Developer Mode On<code>. Then run </code>install.ps1<code>. |
 | **Windows + Developer Mode, Windows PowerShell 5.1** | 5.1 often still requires the </code>SeCreateSymbolicLink<code> privilege, so the installer **falls back to copying** even with Developer Mode on. | Run the installer under </code>pwsh<code> (PowerShell 7+) if you want a live link; otherwise treat it as the copy case below. </code>scripts\check-environment.ps1<code> reports which you'll get. |
-| **Windows without Developer Mode / admin** | Installer **falls back to copying** </code>.github/skills/<code> → </code>.claude/skills/<code> and logs the fallback. | **Re-run </code>install.ps1<code> after editing any skill** so Claude sees the change. There is real drift risk here — prefer Developer Mode. |
+| **Windows without Developer Mode / admin** | Installer **falls back to copying** </code>.github/skills/<code> → </code>.claude/skills/<code> and </code>.kiro/skills/<code>, and logs the fallback. | **Re-run </code>install.ps1<code> after editing any skill** so Claude and Kiro see the change. There is real drift risk here — prefer Developer Mode. |
 | **CI runners, Docker </code>COPY<code>, manual zip downloads** | Symlinks may not be preserved — you may get a broken link or a copy. | Prefer the GitHub-generated source tarball (preserves symlinks), or run </code>install.sh<code> / </code>install.ps1<code> after checkout to repair the link. |</p><p>The installer is safe to re-run on every platform — running it again is always
 safe.</p><p>---</p><h2>The four layers of the pack</h2></p><p></code>`<code>
 LAYER          PRIMITIVE                                  ROLE
 ─────────      ─────────────────────────────────          ──────────────────────────
 Foundation     .github/copilot-instructions.md            Always-on QI guidance
                .github/instructions/*.instructions.md     (loaded automatically;
-               CLAUDE.md                                   Claude reads CLAUDE.md)</p><p>Skills         .github/skills/<name>/SKILL.md             Invokable workflows
-               (mirrored read-only at .claude/skills/)    (called via /skill-name)</p><p>Modes          .github/agents/Assert-IQ.agent.md          Default front-door agent
+               CLAUDE.md                                   Claude reads CLAUDE.md,
+               .kiro/steering/*.md                         Kiro reads steering +
+               AGENTS.md                                   AGENTS.md; qi-*.md are
+                                                           GENERATED by sync-kiro)</p><p>Skills         .github/skills/<name>/SKILL.md             Invokable workflows
+               (mirrored read-only at .claude/skills/     (called via /skill-name)
+                and .kiro/skills/)</p><p>Modes          .github/agents/Assert-IQ.agent.md          Default front-door agent
                .github/agents/Assert-IQ-PLAN.agent.md     Read-only planning sibling
                .github/agents/specialists/*.agent.md      8 specialists (GENERATED
                                                           by scripts/sync-agents.sh)
                .claude/agents/assert-iq{,-plan}.md        Claude Code subagents
                .claude/agents/grader.md                   Oracle-layer grader
                .claude/agents/specialists/*.md            8 orchestration specialists
-                                                          (source of truth for both)</p><p>Tools          .vscode/mcp.json                           External integrations
-                                                          (ADO, Jira, GitHub)</p><p>Dreaming       .assert-iq/dreaming/ + .assert-iq/memory/  Markdown memory
-               (wired via .vscode/settings.json and        consolidation via
-               .claude/settings.json)                      the /dream skill
+                                                          (source of truth for all 3)
+               .kiro/agents/assert-iq{,-plan}.md          Kiro agents (hand-authored)
+               .kiro/agents/<specialist>.md               8 specialists (GENERATED
+                                                          by scripts/sync-kiro.sh)</p><p>Tools          .vscode/mcp.json                           External integrations
+               .kiro/settings/mcp.json                    (ADO, Jira, GitHub);
+                                                          Kiro has its own schema</p><p>Dreaming       .assert-iq/dreaming/ + .assert-iq/memory/  Markdown memory
+               (wired via .vscode/settings.json,           consolidation via
+               .claude/settings.json and                   the /dream skill
+               .kiro/hooks/)
 </code>`<code></p><p>---</p><h2>Quick start</h2></p><h3>1. Drop the pack into the client repo</h3></p><p>Copy these directories into the repo root:
 - </code>MANIFEST.md<code> (root-level inventory of all files in the pack)
 - </code>README.assert-iq.md<code>
@@ -342,6 +377,7 @@ Foundation     .github/copilot-instructions.md            Always-on QI guidance
 - </code>.github/skills/<code>               ← each skill is a folder with a </code>SKILL.md<code>
 - </code>.github/agents/<code>               ← </code>Assert-IQ.agent.md<code> + </code>Assert-IQ-PLAN.agent.md<code> + </code>specialists/<code> (generated)
 - </code>.claude/<code>                      ← </code>agents/<code>, </code>settings.json<code>; </code>.claude/skills/<code> is created as a symlink by the installer
+- </code>.kiro/<code>                        ← </code>steering/<code>, </code>agents/<code>, </code>settings/<code>; </code>.kiro/skills/<code> and </code>.kiro/hooks/<code> are created by the installer
 - </code>.vscode/mcp.json<code>
 - </code>.vscode/settings.json<code>         ← wires </code>.github/skills/<code> into Copilot prompt-file loading and points </code>chat.hookFilesLocations<code> at </code>.claude/settings.json<code> (the Dreaming session-event hooks, read natively by both VS Code Copilot and Claude Code)
 - </code>.assert-iq/dreaming/<code>          ← </code>scripts/<code>, </code>service/<code>, and </code>session-events.template.json<code> (the Dreaming machinery; </code>.assert-iq/memory/<code> is scaffolded alongside)
@@ -424,11 +460,12 @@ synthesizes findings into one narrative + decision, preserving the audit trail i
 | Serial chain | </code>oracle-grader<code> | Rubric-based quality scoring. |
 | | </code>calibration-specialist<code> | Verdict accuracy measurement (Brier score, layer fidelity, drift). |
 | | </code>memory-curator<code> | Memory store health checks (cycles, staleness, contradictions). |
-| | </code>traceability-auditor<code> | AC↔code↔test linkage validation. |</p><p>Both harnesses run this tier. </code>.claude/agents/specialists/*.md<code> is the single
-source of truth; the Copilot copies in </code>.github/agents/specialists/<code> are
-generated from it by </code>scripts/sync-agents.sh<code> (</code>sync-agents.ps1<code> on Windows), so
-edit the Claude sources and re-run the sync rather than editing the generated
-files.</p><p>---</p><h2>How to use</h2></p><h3>Invoking a skill</h3></p><p>Open Copilot Chat in VS Code. Type </code>/<code> to see available skills. Type the
+| | </code>traceability-auditor<code> | AC↔code↔test linkage validation. |</p><p>All three harnesses run this tier. </code>.claude/agents/specialists/*.md<code> is the
+single source of truth; the Copilot copies in </code>.github/agents/specialists/<code>
+and the Kiro copies in </code>.kiro/agents/<code> are generated from it by
+</code>scripts/sync-agents.sh<code> and </code>scripts/sync-kiro.sh<code> (</code>.ps1<code> on Windows), so
+edit the Claude sources and re-run **both** syncs rather than editing the
+generated files.</p><p>---</p><h2>How to use</h2></p><h3>Invoking a skill</h3></p><p>Open Copilot Chat in VS Code. Type </code>/<code> to see available skills. Type the
 skill name to invoke. Provide inputs when prompted, or skip if the skill
 can resolve them from context (work item from branch name, scope from current
 diff, etc.).</p><h3>Using the Assert-IQ agents</h3></p><p>Pick **</code>Assert-IQ<code>** from the agent dropdown for default behavior — it
@@ -574,6 +611,7 @@ or </code>qi-traceability.instructions.md<code> with examples drawn from your co
 | **2.0.0** | **Multi-agent orchestration + commercial instrumentation.** Lead agents (</code>Assert-IQ<code>, </code>Assert-IQ-PLAN<code>) now orchestrate **8 isolated specialist agents** under </code>.claude/agents/specialists/<code> — </code>risk-scorer<code>, </code>coverage-analyst<code>, </code>flake-adjudicator<code>, </code>hotspot-analyzer<code> (parallel batch) then </code>oracle-grader<code>, </code>calibration-specialist<code>, </code>memory-curator<code>, </code>traceability-auditor<code> (serial chain). Each returns structured JSON; the lead synthesizes findings into one narrative + decision, with the audit trail in </code>.assert-iq/agent-runs/<code>. New </code>/measure-qi-impact<code> skill converts QI verdicts + baseline metrics (</code>.assert-iq/business-metrics/baseline.json<code>) into VP-ready quarterly HTML dashboards: escape reduction %, triage hours reclaimed, cycle-time acceleration, and total economic ROI in dollars. Configured via </code>.assert-iq/config.yaml<code> → </code>business_metrics<code>. **30 skills total** (was 29). Strict superset of 1.7.0 — zero breaking changes. |
 | **2.1.0** | **Windows verified as a first-class platform for both harnesses.** All four variations (Windows/macOS × Copilot/Claude Code) are now covered, with the PowerShell suites run under **both** Windows PowerShell 5.1 and PowerShell 7 — a green run on one says nothing about the other, and four 5.1-only defects were hiding behind a fully passing 7 run. **Fixed:** Copilot session hooks never fired on Windows (every </code>$<code>-prefixed token was stripped before PowerShell parsed the command, so Dreaming recorded nothing and only a </code>ParserError<code> surfaced); </code>bootstrap.ps1 -Upgrade<code> silently dropped the pack update whenever the baseline came from a git tag; uninstall left </code>business-metrics/<code> behind on both platforms and </code>verdicts/<code> on Windows; the memory store was preserved on activity rather than consolidated knowledge, so a working hook meant every uninstall orphaned an empty store; </code>install.ps1<code> / </code>bootstrap.ps1<code> failed to *parse* under 5.1 (non-ASCII, no BOM); trial mode left the pack visible to git; every PowerShell-written JSON carried a BOM the Python tooling rejects; </code>.claude/skills<code> was silently a copy rather than a symlink; </code>install.sh<code> worked exactly once without </code>jq<code> on stock macOS; </code>validate-documentation-integrity.sh<code> ran 1 of 10 checks on every platform. **Added:** </code>scripts/check-environment.sh<code> / </code>.ps1<code> environment doctors, a </code>.gitattributes<code> (the pack never had one), and ~16 test files weighted toward executing behaviour over inspecting shape — including hook execution that asserts observable state. **Cross-harness parity:** the 8 specialist agents are now generated for Copilot from the Claude sources by </code>scripts/sync-agents.sh<code> / </code>.ps1<code>, so the two harnesses cannot drift; </code>Assert-IQ<code> gained </code>agent/runSubagent<code> and an </code>agents:<code> allowlist so Copilot can actually delegate; new parity checks P5 (generated agents stale) and P6 (bash vs PowerShell tool-map divergence). </code>jq<code> is no longer a dependency — JSON assertions moved to Python helpers — and the suite resolves </code>python3<code> → </code>python<code> → </code>py -3<code> by execution, because Windows ships a </code>python3<code> stub and no </code>python3.exe<code>. PowerShell 7 is now the documented Windows default; 5.1 remains supported and tested on every run. |
 | **2.2.0** | **Story sizing joins the pack, and the upgrade instructions match the real upgrade path.** **Added:** </code>/estimate-story<code> sizes a story through the four signal layers. It returns a team-relative point range with confidence, computed without the team profile so points stay comparable across assignees. Separately, it returns a team-fit view: roles needed, an elapsed-time band per level, bus-factor and capacity flags. That view is drawn from a new role-slot team profile (</code>.assert-iq/team-profile.template.yaml<code>, no names). The human picks the final number. Tracker write-back is tier-capped: report or comment at </code>early<code>, plus the Story Points field at </code>mid<code> and above, confirmed per item. Estimates are logged to </code>.assert-iq/estimates/archive/<code> (local-only) for later calibration. New </code>story_estimation:<code> config section, </code>estimate.generated<code> signal, and a governance clause on the team profile. **32 skills total** (was 31). **Docs:** the upgrade steps told users to uninstall and reinstall, which discards their edits. They now use </code>bootstrap --upgrade<code> / </code>-Upgrade<code> (a three-way merge that keeps the install mode) for target repos, and a plain re-run of the installer for the pack clone. |
+| **Unreleased** | **Documentation and test coverage; no behaviour change.** **Fixed:** </code>unit-legacy-exclude-strip.sh<code> drove </code>bootstrap.sh<code> only and reported NOT APPLICABLE on Windows, so </code>Remove-LegacyBlockLines<code> — the half Windows users actually run — shipped unguarded; the test now drives both installers and runs its native half per platform (11/11 against </code>bootstrap.ps1<code>). *Correction to the 2.3.0 notes: the **fix** always had a PowerShell twin — the **test** did not.* Every installer-driving test now has both halves, stated as policy in </code>run-all.sh<code>. **Changed:** the docs name Kiro everywhere they name Copilot and Claude Code — </code>README.md<code>'s file tree, MCP step, skill-invocation step and reference list; </code>README.assert-iq.md<code>'s harness section (now *Three harnesses*, with a **Kiro reads** column), bootstrap-delivers table, four-layer map and graduate </code>git add<code>; plus </code>FEATURES.md<code> and both per-harness readmes. HTML sisters updated in step; doc parity 8/8. **Also fixed:** a stale skill count (31 → 32) and a stale branch name in the unreleased-branch install example. |
 | **2.3.0** | **Kiro joins Claude Code and GitHub Copilot as a fully supported harness, and four defects it surfaced are fixed for all three.** **Added:** the </code>.kiro/<code> surface — steering, 8 specialist agents plus a lead and planner, a skills symlink to the one canonical tree, Dreaming hooks and </code>settings/mcp.json<code> — generated from the same sources Copilot uses by </code>scripts/sync-kiro.{sh,ps1}<code>, so the three harnesses cannot drift. Parity checks **P7**/**P8** guard the generated files and the two sync implementations, and **P3** now requires the Kiro router to reach every shipped skill. Install, upgrade and uninstall are wired on both platforms (</code>--kiro=workspace|skip<code>). The schema was verified against the shipped Kiro binary rather than its docs, which are wrong about the agent file format, about </code>allowedTools<code>/</code>toolsSettings<code>, and about the hook schema; </code>.assert-iq/kiro-harness.md<code> records the contract and what remains unverified. **Fixed (all harnesses):** a full install could report success while writing a **0-byte manifest** on Windows, leaving uninstall with nothing to remove; installing into a workspace that already had its own skills made every Assert.IQ skill unreachable — the skills directory is now **merged, not claimed**, and uninstall removes only the pack's files; </code>install.sh<code>/</code>install.ps1<code> **deleted pre-existing user skills outright**; and three skills shipped with no YAML frontmatter, invisible to any strict reader. **Fixed (Kiro):** Dreaming recorded only heartbeats because Kiro's Stop hook carries no </code>transcript_path<code> — capture is now agent-driven. |
 | **2.2.1** | **Hotfix: back-to-back upgrades no longer wipe </code>/assert-iq-tailor<code> choices, and the Dreaming runtime stays out of git.** **Fixed:** </code>.assert-iq/memory/logs/<code> and </code>.assert-iq/memory/.dream/<code> are local-only in every install mode, including after </code>--graduate<code>, via a new </code>.assert-iq/memory/.gitignore<code>. A second </code>--upgrade<code> / </code>-Upgrade<code> in a row treated a file the first upgrade had merged as unedited and copied the pack template over it, silently resetting </code>config.yaml<code>, </code>governance.md<code>, </code>maturity-profile.md<code> and </code>business-metrics/baseline.json<code>. "Unedited" now means matching the pristine pack copy in the install-time base cache. Every overwrite now saves your version to </code><file>.assert-iq.pre-overwrite-<timestamp><code> first (kept out of git, left alone by uninstall). Client config merges three-way on a plain re-run too, and </code>[O]all<code> / </code>CONFLICT_BULK_CHOICE=O<code> never overwrite it. New regression test </code>unit-overwrite-snapshot.sh<code> covers both installers. |
 | **2.1.3** | **A feature guide ships, the </code>/dream<code> safety procedure is implemented, </code>/calibration-report<code> exists, and two stale work logs stopped shipping.** **Docs:** New </code>FEATURES.md<code> and its HTML sister </code>FEATURES.html<code> — the eight features and all 31 skills, each with what it is, how to use it, when to use it and why it matters, written for a first-year engineer and a non-technical reader at once. The README's eight feature cards are now links into it, every feature and skill is individually addressable, and the guide adds 86 headings to site search (all 31 skills by command name). Wiring it in exposed three tooling gaps, now fixed: </code>build-search-index.py<code> emitted </code><h3id="…"><code> when injecting an id into a heading that already had attributes; </code>make-release.sh<code> did not bump the new pair's version banners; and </code>unit-doc-parity.py<code> did not guard the new pair — it now does, with zero declared exceptions. **Fixed:** </code>qi-foundation.instructions.md<code> promised four things around </code>/dream<code> — sanity checks, a memory snapshot, an append-only provenance record, and a post-dream regression check — and none existed; nothing wrote </code>provenance.json<code>, </code>.snapshots/<code> stayed empty, and the reproducibility contract's </code>tar xzf .snapshots/mem-<version>.tar.gz<code> step could never work because no snapshot was ever taken. </code>integration-dream-provenance.sh<code> passed throughout, because it only checked the file existed and parsed. New </code>.assert-iq/analysis/dream-safety.py<code> implements the deterministic half (</code>pre<code>, </code>post<code>, </code>regression<code>), gated by maturity tier — </code>higher<code> enforces, </code>early<code>/</code>mid<code> warn — with a blocked run still taking its snapshot. The judgement half stays with the model: </code>/dream<code> re-runs the corpus, the script does the divergence maths and the gate. **Added:** </code>/calibration-report<code>, tracked as "Phase 6, not yet created" since v1.7.0 — </code>calibration.py<code> already computed the metrics but nothing could run and interpret them from chat. **31 skills total** (was 30). **Changed:** </code>IMPLEMENTATION_SUMMARY.md<code> and </code>README_REVIEW_SUMMARY.md<code> installed into every consumer workspace carrying claims already false ("57/57 tests passing", "No commits made", a Known Limitations table marking three shipped items pending); both are now excluded from the install payload in both installers and stay in the pack repo as bannered history. |

@@ -15,7 +15,7 @@ session-event settings.
 | `agents/assert-iq-plan.md` | The **planning sibling** of `assert-iq`. Read-only — researches, writes a plan, and waits for your approval before handing off. Invoke with `@assert-iq-plan` when the task is large or risky. |
 | `agents/grader.md` | The **Oracle-layer grader** — evaluates an artifact against a pre-authored rubric in an isolated context, with no access to how the artifact was produced. |
 | `agents/specialists/` | Eight single-purpose analysts (risk-scorer, coverage-analyst, flake-adjudicator, hotspot-analyzer, oracle-grader, calibration-specialist, memory-curator, traceability-auditor). The lead delegates to them and each returns JSON only. **These files are also the source of truth for Copilot** — `.github/agents/specialists/` is generated from them by `scripts/sync-agents.sh`, so edit them here and re-run the sync. |
-| `skills/` | Step-by-step playbooks Claude can run when you ask. This is a **symlink** to `.github/skills/`, so Copilot and Claude share the exact same set. Examples: `/generate-bug-report`, `/code-review`. On **Windows without Developer Mode**, the installer falls back to copying the folder — in that case, re-run `install.ps1` after editing any skill. See [README.assert-iq.md → Platform notes](../README.assert-iq.md#platform-notes-claudeskills-symlink) for the full matrix. |
+| `skills/` | Step-by-step playbooks Claude can run when you ask. This is a **symlink** to `.github/skills/`, so Copilot, Claude and Kiro share the exact same set. Examples: `/generate-bug-report`, `/code-review`. On **Windows without Developer Mode**, the installer falls back to copying the folder — in that case, re-run `install.ps1` after editing any skill. See [README.assert-iq.md → Platform notes](../README.assert-iq.md#platform-notes-the-skills-symlinks) for the full matrix. |
 | `settings.json` | Claude Code's settings file. The pack installer fills in the session-events (`hooks`) section here — the Dreaming waking-loop scripts that fire at session start/end to record activity and nudge `/dream`. |
 
 The instructions ("house rules") that Copilot reads from
@@ -77,7 +77,7 @@ Yes. The same content is mirrored to the `.github/` folder at the repo
 root, and Copilot reads it automatically — no installer needed for the
 Copilot side. See [`../.github/vscode-readme.md`](../.github/vscode-readme.md).
 
-You can use either tool — they share the same skills, instructions, and
+You can use any of the three — they share the same skills, instructions, and
 Dreaming memory.
 
 ---

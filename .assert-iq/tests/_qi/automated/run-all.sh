@@ -31,24 +31,26 @@ cd "$REPO_ROOT"
 PARITY="e2e-agent-parity.sh"
 PREFLIGHT="unit-test-dependencies.sh"
 
-# On Windows, exercise the PowerShell installer half only.
+# PLATFORM POLICY FOR INSTALLER-DRIVING TESTS.
 #
-# unit-overwrite-snapshot.sh drives the real installers and defaults to running
-# BOTH halves (sh and ps1). Under MSYS the sh half is pathological: bootstrap.sh
-# takes ~9 minutes per install there, and that test performs five of them, so a
-# Windows suite run spends ~45 minutes inside one test. Measured here at 15+
-# minutes with no output before it was killed.
+# Two tests execute the real installers rather than grepping them --
+# unit-overwrite-snapshot.sh and unit-legacy-exclude-strip.sh. Both are
+# parameterized over the installer and both read AIQ_TEST_INSTALLERS, so the
+# policy is one line of configuration rather than a judgment call per test:
 #
-# The test already anticipates this -- its own comment says the sh half "belongs
-# on macOS/Linux" and it reads AIQ_TEST_INSTALLERS to narrow the run. Nothing
-# set it, so the default lost. Set it here rather than inside the test so the
-# choice is visible to whoever runs the suite, and so a maintainer can still
-# force the slow half with AIQ_TEST_INSTALLERS="sh ps1".
+#   every installer-driving test has BOTH halves, and each platform runs the
+#   half its users actually run.
 #
-# This is NOT a coverage trade: the ps1 half is the installer Windows users
-# actually run, and the sh half still runs in full on macOS, Linux and WSL.
-# Contrast unit-legacy-exclude-strip.sh, which has no ps1 twin and therefore
-# SKIPs here outright.
+# Under MSYS the sh half is pathological: bootstrap.sh takes ~9 minutes per
+# install there, and these tests perform several each, so a Windows suite run
+# would spend the better part of an hour inside two tests -- measured here at
+# 15+ minutes with no output before it was killed. The ps1 half is the
+# installer Windows users actually run, and the sh half still runs in full on
+# macOS, Linux and WSL, so this narrows the run without narrowing coverage.
+#
+# Set here rather than inside the tests so the choice is visible to whoever
+# runs the suite, and so a maintainer can still force the slow half with
+# AIQ_TEST_INSTALLERS="sh ps1".
 case "$(uname -s 2>/dev/null)" in
   MINGW*|MSYS*|CYGWIN*)
     export AIQ_TEST_INSTALLERS="${AIQ_TEST_INSTALLERS:-ps1}"
@@ -71,8 +73,8 @@ run_one() {
   # Three-valued, matching e2e-agent-parity.sh: 0 pass, 2 NOT APPLICABLE on
   # this platform, anything else fail. A test that could not run must never be
   # counted as green -- that is the same quiet lie as reporting an unchecked
-  # parity run as "IN PARITY". Currently used by unit-legacy-exclude-strip.sh,
-  # which executes bootstrap.sh and so cannot run under MSYS.
+  # parity run as "IN PARITY". Used by the installer-driving tests when no
+  # usable installer half exists on the host (e.g. Windows with no PowerShell).
   case $rc in
     0)
       printf '  PASS  %s\n' "$name"

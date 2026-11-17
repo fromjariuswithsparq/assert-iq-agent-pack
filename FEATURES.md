@@ -67,7 +67,7 @@ A skill is a pre-written expert procedure the agent follows on request. You type
 
 The difference between a skill and just asking the chat window for a test is repeatability. The chat window gives you whatever it feels like today. A skill gives you the same structure, the same required headers, and the same traceability every single time, for every person on the team.
 
-Skills live in `.github/skills/` and are mirrored to `.claude/skills/` and `.kiro/skills/`, so the same 31 commands work in **GitHub Copilot Chat**, **Claude Code** and **Kiro**. One pack, three tools — and because the mirrors are symlinks to one canonical tree, the three cannot drift apart.
+Skills live in `.github/skills/` and are mirrored to `.claude/skills/` and `.kiro/skills/`, so the same 32 commands work in **GitHub Copilot Chat**, **Claude Code** and **Kiro**. One pack, three tools — and because the mirrors are symlinks to one canonical tree, the three cannot drift apart.
 
 ### How to use it
 
@@ -474,7 +474,7 @@ You don't invoke the specialists directly. You invoke a decision skill and the o
 /release-confidence
 ```
 
-In Claude Code you can also address a lead agent by name and describe the problem. Use `Assert-IQ-PLAN` when the task is large, risky, or spans many files and you want to see the plan before anything moves.
+In Claude Code and Kiro you can also address a lead agent by name and describe the problem. Use `Assert-IQ-PLAN` when the task is large, risky, or spans many files and you want to see the plan before anything moves.
 
 Every run leaves an audit trail in `.assert-iq/agent-runs/` — each specialist's raw JSON, preserved. When you disagree with a verdict, that's where you go to find out which specialist you disagree with.
 
@@ -959,6 +959,7 @@ Run [`/measure-qi-impact`](#business-impact-dashboards) and [`/calibration-repor
 | [README.assert-iq.md](README.assert-iq.md) | Full documentation — every install option, full skill reference, release history |
 | [ORACLE_QUICK_START.md](ORACLE_QUICK_START.md) | Oracle Layer in five steps |
 | [`.vscode/MCP.md`](.vscode/MCP.md) | Per-server MCP setup and credentials |
+| [`.kiro/settings/MCP.md`](.kiro/settings/MCP.md) | The same servers on Kiro, and what differs |
 | [`.claude/claude-readme.md`](.claude/claude-readme.md) | Claude Code specifics |
 | [`.github/vscode-readme.md`](.github/vscode-readme.md) | VS Code and Copilot specifics |
 | [`.assert-iq/kiro-harness.md`](.assert-iq/kiro-harness.md) | Kiro specifics — the verified schema contract |

@@ -40,10 +40,11 @@ folder on their own.
 
 ## "Will this also work in Claude Code?"
 
-Yes. The same content is mirrored to the `.claude/` folder at the repo
-root. See [`.claude/claude-readme.md`](../.claude/claude-readme.md) for the Claude
-side. You can use either tool — they share the same skills, instructions,
-and Dreaming memory.
+Yes — and in Kiro too. The same content is mirrored to the `.claude/`
+folder for Claude Code and to `.kiro/` for Kiro, both at the repo root. See
+[`.claude/claude-readme.md`](../.claude/claude-readme.md) for the Claude
+side. You can use any of the three — they share the same skills,
+instructions, and Dreaming memory.
 
 > **Before installing**, run the environment check — `bash scripts/check-environment.sh`
 > on macOS/Linux/WSL, or `pwsh -File scripts/check-environment.ps1` on Windows.

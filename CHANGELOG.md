@@ -5,6 +5,78 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+<!-- make-release.sh requires a dated "## [<version>] — YYYY-MM-DD" heading.
+     Promote this one at release time; leaving it as [Unreleased] until then
+     keeps E2E-17b (VERSION matches the newest released entry) green on every
+     commit. -->
+
+A documentation and test-coverage patch. No behaviour changes, nothing
+breaking — but if you are on Kiro, the docs finally say so.
+
+### Fixed — the Windows half of the legacy-exclude strip was untested
+
+`unit-legacy-exclude-strip.sh` drove `bootstrap.sh` only, and reported NOT
+APPLICABLE on Windows because `bootstrap.sh` refuses to run under MSYS. So the
+PowerShell implementation — `Remove-LegacyBlockLines`, the half Windows users
+actually execute — was shipping unguarded: a refactor could have broken it and
+nothing would have gone red.
+
+The test is now parameterized over the installer, the same shape as
+`unit-overwrite-snapshot.sh`, and runs its native half per platform: `ps1` on
+Windows, `sh` (plus `ps1` where `pwsh` is on PATH) everywhere else. All 11
+assertions pass against `bootstrap.ps1`, in about 80 seconds.
+
+> **Correction to the 2.3.0 release notes.** Their *Known gaps* section said
+> "that fix has no `bootstrap.ps1` twin yet." That was wrong. The **fix** has
+> had a PowerShell twin since it landed; the **test** did not. The behaviour
+> was correct on Windows all along — only the coverage was missing.
+
+That was the last installer-driving test without both halves, so the ad-hoc
+handling is now a stated policy, recorded in `run-all.sh`: *every
+installer-driving test has both halves, and each platform runs the half its
+users actually run.*
+
+**Documented while pinning this down:** on Windows, `bootstrap.ps1` rewrites
+`.git/info/exclude` with CRLF line endings when it appends the managed block —
+the whole file, not just its own lines. Verified harmless (git strips the
+trailing CR when reading exclude files, and the file is untracked), and the
+test compares CR-stripped so a line-ending difference can never masquerade as
+data loss. It did exactly that once during review, and read like a
+user's ignore rules had been eaten.
+
+### Changed — the docs now say Kiro everywhere they say Copilot and Claude Code
+
+Kiro shipped as a first-class harness in 2.3.0, but most of the
+documentation still described a two-harness pack. A Kiro user reading
+`README.md` found their IDE named in the opening paragraph and almost nowhere
+after it.
+
+- **`README.md`** — the file tree now shows `.kiro/` and `scripts/sync-kiro.*`;
+  the MCP step names `.kiro/settings/mcp.json`; "Run a skill" gives the front
+  door for all three tools, not just Copilot Chat; the Windows symlink notes
+  cover `.kiro/skills`; and Kiro has an entry under tool-specific references.
+- **`README.assert-iq.md`** — *Dual-target: Copilot and Claude Code* is now
+  *Three harnesses: Copilot, Claude Code and Kiro*, and its asset table gained
+  a **Kiro reads** column. *What bootstrap delivers* documents every `.kiro/`
+  surface, the merge-don't-claim skills behaviour, and the two Kiro traps that
+  fail silently (agents do not inherit steering or skills; hooks do not run in
+  an untrusted workspace). The four-layer map and the drop-in file list
+  include `.kiro/`, and `git add` for graduating a trial install no longer
+  omits it.
+- **`FEATURES.md`**, **`.claude/claude-readme.md`**, **`.github/vscode-readme.md`**
+  — "either tool" is now "any of the three", and the MCP reference table lists
+  `.kiro/settings/MCP.md`.
+- Every HTML sister was updated in step; doc parity stays 8/8.
+
+### Fixed — two stale facts in the docs
+
+- The skill count read **31** in `README.assert-iq.md`'s glossary and in
+  `FEATURES.md`, against 32 shipped skills and "32" everywhere else.
+- `README.md`'s "Testing an unreleased branch" example still checked out
+  `feat/kiro-ide-support`, a branch merged in 2.3.0.
+
 ## [2.3.0] — 2026-11-17
 
 **Kiro joins Claude Code and GitHub Copilot as a fully supported harness**, and
