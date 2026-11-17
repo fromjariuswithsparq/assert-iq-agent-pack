@@ -63,6 +63,9 @@ them to match your team's workflow.
 - Healed tests — every healing event, regardless of scope
 - Auto-created defects (severity-gated; see `bug_reporter.auto_create_threshold` in `config.yaml`)
 - PR risk assessments that change a merge verdict
+- Story estimates written to the tracker by `/estimate-story` — a comment
+  or a Story Points value is confirmed per item, and the field write is
+  available only at `mid` tier and above
 
 **Project-specific gates (fill in or delete):**
 
@@ -164,11 +167,28 @@ use.
   to `.assert-iq/memory/`. Skim the diff per your review cadence; `git revert`
   is the undo. Memory promoted to long-term must be multi-session-confirmed or
   explicitly saved (guards against memory poisoning).
+- **Team profile**: `.assert-iq/team-profile.yaml` (read by
+  `/estimate-story`) describes role slots — role, level, capacity, module
+  familiarity — and never names, emails, user IDs, or a name-to-slot
+  mapping. Its only purpose is sizing and planning. It must not be used
+  to evaluate, rank, or compare individuals, and the agent must not infer
+  anyone's level or familiarity from git authorship or tracker assignees.
+  Historical delivery data is aggregated at team level; the estimates log
+  (`.assert-iq/estimates/archive/`) records a level, never a person, and
+  is local-only by default.
 - **Audit log retention**: The memory store `.assert-iq/memory/` (index,
   topics, and daily logs under `logs/`) is retained for
-  `<N days / sprints / quarters>` per your compliance posture. Its git
-  visibility follows the install mode — committed installs track it (reviewable
-  diffs); trial installs keep it local-only via `.git/info/exclude`.
+  `<N days / sprints / quarters>` per your compliance posture. Git visibility
+  of the dreamed results (`MEMORY.md`, `topics/`) follows the install mode —
+  committed installs track them (reviewable diffs); trial installs keep them
+  local-only via `.git/info/exclude`. The runtime — `logs/` (per-developer
+  session notes) and `.dream/` (per-machine dream state) — is local-only in
+  every mode and is **not** exposed by `--graduate`. Where a compliance
+  posture genuinely requires the raw session stream in version control, that
+  is a deliberate opt-in, not a default: the paths have to be force-added
+  (`git add -f`), and the decision recorded here. The pack will keep excluding
+  them — `.assert-iq/memory/.gitignore` and the installer-managed
+  `.git/info/exclude` block both name them.
 
 
 ## 6. Approval

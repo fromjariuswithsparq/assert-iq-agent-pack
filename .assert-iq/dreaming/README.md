@@ -164,12 +164,21 @@ Mirrors Agentic Healing:
 
 ## Git visibility follows install mode
 
-- **Committed install** — the memory store is tracked in git; every dream
-  cycle is a reviewable diff (the audit interface).
+- **Committed install** — the dreamed *results* are tracked in git
+  (`MEMORY.md`, `topics/*.md`); every dream cycle is a reviewable diff (the
+  audit interface).
 - **Trial install** — the whole `.assert-iq/memory/` store is kept local-only
   via `.git/info/exclude`; git never sees it, and dreams update it
-  autonomously. Run `scripts/bootstrap.sh --graduate` to expose it to git
-  later. (Pack-as-workspace installs via `install.sh` track it, like committed.)
+  autonomously. Run `scripts/bootstrap.sh --graduate` to expose the results to
+  git later. (Pack-as-workspace installs via `install.sh` track them, like
+  committed.)
+- **Never, in any mode** — `memory/logs/` and `memory/.dream/`. The daily
+  session notes are each developer's own chat activity and `.dream/state.json`
+  is a per-machine counter; a teammate pulling either gets noise and merge
+  conflicts, not signal. `.assert-iq/memory/.gitignore` (shipped into every
+  workspace) holds the rule, with the same two paths in the always-on
+  `.git/info/exclude` block as a backstop. `--graduate` does not expose them,
+  and it untracks them if an older install already committed them.
 
 ## Optional background dreamer
 

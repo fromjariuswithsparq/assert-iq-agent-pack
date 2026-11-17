@@ -918,7 +918,87 @@ Run-Case "45 upgrade preserves trial mode" $Pattern {
     }
 }
 
-Run-Case "46 skills dest reclaimed not sidecarred" $Pattern {
+
+Run-Case "46 committed hides dream runtime" $Pattern {
+    # Committed mode exposes the pack on purpose, but the Dreaming runtime is
+    # per-developer: session logs under memory\logs\ and the dream counter in
+    # memory\.dream\. Those must be invisible to git in committed mode too,
+    # while the dream RESULTS (MEMORY.md, topics\*.md) stay visible.
+    # (Twin of case 45 in e2e-bootstrap.sh.)
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    try {
+        Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
+        Assert-FileExists 46 "$ws\.assert-iq\memory\.gitignore"
+        Assert-Contains   46 "$ws\.assert-iq\memory\.gitignore" "logs/"
+        Assert-Contains   46 "$ws\.assert-iq\memory\.gitignore" ".dream/"
+        $logDir = "$ws\.assert-iq\memory\logs\2026\10"
+        New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+        Set-Content -LiteralPath "$logDir\2026-10-29.md" -Value "- session ended"
+        Assert-FileExists 46 "$ws\.assert-iq\memory\.dream\state.json"
+        Push-Location $ws
+        try {
+            git check-ignore --quiet ".assert-iq/memory/logs/2026/10/2026-10-29.md" 2>$null
+            if ($LASTEXITCODE -ne 0) { Fail 46 "dream session log not ignored in committed mode" }
+            git check-ignore --quiet ".assert-iq/memory/.dream/state.json" 2>$null
+            if ($LASTEXITCODE -ne 0) { Fail 46 "dream state.json not ignored in committed mode" }
+            # The results the team DOES want must stay trackable.
+            Set-Content -LiteralPath "$ws\.assert-iq\memory\topics\architecture.md" -Value "- fact"
+            git check-ignore --quiet ".assert-iq/memory/topics/architecture.md" 2>$null
+            if ($LASTEXITCODE -eq 0) { Fail 46 "memory topic wrongly ignored (team content)" }
+            git check-ignore --quiet ".assert-iq/memory/MEMORY.md" 2>$null
+            if ($LASTEXITCODE -eq 0) { Fail 46 "MEMORY.md wrongly ignored (team content)" }
+        } finally { Pop-Location }
+    } finally {
+        Invoke-CleanupFixture $pair $Keep
+    }
+}
+
+Run-Case "47 graduate hides dream runtime" $Pattern {
+    # -Graduate is the other way a workspace becomes team-visible, and it
+    # short-circuits before the memory store is seeded. It must still leave the
+    # Dreaming runtime hidden -- and must untrack it if an older version of the
+    # pack already let it into the index.
+    # (Twin of case 46 in e2e-bootstrap.sh.)
+    $pair = Invoke-MkFixture
+    $ws = $pair.ws
+    try {
+        Invoke-RunBoot $pair @("--preset=pod", "--mode=trial", "--yes") | Out-Null
+        # Stand in for a pre-2.2.1 install: no memory\.gitignore, and the
+        # runtime already committed.
+        Remove-Item -LiteralPath "$ws\.assert-iq\memory\.gitignore" -Force -ErrorAction SilentlyContinue
+        $logDir = "$ws\.assert-iq\memory\logs\2026\10"
+        New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+        Set-Content -LiteralPath "$logDir\2026-10-29.md" -Value "- session ended"
+        Push-Location $ws
+        try {
+            git add -f ".assert-iq/memory/logs/2026/10/2026-10-29.md" ".assert-iq/memory/.dream/state.json" 2>$null | Out-Null
+            git commit -q -m "pre-2.2.1" 2>$null | Out-Null
+        } finally { Pop-Location }
+
+        Invoke-RunBoot $pair @("--graduate") | Out-Null
+
+        Assert-FileExists 47 "$ws\.assert-iq\memory\.gitignore"
+        Assert-Contains   47 "$ws\.git\info\exclude" ".assert-iq/memory/logs/"
+        Assert-Contains   47 "$ws\.git\info\exclude" ".assert-iq/memory/.dream/"
+        Push-Location $ws
+        try {
+            $still = @(git ls-files -- '.assert-iq/memory/logs' '.assert-iq/memory/.dream' 2>$null | Where-Object { $_ })
+            if ($still.Count -gt 0) { Fail 47 "graduate left Dreaming runtime tracked: $($still -join ', ')" }
+            git check-ignore --quiet ".assert-iq/memory/logs/2026/10/2026-10-29.md" 2>$null
+            if ($LASTEXITCODE -ne 0) { Fail 47 "dream session log not ignored after graduate" }
+            git check-ignore --quiet ".assert-iq/memory/.dream/state.json" 2>$null
+            if ($LASTEXITCODE -ne 0) { Fail 47 "dream state.json not ignored after graduate" }
+        } finally { Pop-Location }
+        # Index entry gone, files still on disk.
+        Assert-FileExists 47 "$logDir\2026-10-29.md"
+        Assert-FileExists 47 "$ws\.assert-iq\memory\.dream\state.json"
+    } finally {
+        Invoke-CleanupFixture $pair $Keep
+    }
+}
+
+Run-Case "48 skills dest reclaimed not sidecarred" $Pattern {
     # FIELD REPORT: a developer installed into a Kiro workspace and could not
     # invoke a single skill. `.kiro\skills.assert-iq-new` held all 31 skills
     # while `.kiro\skills` -- the only path Kiro reads -- held none.
@@ -935,7 +1015,7 @@ Run-Case "46 skills dest reclaimed not sidecarred" $Pattern {
     # the bug actually reached a user.
     #
     # Three states, one contract: replace what is ours, never touch what is not.
-    # (Twin of case 45 in e2e-bootstrap.sh.)
+    # (Twin of case 47 in e2e-bootstrap.sh.)
 
     # (a) EMPTY pre-existing dir -- the exact reported state.
     $pair = Invoke-MkFixture
@@ -943,8 +1023,8 @@ Run-Case "46 skills dest reclaimed not sidecarred" $Pattern {
         $ws = $pair.ws
         New-Item -ItemType Directory -Force -Path "$ws\.kiro\skills" | Out-Null
         Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
-        Assert-FileExists 46 "$ws\.kiro\skills\dream\SKILL.md"
-        Assert-DirMissing 46 "$ws\.kiro\skills.assert-iq-new"
+        Assert-FileExists 48 "$ws\.kiro\skills\dream\SKILL.md"
+        Assert-DirMissing 48 "$ws\.kiro\skills.assert-iq-new"
     } finally { Invoke-CleanupFixture $pair $Keep }
 
     # (b) A pack COPY from a previous run -- must be reclaimed, not sidecarred.
@@ -954,8 +1034,8 @@ Run-Case "46 skills dest reclaimed not sidecarred" $Pattern {
         New-Item -ItemType Directory -Force -Path "$ws\.kiro" | Out-Null
         Copy-Item -LiteralPath (Join-Path $PackDir '.github\skills') -Destination "$ws\.kiro\skills" -Recurse -Force
         Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
-        Assert-FileExists 46 "$ws\.kiro\skills\dream\SKILL.md"
-        Assert-DirMissing 46 "$ws\.kiro\skills.assert-iq-new"
+        Assert-FileExists 48 "$ws\.kiro\skills\dream\SKILL.md"
+        Assert-DirMissing 48 "$ws\.kiro\skills.assert-iq-new"
     } finally { Invoke-CleanupFixture $pair $Keep }
 
     # (c) GENUINE user content -- MERGE, do not sidecar and do not clobber.
@@ -970,16 +1050,16 @@ Run-Case "46 skills dest reclaimed not sidecarred" $Pattern {
         New-Item -ItemType Directory -Force -Path "$ws\.kiro\skills\my-own-skill" | Out-Null
         Set-Content -LiteralPath "$ws\.kiro\skills\my-own-skill\SKILL.md" -Value "do not delete me"
         Invoke-RunBoot $pair @("--preset=pod", "--mode=committed", "--yes") | Out-Null
-        Assert-Contains   46 "$ws\.kiro\skills\my-own-skill\SKILL.md" "do not delete me"
-        Assert-FileExists 46 "$ws\.kiro\skills\dream\SKILL.md"
-        Assert-DirMissing 46 "$ws\.kiro\skills.assert-iq-new"
+        Assert-Contains   48 "$ws\.kiro\skills\my-own-skill\SKILL.md" "do not delete me"
+        Assert-FileExists 48 "$ws\.kiro\skills\dream\SKILL.md"
+        Assert-DirMissing 48 "$ws\.kiro\skills.assert-iq-new"
 
         # And UNINSTALL must be surgical: our skills go, his stays, and the
         # directory itself survives because it is not empty.
         Invoke-RunBoot $pair @("--uninstall", "--yes") | Out-Null
-        Assert-Contains    46 "$ws\.kiro\skills\my-own-skill\SKILL.md" "do not delete me"
-        Assert-FileMissing 46 "$ws\.kiro\skills\dream\SKILL.md"
-        Assert-DirExists   46 "$ws\.kiro\skills"
+        Assert-Contains    48 "$ws\.kiro\skills\my-own-skill\SKILL.md" "do not delete me"
+        Assert-FileMissing 48 "$ws\.kiro\skills\dream\SKILL.md"
+        Assert-DirExists   48 "$ws\.kiro\skills"
     } finally { Invoke-CleanupFixture $pair $Keep }
 }
 

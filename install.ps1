@@ -239,9 +239,25 @@ New-Item -ItemType Directory -Force -Path (Join-Path $memoryDir '.dream') | Out-
 New-Item -ItemType Directory -Force -Path (Join-Path $root '.assert-iq\verdicts\archive') | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $root '.assert-iq\dreaming\.snapshots') | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $root '.assert-iq\business-metrics\reports') | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $root '.assert-iq\estimates\archive') | Out-Null
 $statePath = Join-Path $memoryDir '.dream\state.json'
 if (-not (Test-Path -LiteralPath $statePath)) {
     Write-AiqUtf8 -Path $statePath -Value "{`n  `"last_dream_utc`": null,`n  `"sessions_since_dream`": 0`n}"
+}
+# memory/.gitignore keeps logs/ and .dream/ local-only in every install mode,
+# committed included. Pack-owned, so write it if this checkout lost it (a copy
+# that dropped dotfiles) -- a deeper .gitignore outranks .git/info/exclude, so
+# this is what actually keeps session logs and the dream counter out of git.
+$memoryIgnore = Join-Path $memoryDir '.gitignore'
+if (-not (Test-Path -LiteralPath $memoryIgnore)) {
+    $memIgn = @'
+# Dreaming runtime -- local-only in every install mode. The results of dreaming
+# (MEMORY.md, topics/*.md) stay tracked; the raw session logs and the
+# per-machine dream counter do not. Additive patterns only, never negations.
+logs/
+.dream/
+'@
+    Write-AiqUtf8 -Path $memoryIgnore -Value $memIgn
 }
 # MEMORY.md is git-ignored (never ship maintainer memory); seed a clean index
 # if this clone doesn't have one yet.

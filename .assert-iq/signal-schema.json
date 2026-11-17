@@ -50,7 +50,38 @@
     },
     "signal_type": {
       "description": "Optional discriminator. When present and equal to 'hotspot.map_generated', the payload is a per-repo periodic registry signal and the 'hotspot' object is required instead of 'layers'.",
-      "enum": ["pr.risk_assessed", "coverage.analysis", "release.confidence", "hotspot.map_generated"]
+      "enum": ["pr.risk_assessed", "coverage.analysis", "release.confidence", "hotspot.map_generated", "estimate.generated"]
+    },
+    "estimate": {
+      "description": "Story-sizing signal emitted by estimate-story. Carries no team-profile content and no person-level data.",
+      "type": "object",
+      "properties": {
+        "estimate_id": { "type": "string" },
+        "story_id": { "type": ["string", "null"] },
+        "scale": { "enum": ["fibonacci", "tshirt", "custom"] },
+        "verdict": { "enum": ["estimable", "refine_first", "split"] },
+        "range": {
+          "type": "object",
+          "properties": {
+            "low": { "type": ["string", "number", "null"] },
+            "high": { "type": ["string", "number", "null"] }
+          }
+        },
+        "confidence": { "enum": ["high", "medium", "low", null] },
+        "anchor_source": { "enum": ["history", "reference_story", "none"] },
+        "layer_states": {
+          "type": "object",
+          "properties": {
+            "change": { "enum": ["strong", "weak", "ungraded"] },
+            "protection": { "enum": ["strong", "weak", "ungraded"] },
+            "trust": { "enum": ["strong", "weak", "ungraded"] },
+            "outcome": { "enum": ["strong", "weak", "ungraded"] }
+          }
+        },
+        "ungraded_reasons": { "type": "array", "items": { "type": "string" } },
+        "team_fit_state": { "enum": ["graded", "ungraded"] },
+        "output_mode": { "enum": ["report", "comment", "field"] }
+      }
     },
     "hotspot": {
       "description": "Per-repo Hotspot Risk Registry signal emitted by generate-hotspot-map.",

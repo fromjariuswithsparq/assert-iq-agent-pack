@@ -248,6 +248,11 @@ or human-only value is required.
   team's actual pre-QI numbers. Never leave the shipped sample data in
   place silently — either replace it or flag it `TODO(tailor):` with a
   note that ROI reporting will be inaccurate until it's real.
+- `story_estimation.scale` and `story_estimation.tracker_fields` — set the
+  team's pointing scale and confirm the Story Points field for their
+  tracker (the Jira custom field ID varies per instance). Do **not** fill
+  in `.assert-iq/team-profile.yaml` here: `/estimate-story` scaffolds it
+  with the team on first run, role slots only.
 - `dreaming_provenance`, `regression_testing`, `calibration`,
   `memory_sanity` — these ship with sane defaults and rarely need
   edits; only touch them if the user has an explicit opinion (e.g.

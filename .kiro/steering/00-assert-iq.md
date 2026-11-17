@@ -58,7 +58,7 @@ them:
 
 ## Capabilities surface
 
-- **Skills** — 31 QI skills in `.kiro/skills/`, a symlink to
+- **Skills** — 32 QI skills in `.kiro/skills/`, a symlink to
   `../.github/skills` so all three harnesses run byte-identical skills.
   Invoke as `/<skill-name>` or let Kiro route by description. Highlights:
   `/risk-assess-pr`, `/release-confidence`, `/code-review`,

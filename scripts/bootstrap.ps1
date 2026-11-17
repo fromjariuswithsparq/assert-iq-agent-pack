@@ -340,6 +340,51 @@ function Backup-IfUserOwned {
     Add-ManifestEntry 'pre_install_backup' $backup $Scope
 }
 
+# SNAPSHOT BEFORE EVERY OVERWRITE.
+#
+# Backup-IfUserOwned keeps the file as it was BEFORE THE PACK ARRIVED, once,
+# for -Uninstall to restore. It is not a recovery copy for later edits: on a
+# re-run it is a no-op because the backup already exists, and the -Upgrade
+# overwrite paths never called it at all. A reinstall that answered [o] on a
+# tailored config.yaml therefore replaced months of /assert-iq-tailor choices
+# with template defaults and left nothing on disk to restore. Found on a real
+# project.
+#
+# This writes a timestamped copy of whatever is about to be replaced, unless it
+# is still byte-identical to the pristine pack content recorded in the base
+# cache (nothing of the user's to lose). Snapshots are not manifest entries, so
+# -Uninstall leaves them alone -- they are the user's data.
+function Save-OverwriteSnapshot([string]$Dst) {
+    if (-not (Test-Path -LiteralPath $Dst -PathType Leaf)) { return }
+    $base = Get-Base $Dst
+    if ($base -and ((Get-Sha256 $base) -eq (Get-Sha256 $Dst))) { return }
+    $stamp = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')
+    $snap = "$Dst.assert-iq.pre-overwrite-$stamp"
+    Copy-Item -LiteralPath $Dst -Destination $snap -Force
+    Write-Host "  saved your previous version: $snap"
+}
+
+# CLIENT CONFIG -- the files /assert-iq-tailor customizes per client. On a
+# re-run these merge three-way against the base cache when one exists, and a
+# bulk choice ([O]all or CONFLICT_BULK_CHOICE=O) never overwrites them:
+# overwriting one takes an explicit per-file [o]. Matched by suffix so the
+# user-scope ~/.assert-iq copies are covered too. Keep in step with
+# CLIENT_CONFIG_SUFFIXES in bootstrap.sh.
+$script:ClientConfigSuffixes = @(
+    '/.assert-iq/config.yaml',
+    '/.assert-iq/governance.md',
+    '/.assert-iq/maturity-profile.md',
+    '/.assert-iq/business-metrics/baseline.json'
+)
+
+function Test-ClientConfig([string]$Dst) {
+    $p = $Dst -replace '\\','/'
+    foreach ($s in $script:ClientConfigSuffixes) {
+        if ($p.EndsWith($s, [System.StringComparison]::OrdinalIgnoreCase)) { return $true }
+    }
+    return $false
+}
+
 function Get-FileSha256 {
     param([Parameter(Mandatory)][string] $Path)
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return '' }
@@ -673,13 +718,20 @@ function Write-ExcludeBlock {
     $newLines.Add('*.assert-iq.pre-install') | Out-Null
     $newLines.Add('*.assert-iq.pre-tailor') | Out-Null
     $newLines.Add('*.assert-iq.uninstall-saved') | Out-Null
+    $newLines.Add('*.assert-iq.pre-overwrite-*') | Out-Null
     $newLines.Add('.assert-iq/.skip-worktree-paths') | Out-Null
     $newLines.Add('.assert-iq/.merge-result-shas') | Out-Null
     $newLines.Add('.assert-iq/.base/') | Out-Null
-    # Dreaming per-machine artifacts -- never commit in any mode:
+    # Dreaming per-machine artifacts -- never commit in any mode, committed
+    # installs and -Graduate included. Session logs are each developer's own
+    # chat activity and .dream/ is a per-machine counter plus locks; a teammate
+    # pulling either gets noise and merge conflicts, not signal. The dream
+    # *results* (MEMORY.md, topics/*.md) stay visible on purpose.
+    # .assert-iq/memory/.gitignore carries the same two rules and outranks this
+    # file; these lines are the backstop for installs predating it.
     $newLines.Add('.assert-iq/dreaming/session-events.json') | Out-Null
-    $newLines.Add('.assert-iq/memory/.dream/state.lock') | Out-Null
-    $newLines.Add('.assert-iq/memory/.dream/dream.lock') | Out-Null
+    $newLines.Add('.assert-iq/memory/logs/') | Out-Null
+    $newLines.Add('.assert-iq/memory/.dream/') | Out-Null
     $newLines.Add('transcripts/') | Out-Null
     # Layer 2: per-path entries (trial only).
     if ($Mode -eq 'trial' -and $rels.Count -gt 0) {
@@ -828,6 +880,51 @@ function Remove-ExcludeBlock {
     }
 }
 
+function Seed-MemoryGitignore {
+    # Prefer the pack's own copy so the prose lives in one file; fall back to
+    # the minimal rules if this checkout lacks it.
+    param([string]$Path)
+    $src = Join-Path $Source '.assert-iq\memory\.gitignore'
+    if (Test-Path -LiteralPath $src -PathType Leaf) {
+        Copy-Item -LiteralPath $src -Destination $Path -Force
+        return
+    }
+    $content = @'
+# Dreaming runtime -- local-only in every install mode. The results of dreaming
+# (MEMORY.md, topics/*.md) stay tracked; the raw session logs and the
+# per-machine dream counter do not. Additive patterns only, never negations.
+logs/
+.dream/
+'@
+    Write-AiqUtf8 -Path $Path -Value $content
+}
+
+function Remove-LocalOnlyMemoryTracking {
+    # logs/ and .dream/ must never be visible to git. Ignore rules only cover
+    # UNtracked files, so an install or graduate that lands on a workspace
+    # where someone already committed them has to take them out of the index.
+    # The files stay on disk -- only the tracking is removed, and the user
+    # commits that.
+    $gd = Get-GitDir
+    if (-not $gd) { return }
+    Push-Location $Workspace
+    try {
+        $tracked = @(git ls-files -- '.assert-iq/memory/logs' '.assert-iq/memory/.dream' 2>$null |
+                     Where-Object { $_ })
+        if ($tracked.Count -eq 0) { return }
+        git rm --cached --quiet -- $tracked 2>$null | Out-Null
+        Write-Host ''
+        Write-Host ("Untracked {0} Dreaming runtime path(s) -- session logs and dream" -f $tracked.Count)
+        Write-Host 'state are local-only in every mode. The files are untouched on disk;'
+        Write-Host "commit the staged removal to take them out of your team's history:"
+        foreach ($t in $tracked) { Write-Host "  $t" }
+    } catch {
+        Write-Warning "Could not untrack Dreaming runtime paths: $_"
+    } finally {
+        Pop-Location
+    }
+}
+
 # =============================================================================
 # -Graduate short-circuit
 # =============================================================================
@@ -852,6 +949,16 @@ if ($doGraduate) {
     # exclusions remain -- only the per-path entries are dropped.
     $Mode = 'committed'
     Write-ExcludeBlock
+    # Graduate short-circuits before Step-Dreaming, so seed the memory ignore
+    # rules here too: an install predating them has no .gitignore under
+    # .assert-iq\memory\, and graduating must not be what exposes session logs.
+    $memDirForIgnore = Join-Path $Workspace '.assert-iq\memory'
+    $memIgnoreForGrad = Join-Path $memDirForIgnore '.gitignore'
+    if ((Test-Path -LiteralPath $memDirForIgnore -PathType Container) -and
+        -not (Test-Path -LiteralPath $memIgnoreForGrad)) {
+        Seed-MemoryGitignore -Path $memIgnoreForGrad
+    }
+    Remove-LocalOnlyMemoryTracking
     Write-Host ''
     Write-Host 'Pack files are now visible to git. Suggested next steps:'
     Write-Host '  git status                       # confirm pack files are untracked'
@@ -1165,6 +1272,7 @@ function Invoke-Uninstall {
     function Remove-RuntimeSinks([string]$base) {
         Remove-RuntimeSink (Join-Path $base 'verdicts\archive')         'verdict archive'
         Remove-RuntimeSink (Join-Path $base 'business-metrics\reports') 'business-impact reports'
+        Remove-RuntimeSink (Join-Path $base 'estimates\archive')        'story-estimate log'
         Remove-RuntimeSink (Join-Path $base 'dreaming\.snapshots')      'pre-dream memory snapshots'
     }
     Remove-RuntimeSinks (Join-Path $Workspace '.assert-iq')
@@ -1205,6 +1313,7 @@ function Invoke-Uninstall {
             (Join-Path $Workspace '.assert-iq\oracles'),
             (Join-Path $Workspace '.assert-iq\verdicts'),
             (Join-Path $Workspace '.assert-iq\business-metrics'),
+            (Join-Path $Workspace '.assert-iq\estimates'),
             (Join-Path $Workspace '.assert-iq\analysis'),
             (Join-Path $Workspace '.assert-iq\tests\_qi\regression'))
         if ($User) {
@@ -1213,6 +1322,7 @@ function Invoke-Uninstall {
                 (Join-Path $env:USERPROFILE '.agents\.assert-iq\oracles'),
                 (Join-Path $env:USERPROFILE '.agents\.assert-iq\verdicts'),
                 (Join-Path $env:USERPROFILE '.agents\.assert-iq\business-metrics'),
+                (Join-Path $env:USERPROFILE '.agents\.assert-iq\estimates'),
                 (Join-Path $env:USERPROFILE '.agents\.assert-iq\analysis'))
         }
         foreach ($tree in $treeRoots) {
@@ -1231,6 +1341,7 @@ function Invoke-Uninstall {
             (Join-Path $Workspace '.assert-iq\oracles'),
             (Join-Path $Workspace '.assert-iq\verdicts'),
             (Join-Path $Workspace '.assert-iq\business-metrics'),
+            (Join-Path $Workspace '.assert-iq\estimates'),
             (Join-Path $Workspace '.assert-iq\analysis'),
             (Join-Path $Workspace '.assert-iq\tests\_qi\regression'),
             (Join-Path $Workspace '.assert-iq\dreaming'),
@@ -1258,6 +1369,7 @@ function Invoke-Uninstall {
                 (Join-Path $env:USERPROFILE '.agents\.assert-iq\oracles'),
                 (Join-Path $env:USERPROFILE '.agents\.assert-iq\verdicts'),
                 (Join-Path $env:USERPROFILE '.agents\.assert-iq\business-metrics'),
+                (Join-Path $env:USERPROFILE '.agents\.assert-iq\estimates'),
                 (Join-Path $env:USERPROFILE '.agents\.assert-iq\analysis'),
                 $userAssertIq)
         }
@@ -1388,9 +1500,14 @@ function Resolve-Mode {
 # =============================================================================
 
 function Get-UpgradeRecordedSha([string]$absPath) {
+    # The manifest sha is the file as the LAST RUN LEFT IT, which is pack
+    # content only when that run wrote the pack copy verbatim ('created') or
+    # found it already identical ('unchanged_owned'). After a merge it is the
+    # user's merged content, so it must not answer "is this file pristine?".
     if (-not $script:OldManifest) { return '' }
     foreach ($p in $script:OldManifest.paths) {
         if ($p.path -eq $absPath) {
+            if ($p.action -notin @('created','unchanged_owned')) { return '' }
             if ($p.PSObject.Properties['sha']) { return $p.sha }
             return ''
         }
@@ -1475,11 +1592,24 @@ function Invoke-UpgradeThreeWay {
     # file so their edits AND the pack's updates both land.
     param([string]$Label, [string]$Src, [string]$Dst, [string]$Scope)
     $relUnix = (ConvertTo-WorkspaceRelative $Dst) -replace '\\','/'
-    $recSha = Get-UpgradeRecordedSha $Dst
     $dstSha = Get-Sha256 $Dst
+    $baseFile = Get-Base $Dst
 
-    # Unedited since install -> take the new version outright.
-    if ($recSha -and ($recSha -eq $dstSha)) {
+    # Unedited -> take the new version outright. "Unedited" means the file
+    # still matches the pristine pack copy in the base cache. It used to mean
+    # "unchanged since the last run", which wiped tailoring on the SECOND of two
+    # back-to-back upgrades: the first merged the user's edits in and recorded
+    # the merged file's sha, so the second saw a match and copied the pack
+    # template over it -- no prompt, no backup. Found on a real project. With
+    # no base cache, fall back to the manifest sha, which only counts when the
+    # last run wrote pack content verbatim (see Get-UpgradeRecordedSha).
+    if ($baseFile) {
+        $unedited = ((Get-Sha256 $baseFile) -eq $dstSha)
+    } else {
+        $recSha = Get-UpgradeRecordedSha $Dst
+        $unedited = [bool]($recSha -and ($recSha -eq $dstSha))
+    }
+    if ($unedited) {
         Copy-Item -LiteralPath $Src -Destination $Dst -Force
         Add-ManifestEntry 'overwritten' $Dst $Scope
         Save-Base -Content $Src -Dst $Dst
@@ -1492,7 +1622,6 @@ function Invoke-UpgradeThreeWay {
     # Base resolution: prefer the install-time snapshot (works offline and with
     # no version tags), then fall back to reconstructing from the pack's git
     # history at the installed version.
-    $baseFile = Get-Base $Dst
     if (-not $baseFile -and $script:InstalledVersion -ne 'unknown') {
         & git -C $Source cat-file -e "v$($script:InstalledVersion):$relUnix" 2>$null
         if ($LASTEXITCODE -eq 0) {
@@ -1567,7 +1696,7 @@ function Invoke-UpgradeThreeWay {
                 $ans = Read-Host '  [m]arkers into your file / [o]verwrite w/ pack / [k]eep mine / [s]idecar'
                 switch -Regex ($ans) {
                     '^[mM]' { Copy-Item -LiteralPath $mergedTmp -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-MergeResultSha -Path $Dst; Save-Base -Content $Src -Dst $Dst; Record $Label 'merged (conflict markers written)' $Dst }
-                    '^[oO]' { Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-Base -Content $Src -Dst $Dst; Record $Label 'overwritten (pack)' $Dst }
+                    '^[oO]' { Save-OverwriteSnapshot $Dst; Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-Base -Content $Src -Dst $Dst; Record $Label 'overwritten (pack)' $Dst }
                     '^[sS]' { $side = "$Dst.assert-iq-new"; Copy-Item -LiteralPath $Src -Destination $side -Force; Add-ManifestEntry 'sidecar' $side $Scope; Save-Base -Content $baseFile -Dst $Dst; Record $Label 'sidecar -> .assert-iq-new' $side }
                     default { Save-Base -Content $baseFile -Dst $Dst; Record $Label 'skipped (kept yours)' $Dst }
                 }
@@ -1578,7 +1707,7 @@ function Invoke-UpgradeThreeWay {
         $choice = Resolve-Conflict -Src $Src -Dst $Dst -Label "$Label (no base -- merge unavailable)"
         switch ($choice) {
             'keep'      { Record $Label 'skipped (kept yours)' $Dst }
-            'overwrite' { Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-Base -Content $Src -Dst $Dst; Record $Label 'overwritten' $Dst }
+            'overwrite' { Save-OverwriteSnapshot $Dst; Copy-Item -LiteralPath $Src -Destination $Dst -Force; Add-ManifestEntry 'overwritten' $Dst $Scope; Save-Base -Content $Src -Dst $Dst; Record $Label 'overwritten' $Dst }
             'merge'     { Merge-MarkdownFile -Label $Label -Src $Src -Dst $Dst -Scope $Scope }
             'sidecar'   { $side = "$Dst.assert-iq-new"; Copy-Item -LiteralPath $Src -Destination $side -Force; Add-ManifestEntry 'sidecar' $side $Scope; Record $Label 'sidecar -> .assert-iq-new' $side }
         }
@@ -1621,7 +1750,7 @@ function Invoke-UpgradeOrphans {
         $abs = $p.path
         $relUnix = (ConvertTo-WorkspaceRelative $abs) -replace '\\','/'
         if ($relUnix -like '.assert-iq/memory/*') { continue }
-        if ($relUnix -like '*.assert-iq.pre-install' -or $relUnix -like '*.assert-iq-new' -or $relUnix -like '*.assert-iq.uninstall-saved' -or $relUnix -like '*.assert-iq.pre-tailor') { continue }
+        if ($relUnix -like '*.assert-iq.pre-install' -or $relUnix -like '*.assert-iq-new' -or $relUnix -like '*.assert-iq.uninstall-saved' -or $relUnix -like '*.assert-iq.pre-tailor' -or $relUnix -like '*.assert-iq.pre-overwrite-*') { continue }
         if ($thisRun.ContainsKey($abs)) { continue }
         # "Exists in Source" and "is in the payload" are different questions: a
         # path the new pack deliberately stopped installing IS an orphan even
@@ -1706,6 +1835,7 @@ function Seed-MemoryStore {
     New-Item -ItemType Directory -Path (Join-Path $aiqBase 'verdicts\archive') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $aiqBase 'dreaming\.snapshots') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $aiqBase 'business-metrics\reports') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $aiqBase 'estimates\archive') -Force | Out-Null
     $statePath = Join-Path $MemDir '.dream\state.json'
     if (-not (Test-Path -LiteralPath $statePath)) {
         Write-AiqUtf8 -Path $statePath -Value "{`n  `"last_dream_utc`": null,`n  `"sessions_since_dream`": 0`n}"
@@ -1714,6 +1844,15 @@ function Seed-MemoryStore {
     if (-not (Test-Path -LiteralPath $topicKeep)) { New-Item -ItemType File -Force -Path $topicKeep | Out-Null }
     $logKeep = Join-Path $MemDir 'logs\.gitkeep'
     if (-not (Test-Path -LiteralPath $logKeep)) { New-Item -ItemType File -Force -Path $logKeep | Out-Null }
+    # memory/.gitignore keeps logs/ and .dream/ local-only in EVERY mode --
+    # committed installs and -Graduate included. A .gitignore this deep in the
+    # tree outranks .git/info/exclude, which is what makes it the primary gate.
+    # Seeded only when absent, so an upgrade of an older install gains it while
+    # a hand-edited one is left alone.
+    $memIgnorePath = Join-Path $MemDir '.gitignore'
+    if (-not (Test-Path -LiteralPath $memIgnorePath)) {
+        Seed-MemoryGitignore -Path $memIgnorePath
+    }
     # README is static docs (not dream data) -- seed it if the pack ships one.
     $srcReadme = Join-Path $Source '.assert-iq\memory\README.md'
     $dstReadme = Join-Path $MemDir 'README.md'
@@ -1795,9 +1934,16 @@ function Resolve-Conflict {
     # Allowlist: only these markdown files support the merge mode.
     $base = Split-Path -Leaf $Dst
     $mergeEligible = $base -in @('copilot-instructions.md','CLAUDE.md','AGENTS.md')
+    $clientConfig = Test-ClientConfig $Dst
     switch ($script:ConflictBulkChoice) {
         'K' { return 'keep' }
-        'O' { return 'overwrite' }
+        'O' {
+            if ($clientConfig) {
+                Write-Host "Kept $Label -- client config is never bulk-overwritten (re-run and answer [o] on this file to replace it)."
+                return 'keep'
+            }
+            return 'overwrite'
+        }
         'M' {
             if ($mergeEligible) { return 'merge' } else { return 'keep' }
         }
@@ -1809,13 +1955,20 @@ function Resolve-Conflict {
     Write-Host "Conflict: $Label"
     Write-Host "  existing: $Dst"
     Write-Host "  pack:     $Src"
-    if ($mergeEligible) {
+    if ($clientConfig) {
+        Write-Host '  This is client config (/assert-iq-tailor output). Overwriting saves a timestamped copy first.'
+        $prompt = '  [k]eep (default) / [o]verwrite / [s]idecar (.assert-iq-new) / [d]iff / [K/S]all / [a]bort'
+    } elseif ($mergeEligible) {
         $prompt = '  [k]eep / [o]verwrite / [m]erge (recommended) / [s]idecar (.assert-iq-new) / [d]iff / [K/O/M/S]all / [a]bort'
     } else {
         $prompt = '  [k]eep / [o]verwrite / [s]idecar (.assert-iq-new) / [d]iff / [K/O/S]all / [a]bort'
     }
     while ($true) {
         $ans = Read-Host $prompt
+        if ($clientConfig) {
+            if ($ans -ceq '') { return 'keep' }
+            if ($ans -ceq 'O') { Write-Host '  (overwrite-all is not available for client config; type o to replace this file)'; continue }
+        }
         switch ($ans) {
             'k' { return 'keep' }
             'o' { return 'overwrite' }
@@ -1939,8 +2092,10 @@ function Copy-FileScoped {
         return
     }
 
-    # On upgrade, three-way merge to preserve user edits.
-    if ($doUpgrade) {
+    # On upgrade, three-way merge to preserve user edits. A plain re-run does
+    # the same for client config whenever the base cache can supply a merge
+    # baseline, so reinstalling over a tailored workspace keeps the tailoring.
+    if ($doUpgrade -or ((Test-ClientConfig $Dst) -and (Get-Base $Dst))) {
         Invoke-UpgradeThreeWay -Label $Label -Src $Src -Dst $Dst -Scope $Scope
         return
     }
@@ -1952,6 +2107,7 @@ function Copy-FileScoped {
         }
         'overwrite' {
             Backup-IfUserOwned -Path $Dst -Scope $Scope
+            Save-OverwriteSnapshot $Dst
             Copy-Item -LiteralPath $Src -Destination $Dst -Force
             Add-ManifestEntry 'overwritten' $Dst $Scope
             Save-Base -Content $Src -Dst $Dst
@@ -2690,6 +2846,9 @@ Write-Manifest
 # Always write the managed exclude block -- Layer 1 (backup-globs) applies in
 # every mode; Layer 2 (per-path entries) only fires when $Mode -eq 'trial'.
 Write-ExcludeBlock
+# An upgrade may land on a workspace where a previous version let the Dreaming
+# runtime into git. Ignore rules don't reach tracked files, so pull them out.
+Remove-LocalOnlyMemoryTracking
 if ($Mode -eq 'trial') {
     Invoke-SkipWorktree
 }

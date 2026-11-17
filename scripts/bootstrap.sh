@@ -13,7 +13,7 @@
 #   --mode=ask         Interactive prompt (default when TTY). Non-TTY
 #                      falls back to committed.
 #
-# Skills scope (where the 31 QI skills land):
+# Skills scope (where the QI skills land):
 #   --skills-scope=workspace   (default) workspace .github/skills + .claude/skills
 #                              + .kiro/skills symlinks
 #   --skills-scope=user        only ~/.agents/skills + ~/.claude/skills (every workspace gets them)
@@ -285,6 +285,49 @@ backup_if_user_owned() {
   manifest_add "pre_install_backup" "$backup" "$scope"
 }
 
+# SNAPSHOT BEFORE EVERY OVERWRITE.
+#
+# backup_if_user_owned keeps the file as it was BEFORE THE PACK ARRIVED, once,
+# for --uninstall to restore. It is not a recovery copy for later edits: on a
+# re-run it is a no-op because the backup already exists, and the --upgrade
+# overwrite paths never called it at all. A reinstall that answered [o] on a
+# tailored config.yaml therefore replaced months of /assert-iq-tailor choices
+# with template defaults and left nothing on disk to restore. Found on a real
+# project.
+#
+# This writes a timestamped copy of whatever is about to be replaced, unless it
+# is still byte-identical to the pristine pack content recorded in the base
+# cache (nothing of the user's to lose). Snapshots are not manifest entries, so
+# --uninstall leaves them alone -- they are the user's data.
+# Args: dst
+save_overwrite_snapshot() {
+  local dst="$1"
+  [[ -f "$dst" ]] || return 0
+  local base; base="$(base_lookup "$dst")"
+  if [[ -n "$base" && "$(sha256_of "$base")" == "$(sha256_of "$dst")" ]]; then
+    return 0
+  fi
+  local snap; snap="$dst.assert-iq.pre-overwrite-$(date -u +%Y%m%dT%H%M%SZ)"
+  cp -p "$dst" "$snap"
+  echo "  saved your previous version: $snap" >&2
+}
+
+# CLIENT CONFIG -- the files /assert-iq-tailor customizes per client. On a
+# re-run these merge three-way against the base cache when one exists, and a
+# bulk choice ([O]all or CONFLICT_BULK_CHOICE=O) never overwrites them:
+# overwriting one takes an explicit per-file [o]. Matched by suffix so the
+# user-scope ~/.assert-iq copies are covered too. Keep in step with
+# $script:ClientConfigSuffixes in bootstrap.ps1.
+CLIENT_CONFIG_SUFFIXES="/.assert-iq/config.yaml /.assert-iq/governance.md /.assert-iq/maturity-profile.md /.assert-iq/business-metrics/baseline.json"
+
+is_client_config() {
+  local s
+  for s in $CLIENT_CONFIG_SUFFIXES; do
+    [[ "$1" == *"$s" ]] && return 0
+  done
+  return 1
+}
+
 # Stage-then-commit a merged JSON. If the staged content is byte-identical
 # to the existing dst, discards the temp and records unchanged_owned;
 # otherwise backs up (if user-owned) and atomically replaces dst, recording
@@ -480,9 +523,14 @@ OLD_MANIFEST_SNAPSHOT=""
 INSTALLED_VERSION=""
 
 upgrade_recorded_sha() {
-  # Prints the install-time sha recorded for absolute path $1, or empty.
+  # Prints the sha recorded for absolute path $1, or empty. That sha is the
+  # file as the LAST RUN LEFT IT, which is pack content only when that run
+  # wrote the pack copy verbatim ("created") or found it already identical
+  # ("unchanged_owned"). After a merge it is the user's merged content, so it
+  # must not answer "is this file pristine?" -- empty for every other action.
   [[ -n "$OLD_MANIFEST_SNAPSHOT" ]] || { echo ""; return; }
-  jq -r --arg p "$1" '.paths[]? | select(.path==$p) | .sha // empty' \
+  jq -r --arg p "$1" '.paths[]? | select(.path==$p)
+       | select(.action=="created" or .action=="unchanged_owned") | .sha // empty' \
      <<< "$OLD_MANIFEST_SNAPSHOT" 2>/dev/null | head -n1
 }
 
@@ -560,12 +608,25 @@ upgrade_three_way() {
   # file so their edits AND the pack's updates both land.
   local label="$1" src="$2" dst="$3" scope="$4"
   local relpath="${dst#"$WORKSPACE/"}"
-  local rec_sha dst_sha
-  rec_sha="$(upgrade_recorded_sha "$dst")"
+  local rec_sha dst_sha cached_base unedited=0
   dst_sha="$(sha256_of "$dst")"
+  cached_base="$(base_lookup "$dst")"
 
-  # Unedited since install -> take the new version outright.
-  if [[ -n "$rec_sha" && "$rec_sha" == "$dst_sha" ]]; then
+  # Unedited -> take the new version outright. "Unedited" means the file
+  # still matches the pristine pack copy in the base cache. It used to mean
+  # "unchanged since the last run", which wiped tailoring on the SECOND of two
+  # back-to-back upgrades: the first merged the user's edits in and recorded
+  # the merged file's sha, so the second saw a match and copied the pack
+  # template over it -- no prompt, no backup. Found on a real project. With
+  # no base cache, fall back to the manifest sha, which only counts when the
+  # last run wrote pack content verbatim (see upgrade_recorded_sha).
+  if [[ -n "$cached_base" ]]; then
+    if [[ "$(sha256_of "$cached_base")" == "$dst_sha" ]]; then unedited=1; fi
+  else
+    rec_sha="$(upgrade_recorded_sha "$dst")"
+    if [[ -n "$rec_sha" && "$rec_sha" == "$dst_sha" ]]; then unedited=1; fi
+  fi
+  if [[ $unedited -eq 1 ]]; then
     cp "$src" "$dst"
     manifest_add "overwritten" "$dst" "$scope"
     base_snapshot "$src" "$dst"
@@ -578,7 +639,6 @@ upgrade_three_way() {
   # Base resolution: prefer the install-time snapshot (works offline and with
   # no version tags), then fall back to reconstructing from the pack's git
   # history at the installed version.
-  local cached_base; cached_base="$(base_lookup "$dst")"
   if [[ -n "$cached_base" ]]; then
     base_file="$cached_base"
   elif [[ "$INSTALLED_VERSION" != "unknown" ]] \
@@ -630,7 +690,7 @@ upgrade_three_way() {
                manifest_add "overwritten" "$dst" "$scope"; record_merge_result_sha "$dst"
                base_snapshot "$src" "$dst"
                record "$label" "merged (conflict markers written)" "$dst" ;;
-          o|O) cp "$src" "$dst"
+          o|O) save_overwrite_snapshot "$dst"; cp "$src" "$dst"
                manifest_add "overwritten" "$dst" "$scope"; base_snapshot "$src" "$dst"
                record "$label" "overwritten (pack)" "$dst" ;;
           s|S) local side="$dst.assert-iq-new"; cp "$src" "$side"
@@ -646,7 +706,7 @@ upgrade_three_way() {
     local choice; choice="$(resolve_conflict "$src" "$dst" "$label (no base — merge unavailable)")"
     case "$choice" in
       keep)      record "$label" "skipped (kept yours)" "$dst" ;;
-      overwrite) cp "$src" "$dst"
+      overwrite) save_overwrite_snapshot "$dst"; cp "$src" "$dst"
                  manifest_add "overwritten" "$dst" "$scope"; base_snapshot "$src" "$dst"
                  record "$label" "overwritten" "$dst" ;;
       merge)     merge_markdown_file "$label" "$src" "$dst" "$scope" ;;
@@ -926,13 +986,20 @@ write_exclude_block() {
     printf '*.assert-iq.pre-install\n'
     printf '*.assert-iq.pre-tailor\n'
     printf '*.assert-iq.uninstall-saved\n'
+    printf '*.assert-iq.pre-overwrite-*\n'
     printf '.assert-iq/.skip-worktree-paths\n'
     printf '.assert-iq/.merge-result-shas\n'
     printf '.assert-iq/.base/\n'
-    # Dreaming per-machine artifacts — never commit in any mode:
+    # Dreaming per-machine artifacts — never commit in any mode, committed
+    # installs and `--graduate` included. Session logs are each developer's own
+    # chat activity and .dream/ is a per-machine counter plus locks; a teammate
+    # pulling either gets noise and merge conflicts, not signal. The dream
+    # *results* (MEMORY.md, topics/*.md) stay visible on purpose.
+    # .assert-iq/memory/.gitignore carries the same two rules and outranks this
+    # file; these lines are the backstop for installs predating it.
     printf '.assert-iq/dreaming/session-events.json\n'
-    printf '.assert-iq/memory/.dream/state.lock\n'
-    printf '.assert-iq/memory/.dream/dream.lock\n'
+    printf '.assert-iq/memory/logs/\n'
+    printf '.assert-iq/memory/.dream/\n'
     printf 'transcripts/\n'
     # Layer 2: per-path entries (trial only).
     if [[ "$MODE" == "trial" && ${#rels[@]} -gt 0 ]]; then
@@ -1053,6 +1120,45 @@ clear_skip_worktree() {
   fi
 }
 
+seed_memory_gitignore() {
+  # Args: destination path. Prefer the pack's own copy so the prose lives in
+  # one file; fall back to the minimal rules if this checkout lacks it.
+  local dest="$1"
+  mkdir -p "$(dirname "$dest")"
+  if [[ -f "$SOURCE/.assert-iq/memory/.gitignore" ]]; then
+    cp "$SOURCE/.assert-iq/memory/.gitignore" "$dest"
+  else
+    cat > "$dest" <<'GIEOF'
+# Dreaming runtime — local-only in every install mode. The results of dreaming
+# (MEMORY.md, topics/*.md) stay tracked; the raw session logs and the
+# per-machine dream counter do not. Additive patterns only, never negations.
+logs/
+.dream/
+GIEOF
+  fi
+}
+
+untrack_local_only_memory() {
+  # logs/ and .dream/ must never be visible to git. Ignore rules only cover
+  # UNtracked files, so an install or graduate that lands on a workspace where
+  # someone already committed them has to take them out of the index. The files
+  # stay on disk — only the tracking is removed, and the user commits that.
+  local gd; gd="$(git_dir)"
+  [[ -n "$gd" ]] || return 0
+  local tracked=() rel
+  while IFS= read -r rel; do
+    [[ -n "$rel" ]] && tracked+=("$rel")
+  done < <( cd "$WORKSPACE" && git ls-files -- \
+              '.assert-iq/memory/logs' '.assert-iq/memory/.dream' 2>/dev/null )
+  ((${#tracked[@]} > 0)) || return 0
+  ( cd "$WORKSPACE" && git rm --cached --quiet -- "${tracked[@]}" >/dev/null 2>&1 ) || return 0
+  echo ""
+  echo "Untracked ${#tracked[@]} Dreaming runtime path(s) — session logs and dream"
+  echo "state are local-only in every mode. The files are untouched on disk;"
+  echo "commit the staged removal to take them out of your team's history:"
+  for rel in "${tracked[@]}"; do printf '  %s\n' "$rel"; done
+}
+
 strip_exclude_block() {
   local excl
   excl="$(exclude_file_path)"
@@ -1093,6 +1199,13 @@ if [[ $GRADUATE -eq 1 ]]; then
   # files may still exist on disk).
   MODE="committed"
   write_exclude_block
+  # Graduate short-circuits before process_dreaming, so seed the memory
+  # ignore rules here too: an install predating them has no .gitignore under
+  # .assert-iq/memory/, and graduating must not be what exposes session logs.
+  if [[ -d "$WORKSPACE/.assert-iq/memory" && ! -f "$WORKSPACE/.assert-iq/memory/.gitignore" ]]; then
+    seed_memory_gitignore "$WORKSPACE/.assert-iq/memory/.gitignore"
+  fi
+  untrack_local_only_memory
   echo ""
   echo "Pack files are now visible to git. Suggested next steps:"
   echo "  git status                       # confirm pack files are untracked"
@@ -1448,6 +1561,7 @@ uninstall_run() {
     local base="$1"
     prune_runtime_sink "$base/verdicts/archive"         "verdict archive"
     prune_runtime_sink "$base/business-metrics/reports" "business-impact reports"
+    prune_runtime_sink "$base/estimates/archive"         "story-estimate log"
     prune_runtime_sink "$base/dreaming/.snapshots"      "pre-dream memory snapshots"
   }
   prune_runtime_sinks "$WORKSPACE/.assert-iq"
@@ -1491,6 +1605,7 @@ uninstall_run() {
       "$WORKSPACE/.assert-iq/oracles"
       "$WORKSPACE/.assert-iq/verdicts"
       "$WORKSPACE/.assert-iq/business-metrics"
+      "$WORKSPACE/.assert-iq/estimates"
       "$WORKSPACE/.assert-iq/analysis"
       "$WORKSPACE/.assert-iq/tests/_qi/regression"
     )
@@ -1502,6 +1617,7 @@ uninstall_run() {
         "$HOME/.agents/.assert-iq/oracles"
         "$HOME/.agents/.assert-iq/verdicts"
         "$HOME/.agents/.assert-iq/business-metrics"
+        "$HOME/.agents/.assert-iq/estimates"
         "$HOME/.agents/.assert-iq/analysis"
         "$USER_ASSERT_IQ"
       )
@@ -1514,6 +1630,7 @@ uninstall_run() {
       "$WORKSPACE/.assert-iq/oracles"
       "$WORKSPACE/.assert-iq/verdicts"
       "$WORKSPACE/.assert-iq/business-metrics"
+      "$WORKSPACE/.assert-iq/estimates"
       "$WORKSPACE/.assert-iq/analysis"
       "$WORKSPACE/.assert-iq/tests/_qi/regression"
       "$WORKSPACE/.assert-iq/dreaming"
@@ -1542,6 +1659,7 @@ uninstall_run() {
         "$HOME/.agents/.assert-iq/oracles"
         "$HOME/.agents/.assert-iq/verdicts"
         "$HOME/.agents/.assert-iq/business-metrics"
+        "$HOME/.agents/.assert-iq/estimates"
         "$HOME/.agents/.assert-iq/analysis"
         "$USER_ASSERT_IQ"
       )
@@ -1554,14 +1672,27 @@ uninstall_run() {
     # removed (bottom-up, scope-gated, symlink-safe). This means future
     # additions don't have to update the hardcoded lists above — if the
     # path went into the manifest, its empty parent dirs get reaped here.
+    #
+    # The stop roots go through jq the same way the manifest paths did. Under
+    # Git Bash a native Windows jq has its arguments path-converted by MSYS, so
+    # the manifest holds `C:/Users/...` while $WORKSPACE is `/tmp/...`; the
+    # roots never matched, and the walk ran C:/ -> C: -> . -> . forever. That
+    # jq also ends lines with CRLF, hence the \r strips.
     if command -v jq >/dev/null 2>&1 && [[ -f "$MANIFEST_PATH" ]]; then
-      local _p _s _d _stop
+      local _p _s _d _stop _stop_ws _stop_user
+      _stop_ws="$(jq -rn --arg p "$WORKSPACE" '$p' 2>/dev/null | tr -d '\r')"
+      _stop_user="$(jq -rn --arg p "$HOME" '$p' 2>/dev/null | tr -d '\r')"
       while IFS=$'\t' read -r _p _s; do
+        _p="${_p%$'\r'}"; _s="${_s%$'\r'}"
         [[ -n "$_p" ]] || continue
         [[ "$_s" == "user" && $UNINSTALL_USER -eq 0 ]] && continue
-        if [[ "$_s" == "user" ]]; then _stop="$HOME"; else _stop="$WORKSPACE"; fi
+        if [[ "$_s" == "user" ]]; then _stop="$_stop_user"; else _stop="$_stop_ws"; fi
+        # Only walk paths strictly under the scope root. dirname shortens the
+        # path every step, so the walk always lands on $_stop and ends -- and
+        # a root we can't match means we skip, never rmdir outside the scope.
+        [[ -n "$_stop" && "$_stop" != "/" ]] || continue
         _d="$(dirname "$_p")"
-        while [[ -n "$_d" && "$_d" != "/" && "$_d" != "$_stop" ]]; do
+        while [[ "$_d" == "$_stop"/* ]]; do
           [[ -d "$_d" && ! -L "$_d" ]] && rmdir "$_d" 2>/dev/null || true
           _d="$(dirname "$_d")"
         done
@@ -1740,10 +1871,20 @@ resolve_conflict() {
   case "$base" in
     copilot-instructions.md|CLAUDE.md|AGENTS.md) merge_eligible=1 ;;
   esac
+  local client_config=0
+  is_client_config "$dst" && client_config=1
   # Honor "-all" shortcut if set.
   case "$CONFLICT_BULK_CHOICE" in
     K) echo keep; return ;;
-    O) echo overwrite; return ;;
+    O)
+      if [[ $client_config -eq 1 ]]; then
+        echo "Kept $label -- client config is never bulk-overwritten (re-run and answer [o] on this file to replace it)." >&2
+        echo keep
+      else
+        echo overwrite
+      fi
+      return
+      ;;
     M)
       # Bulk merge only applies to allowlisted files; otherwise keep (safe).
       if [[ $merge_eligible -eq 1 ]]; then echo merge; else echo keep; fi
@@ -1761,7 +1902,10 @@ resolve_conflict() {
   echo "  existing: $dst" >&2
   echo "  pack:     $src" >&2
   local prompt
-  if [[ $merge_eligible -eq 1 ]]; then
+  if [[ $client_config -eq 1 ]]; then
+    echo "  This is client config (/assert-iq-tailor output). Overwriting saves a timestamped copy first." >&2
+    prompt="  [k]eep (default) / [o]verwrite / [s]idecar (.assert-iq-new) / [d]iff / [K/S]all / [a]bort: "
+  elif [[ $merge_eligible -eq 1 ]]; then
     prompt="  [k]eep / [o]verwrite / [m]erge (recommended) / [s]idecar (.assert-iq-new) / [d]iff / [K/O/M/S]all / [a]bort: "
   else
     prompt="  [k]eep / [o]verwrite / [s]idecar (.assert-iq-new) / [d]iff / [K/O/S]all / [a]bort: "
@@ -1769,6 +1913,12 @@ resolve_conflict() {
   local ans=""
   while :; do
     read -r -p "$prompt" ans </dev/tty
+    if [[ $client_config -eq 1 ]]; then
+      case "$ans" in
+        "") echo keep; return ;;
+        O) echo "  (overwrite-all is not available for client config; type o to replace this file)" >&2; continue ;;
+      esac
+    fi
     case "$ans" in
       k) echo keep; return ;;
       o) echo overwrite; return ;;
@@ -1834,8 +1984,11 @@ copy_file() {
     record "$label" "unchanged (pack-owned)" "$dst"
     return
   fi
-  # Differs. On upgrade, three-way merge to preserve user edits.
-  if [[ ${UPGRADE:-0} -eq 1 ]]; then
+  # Differs. On upgrade, three-way merge to preserve user edits. A plain
+  # re-run does the same for client config whenever the base cache can supply
+  # a merge baseline, so reinstalling over a tailored workspace keeps the
+  # tailoring.
+  if [[ ${UPGRADE:-0} -eq 1 ]] || { is_client_config "$dst" && [[ -n "$(base_lookup "$dst")" ]]; }; then
     upgrade_three_way "$label" "$src" "$dst" "$scope"
     return
   fi
@@ -1848,6 +2001,7 @@ copy_file() {
       ;;
     overwrite)
       backup_if_user_owned "$dst" "$scope"
+      save_overwrite_snapshot "$dst"
       cp "$src" "$dst"
       manifest_add "overwritten" "$dst" "$scope"
       base_snapshot "$src" "$dst"
@@ -2072,11 +2226,17 @@ seed_memory_store() {
   local aiq_base
   aiq_base="$(dirname "$mem")"
   mkdir -p "$aiq_base/verdicts/archive" "$aiq_base/dreaming/.snapshots" \
-           "$aiq_base/business-metrics/reports"
+           "$aiq_base/business-metrics/reports" "$aiq_base/estimates/archive"
   [[ -f "$mem/.dream/state.json" ]] || \
     printf '{\n  "last_dream_utc": null,\n  "sessions_since_dream": 0\n}\n' > "$mem/.dream/state.json"
   [[ -f "$mem/topics/.gitkeep" ]] || : > "$mem/topics/.gitkeep"
   [[ -f "$mem/logs/.gitkeep" ]]   || : > "$mem/logs/.gitkeep"
+  # memory/.gitignore keeps logs/ and .dream/ local-only in EVERY mode —
+  # committed installs and `--graduate` included. A .gitignore this deep in the
+  # tree outranks .git/info/exclude, which is what makes it the primary gate.
+  # Seeded only when absent, so an upgrade of an older install gains it while a
+  # hand-edited one is left alone.
+  [[ -f "$mem/.gitignore" ]] || seed_memory_gitignore "$mem/.gitignore"
   # README is static docs (not dream data) — seed it if the pack ships one.
   [[ -f "$mem/README.md" || ! -f "$SOURCE/.assert-iq/memory/README.md" ]] || \
     cp "$SOURCE/.assert-iq/memory/README.md" "$mem/README.md"
@@ -2586,6 +2746,10 @@ manifest_write
 # Backup-glob exclusions are always-on (every mode); per-path entries
 # and skip-worktree apply only in trial mode.
 write_exclude_block
+
+# An upgrade may land on a workspace where a previous version let the Dreaming
+# runtime into git. Ignore rules don't reach tracked files, so pull them out.
+untrack_local_only_memory
 
 if [[ "$MODE" == "trial" ]]; then
   apply_skip_worktree

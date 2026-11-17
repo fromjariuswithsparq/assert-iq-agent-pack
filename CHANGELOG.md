@@ -5,6 +5,167 @@ All notable changes to the Assert.IQ Agent Pack are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] — 2026-10-29
+
+### Fixed (the Dreaming runtime no longer leaks into the team's git)
+
+Graduating a trial install to committed exposed two things that should never
+have been team-visible: `.assert-iq/memory/.dream/state.json` and the daily
+notes under `.assert-iq/memory/logs/`. The reasoning was that committed mode
+tracks the memory store so every dream cycle is a reviewable diff — true of
+the dreamed *results*, wrong for the *inputs*. `logs/` is one note per session,
+which is each developer's own chat activity; `.dream/state.json` is a
+per-machine counter (`sessions_since_dream`, `last_dream_utc`) that every
+teammate rewrites on every session. Pulling each other's session logs and
+merging a counter is noise and conflicts, not signal.
+
+- **`.assert-iq/memory/logs/` and `.assert-iq/memory/.dream/` are now
+  local-only in every install mode** — `trial`, `committed`, and after
+  `--graduate`. The dreamed results the team actually wants (`MEMORY.md`,
+  `topics/*.md`) are unchanged: still tracked in a committed install, still a
+  reviewable diff, still `git revert`-able.
+- **New `.assert-iq/memory/.gitignore`**, shipped into every workspace by all
+  four installers (`bootstrap.sh`/`.ps1`, `install.sh`/`.ps1`). Seeded when
+  absent, so an upgrade of an older install gains it while a hand-edited one is
+  left alone. Additive patterns only, per `unit-gitignore-hygiene.sh`. A
+  `.gitignore` this deep in the tree outranks `.git/info/exclude`, which is
+  what makes it the primary gate rather than a second opinion.
+- **The always-on `.git/info/exclude` block** now carries
+  `.assert-iq/memory/logs/` and `.assert-iq/memory/.dream/` (replacing the two
+  narrower lock-file entries) as a backstop for installs predating the
+  `.gitignore`.
+- **`--graduate` / `-Graduate` seeds the memory `.gitignore` too.** It
+  short-circuits before the memory store is seeded, so without this the one
+  command most likely to expose the runtime was also the one that never
+  installed the rule against it.
+- **Already-tracked runtime paths are untracked.** Ignore rules reach only
+  untracked files, so install, upgrade, and graduate now run
+  `git rm --cached` over `memory/logs/` and `memory/.dream/` when git is
+  already carrying them, print what they untracked, and leave every file on
+  disk for the user to commit.
+- **Tests:** two new E2E cases per platform — committed mode hides the runtime
+  while leaving `MEMORY.md` and `topics/` trackable, and graduate hides it,
+  untracks a pre-existing commit of it, and keeps the files on disk
+  (`e2e-bootstrap.sh` 45–46, `e2e-bootstrap.ps1` 46–47).
+- **Docs:** `memory/README.md` gains a *What git sees* table; `dreaming/README.md`,
+  `governance.md` (with the opt-in path for a compliance posture that really
+  does want the raw stream), `README.assert-iq.md` (mode table + graduate
+  section), the `/dream` skill, and `MANIFEST.md` all updated.
+
+
+### Fixed (back-to-back upgrades silently wiped `/assert-iq-tailor` choices)
+
+A workspace that had been tailored for two months was upgraded several times
+in a row. That reset `config.yaml`, `governance.md`, `maturity-profile.md` and
+`business-metrics/baseline.json` to template defaults, with no prompt and no
+backup. The team only noticed after graduating the pack, when the template
+defaults were already committed.
+
+- **A merged file is no longer treated as unedited.** The first upgrade merged
+  the tailoring in correctly and recorded the merged file's SHA in the
+  manifest. The second upgrade saw the file was unchanged since that run, took
+  that to mean "unedited pack content", and copied the template over it.
+  "Unedited" now means the file matches the pristine pack copy in the
+  install-time base cache. With no base cache, the manifest SHA only counts
+  when the last run wrote the pack copy verbatim (`created` or
+  `unchanged_owned`). Fixed in `bootstrap.sh` and `bootstrap.ps1`.
+- **Every overwrite now snapshots your version first.** `bootstrap.sh` and
+  `bootstrap.ps1` copy the file to
+  `<file>.assert-iq.pre-overwrite-<UTC timestamp>` before replacing it. This
+  applies on install, re-run and `--upgrade`. Before this change, the
+  `--upgrade` overwrite paths made no backup. The `.pre-install` backup was
+  only ever written once, before the pack arrived. The snapshot is skipped
+  when the file still matches the pristine pack content. The snapshots are
+  excluded from git, and `--uninstall` leaves them alone.
+- **Client config is protected on re-runs.** Those four files now three-way
+  merge against the install-time base cache on a plain re-run too, not only
+  on `--upgrade`, so your tailoring survives. With no base to merge against,
+  the prompt defaults to keep (Enter), and neither `[O]all` nor
+  `CONFLICT_BULK_CHOICE=O` can overwrite them. Replacing one takes an
+  explicit `[o]` for that file.
+- New regression test `unit-overwrite-snapshot.sh` covers both installers,
+  including two upgrades in a row with and without the base cache.
+
+## [2.2.0] — 2026-10-28
+
+### Added (story sizing through the QI lens)
+
+A cross-functional group (Dev, QA, BA, PM) asked whether Assert.IQ could help
+with story pointing based on team dynamics, with the team's makeup captured as
+an artifact. The pack had nothing for estimation, roles, or levels.
+
+- **New `/estimate-story` skill.** It sizes a story by reading the same
+  evidence the pack already uses for PR risk:
+  - **Change risk:** hotspot tier and dependency reach.
+  - **Protection:** coverage on the touched modules, plus an explicit
+    QA/test-effort line.
+  - **Trust:** AC quality and flaky areas.
+  - **Outcome:** escapes, and how similar stories actually went for this
+    team.
+- **It returns two outputs, kept apart on purpose:**
+  - **A. Size:** a point *range* with a confidence band, computed without the
+    team profile, so points stay a team-relative size and velocity stays
+    comparable across assignees.
+  - **B. Team fit:** roles needed, an elapsed-time band per level, bus-factor
+    and capacity flags, and waits (review, environments, other teams).
+  - The verdict is **Estimable**, **Refine first** (ACs too weak to size), or
+    **Split**. A missing input is UNGRADED with a reason and widens the range;
+    it is never guessed.
+- **The human always picks the final number.** Output modes are chosen per run
+  and capped by maturity tier:
+  - `early`: report or tracker comment.
+  - `mid` and above: also the Story Points field.
+  - Every write is confirmed per item. `story_estimation.maturity_override`
+    can only lower the tier.
+- **New `.assert-iq/team-profile.template.yaml`:** a role-slot profile (role,
+  level, capacity, module familiarity) with no names. `/estimate-story`
+  scaffolds `.assert-iq/team-profile.yaml` on first run after the human
+  confirms it. `.assert-iq/governance.md` § 5 now states that the profile is
+  slots-only and planning-only. It must not be used to evaluate people, and
+  levels are never inferred from git or the tracker. Story-estimate tracker
+  writes join the always-on human review gates.
+- **New `story_estimation:` section in `config.yaml`:** scale, profile path,
+  history window, tracker story-point fields, reference stories, range
+  shaping, and allowed output modes.
+- **New `estimate.generated` signal in `signal-schema.json`.**
+- **New estimates log at `.assert-iq/estimates/archive/`:** local-only, with
+  an additive `.gitignore`. It reserves `actual_*` fields for later
+  calibration and records a level, never a person. Both installers and both
+  bootstrap scripts create the folder and prune it on uninstall when it is
+  empty, the same as the other runtime sinks.
+- **32 skills total** (was 31). The skill is registered in both lead agents
+  and both planners. The Claude planner was also missing `/calibration-report`;
+  it now has it.
+
+### Fixed (upgrade instructions described a destructive path)
+
+- **`README.assert-iq` (.md and .html) told users to upgrade by uninstalling
+  and reinstalling**, which throws away their edits to pack files. The real
+  path already existed. The section now documents:
+  - re-running the installer for the pack clone;
+  - `bootstrap.sh --upgrade` / `bootstrap.ps1 -Upgrade` from each target
+    repo, which three-way merges user edits, keeps the original trial or
+    committed mode, and writes `.assert-iq-new` sidecars on conflict;
+  - that `--dry-run` previews uninstall only, not upgrade.
+- **Stale skill counts:** `assert-iq-bootstrap/SKILL.md` said 26 and
+  `bootstrap.sh --help` said 24.
+
+### Fixed (`bootstrap.sh --uninstall` could hang forever on Windows)
+
+- **The manifest-driven empty-directory sweep never ended under Git Bash with
+  a native Windows `jq`.** MSYS path-converts arguments passed to a native
+  `jq`, so the manifest holds `C:/Users/...` paths while `$WORKSPACE` is
+  `/tmp/...`. The walk up each path's parents never met the workspace root,
+  ran on to `C:/`, `C:` and `.`, and `dirname .` is `.`. That `jq` also ends
+  lines with CRLF, which left a `\r` on every value. Found when
+  `unit-legacy-exclude-strip.sh` sat for two hours.
+  - The stop roots now go through the same `jq` conversion as the manifest
+    paths, and `\r` is stripped.
+  - The walk only runs for paths strictly under the scope root, so it always
+    terminates and can no longer `rmdir` anything outside the workspace.
+    A path whose root can't be matched is skipped; the hardcoded directory
+    lists still clean up the known pack folders.
+
 ## [2.1.3] — 2026-09-04
 
 ### Added (a feature guide — the pack listed its features but never explained them)
@@ -1940,6 +2101,8 @@ change in incompatible ways without a major-version bump.
 
 See git history (`git log v0.8.0`). Releases prior to 1.0.0 are pre-stable.
 
+[2.2.1]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.2.0...v2.2.1
+[2.2.0]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.3...v2.2.0
 [2.1.3]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.2...v2.1.3
 [2.1.2]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.1...v2.1.2
 [2.1.1]: https://github.com/fromjariuswithsparq/assert-iq-agent-pack/compare/v2.1.0...v2.1.1

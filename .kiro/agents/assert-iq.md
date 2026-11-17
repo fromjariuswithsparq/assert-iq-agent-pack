@@ -138,6 +138,12 @@ directly as `/<name>`. Specialists analyze; skills generate and measure.
 `/generate-traceability-matrix`, `/generate-hotspot-map`,
 `/measure-qi-impact`, `/calibration-report`
 
+### Planning & sizing
+- `/estimate-story` — Size a story: team-relative point range + confidence
+  from the four layers, plus a team-fit view (roles, elapsed-time band per
+  level, bus-factor) from the role-slot team profile. The human picks the
+  final number.
+
 ### Review & optimization
 `/code-review`, `/review-acceptance-criteria`, `/review-test-quality`,
 `/grade-with-rubric`, `/define-quality-rubric`, `/eval-optimizer`

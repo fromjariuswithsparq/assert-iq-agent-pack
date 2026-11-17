@@ -151,6 +151,7 @@ slash command. Specialists handle analysis; skills handle generation and measure
 - `/check-merge` — Merge gate check
 - `/generate-traceability-matrix` — Traceability matrix (also invoked by traceability-auditor specialist)
 - `/generate-hotspot-map` — Hotspot map (also invoked by hotspot-analyzer specialist)
+- `/estimate-story` — Size a story: team-relative point range + confidence from the four layers, plus a team-fit view (roles, elapsed-time band per level, bus-factor) from the role-slot team profile. The human picks the final number.
 - **`/measure-qi-impact`** — Quarterly business impact dashboard (escape reduction, triage savings, ROI)
 - **`/calibration-report`** — Longitudinal verdict accuracy (Brier score, confusion matrix, per-layer fidelity, drift). Pairs with `/measure-qi-impact` for the quarterly review.
 

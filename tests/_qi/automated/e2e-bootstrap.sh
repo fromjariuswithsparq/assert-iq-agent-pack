@@ -999,7 +999,73 @@ case_44_upgrade_preserves_trial_mode() {
   cleanup_fixture "$pair"
 }
 
-case_45_skills_dest_reclaimed_not_sidecarred() {
+
+# ---- Dreaming runtime stays local in every mode (v2.2.1) -------------------
+
+case_45_committed_hides_dream_runtime() {
+  # Committed mode exposes the pack on purpose, but the Dreaming runtime is
+  # per-developer: session logs under memory/logs/ and the dream counter in
+  # memory/.dream/. Those must be invisible to git in committed mode too,
+  # while the dream RESULTS (MEMORY.md, topics/*.md) stay visible.
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
+  assert_file_exists 45 "$ws/.assert-iq/memory/.gitignore"
+  assert_contains    45 "$ws/.assert-iq/memory/.gitignore" "logs/"
+  assert_contains    45 "$ws/.assert-iq/memory/.gitignore" ".dream/"
+  # Simulate a session note; the counter is seeded by the install itself.
+  mkdir -p "$ws/.assert-iq/memory/logs/2026/10"
+  printf -- '- session ended\n' > "$ws/.assert-iq/memory/logs/2026/10/2026-10-29.md"
+  assert_file_exists 45 "$ws/.assert-iq/memory/.dream/state.json"
+  ( cd "$ws" && git check-ignore --quiet ".assert-iq/memory/logs/2026/10/2026-10-29.md" ) \
+    || fail 45 "dream session log not ignored in committed mode"
+  ( cd "$ws" && git check-ignore --quiet ".assert-iq/memory/.dream/state.json" ) \
+    || fail 45 "dream state.json not ignored in committed mode"
+  # The results the team DOES want must stay trackable.
+  printf -- '- fact\n' > "$ws/.assert-iq/memory/topics/architecture.md"
+  if ( cd "$ws" && git check-ignore --quiet ".assert-iq/memory/topics/architecture.md" ); then
+    fail 45 "memory topic wrongly ignored (team content)"
+  fi
+  if ( cd "$ws" && git check-ignore --quiet ".assert-iq/memory/MEMORY.md" ); then
+    fail 45 "MEMORY.md wrongly ignored (team content)"
+  fi
+  cleanup_fixture "$pair"
+}
+
+case_46_graduate_hides_dream_runtime() {
+  # --graduate is the other way a workspace becomes team-visible, and it
+  # short-circuits before the memory store is seeded. It must still leave the
+  # Dreaming runtime hidden -- and must untrack it if an older version of the
+  # pack already let it into the index.
+  local pair; pair="$(mkfixture)"
+  local ws="${pair%:*}"
+  run_boot "$pair" --preset=pod --mode=trial --yes >/dev/null
+  # Stand in for a pre-2.2.1 install: no memory/.gitignore, and the runtime
+  # already committed.
+  rm -f "$ws/.assert-iq/memory/.gitignore"
+  mkdir -p "$ws/.assert-iq/memory/logs/2026/10"
+  printf -- '- session ended\n' > "$ws/.assert-iq/memory/logs/2026/10/2026-10-29.md"
+  ( cd "$ws" && git add -f ".assert-iq/memory/logs/2026/10/2026-10-29.md" \
+      ".assert-iq/memory/.dream/state.json" && git commit -q -m "pre-2.2.1" )
+  run_boot "$pair" --graduate >/dev/null
+  assert_file_exists 46 "$ws/.assert-iq/memory/.gitignore"
+  assert_contains    46 "$ws/.git/info/exclude" ".assert-iq/memory/logs/"
+  assert_contains    46 "$ws/.git/info/exclude" ".assert-iq/memory/.dream/"
+  # Index entry gone, file still on disk.
+  local still
+  still="$( cd "$ws" && git ls-files -- '.assert-iq/memory/logs' '.assert-iq/memory/.dream' )"
+  [[ -z "$still" ]] || fail 46 "graduate left Dreaming runtime tracked: $still"
+  assert_file_exists 46 "$ws/.assert-iq/memory/logs/2026/10/2026-10-29.md"
+  assert_file_exists 46 "$ws/.assert-iq/memory/.dream/state.json"
+  # And ignored, so they don't come back as untracked noise.
+  ( cd "$ws" && git check-ignore --quiet ".assert-iq/memory/logs/2026/10/2026-10-29.md" ) \
+    || fail 46 "dream session log not ignored after graduate"
+  ( cd "$ws" && git check-ignore --quiet ".assert-iq/memory/.dream/state.json" ) \
+    || fail 46 "dream state.json not ignored after graduate"
+  cleanup_fixture "$pair"
+}
+
+case_47_skills_dest_reclaimed_not_sidecarred() {
   # FIELD REPORT: a developer installed into a Kiro workspace and could not
   # invoke a single skill. `.kiro/skills.assert-iq-new` held all 31 skills
   # while `.kiro/skills` -- the only path Kiro reads -- held none.
@@ -1012,15 +1078,15 @@ case_45_skills_dest_reclaimed_not_sidecarred() {
   # nothing and broke the install.
   #
   # Three states, one contract: replace what is ours, never touch what is not.
-  # (Twin of case 46 in e2e-bootstrap.ps1.)
+  # (Twin of case 48 in e2e-bootstrap.ps1.)
   local pair ws
 
   # (a) EMPTY pre-existing dir -- the exact reported state.
   pair="$(mkfixture)"; ws="${pair%:*}"
   mkdir -p "$ws/.kiro/skills"
   run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
-  assert_file_exists 45 "$ws/.kiro/skills/dream/SKILL.md"
-  assert_dir_missing 45 "$ws/.kiro/skills.assert-iq-new"
+  assert_file_exists 47 "$ws/.kiro/skills/dream/SKILL.md"
+  assert_dir_missing 47 "$ws/.kiro/skills.assert-iq-new"
   cleanup_fixture "$pair"
 
   # (b) A pack COPY from a previous run -- must be reclaimed, not sidecarred.
@@ -1028,8 +1094,8 @@ case_45_skills_dest_reclaimed_not_sidecarred() {
   mkdir -p "$ws/.kiro"
   cp -R "$PACK/.github/skills" "$ws/.kiro/skills"
   run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
-  assert_file_exists 45 "$ws/.kiro/skills/dream/SKILL.md"
-  assert_dir_missing 45 "$ws/.kiro/skills.assert-iq-new"
+  assert_file_exists 47 "$ws/.kiro/skills/dream/SKILL.md"
+  assert_dir_missing 47 "$ws/.kiro/skills.assert-iq-new"
   cleanup_fixture "$pair"
 
   # (c) GENUINE user content -- MERGE, do not sidecar and do not clobber.
@@ -1042,16 +1108,16 @@ case_45_skills_dest_reclaimed_not_sidecarred() {
   mkdir -p "$ws/.kiro/skills/my-own-skill"
   printf 'do not delete me\n' > "$ws/.kiro/skills/my-own-skill/SKILL.md"
   run_boot "$pair" --preset=pod --mode=committed --yes >/dev/null
-  assert_contains    45 "$ws/.kiro/skills/my-own-skill/SKILL.md" "do not delete me"
-  assert_file_exists 45 "$ws/.kiro/skills/dream/SKILL.md"
-  assert_dir_missing 45 "$ws/.kiro/skills.assert-iq-new"
+  assert_contains    47 "$ws/.kiro/skills/my-own-skill/SKILL.md" "do not delete me"
+  assert_file_exists 47 "$ws/.kiro/skills/dream/SKILL.md"
+  assert_dir_missing 47 "$ws/.kiro/skills.assert-iq-new"
 
   # And UNINSTALL must be surgical: our skills go, his stays, and the directory
   # itself survives because it is not empty.
   run_boot "$pair" --uninstall --yes >/dev/null
-  assert_contains     45 "$ws/.kiro/skills/my-own-skill/SKILL.md" "do not delete me"
-  assert_file_missing 45 "$ws/.kiro/skills/dream/SKILL.md"
-  assert_dir_exists   45 "$ws/.kiro/skills"
+  assert_contains     47 "$ws/.kiro/skills/my-own-skill/SKILL.md" "do not delete me"
+  assert_file_missing 47 "$ws/.kiro/skills/dream/SKILL.md"
+  assert_dir_exists   47 "$ws/.kiro/skills"
   cleanup_fixture "$pair"
 }
 
@@ -1121,7 +1187,9 @@ run_case "41 uninstall preserves sink content"        case_41_uninstall_preserve
 run_case "42 uninstall removes un-consolidated memory" case_42_uninstall_removes_unconsolidated_memory
 run_case "43 upgrade orphans de-payloaded path"  case_43_upgrade_orphans_depayloaded_path
 run_case "44 upgrade preserves trial mode"       case_44_upgrade_preserves_trial_mode
-run_case "45 skills dest reclaimed not sidecar"  case_45_skills_dest_reclaimed_not_sidecarred
+run_case "45 committed hides dream runtime"      case_45_committed_hides_dream_runtime
+run_case "46 graduate hides dream runtime"       case_46_graduate_hides_dream_runtime
+run_case "47 skills dest reclaimed not sidecar"  case_47_skills_dest_reclaimed_not_sidecarred
 
 echo ""
 echo "Summary: $(grn $CASES_PASS pass)  $(red $CASES_FAIL fail)  $(ylw $CASES_SKIP skip)"

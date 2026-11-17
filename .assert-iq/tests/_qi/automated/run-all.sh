@@ -31,6 +31,30 @@ cd "$REPO_ROOT"
 PARITY="e2e-agent-parity.sh"
 PREFLIGHT="unit-test-dependencies.sh"
 
+# On Windows, exercise the PowerShell installer half only.
+#
+# unit-overwrite-snapshot.sh drives the real installers and defaults to running
+# BOTH halves (sh and ps1). Under MSYS the sh half is pathological: bootstrap.sh
+# takes ~9 minutes per install there, and that test performs five of them, so a
+# Windows suite run spends ~45 minutes inside one test. Measured here at 15+
+# minutes with no output before it was killed.
+#
+# The test already anticipates this -- its own comment says the sh half "belongs
+# on macOS/Linux" and it reads AIQ_TEST_INSTALLERS to narrow the run. Nothing
+# set it, so the default lost. Set it here rather than inside the test so the
+# choice is visible to whoever runs the suite, and so a maintainer can still
+# force the slow half with AIQ_TEST_INSTALLERS="sh ps1".
+#
+# This is NOT a coverage trade: the ps1 half is the installer Windows users
+# actually run, and the sh half still runs in full on macOS, Linux and WSL.
+# Contrast unit-legacy-exclude-strip.sh, which has no ps1 twin and therefore
+# SKIPs here outright.
+case "$(uname -s 2>/dev/null)" in
+  MINGW*|MSYS*|CYGWIN*)
+    export AIQ_TEST_INSTALLERS="${AIQ_TEST_INSTALLERS:-ps1}"
+    ;;
+esac
+
 pass=0
 fail=0
 skipped=0

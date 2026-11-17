@@ -218,6 +218,7 @@ executing agent should invoke.
 | Author a versioned quality rubric | `/define-quality-rubric` |
 | Quarterly business impact / ROI dashboard | `/measure-qi-impact` |
 | Verdict accuracy over time (Brier, drift) | `/calibration-report` |
+| Story points / size this story / refinement estimate / team profile | `/estimate-story` |
 | Consolidate agent memory | `/dream` |
 | Evaluate / optimize an AI instruction artifact | `/eval-optimizer` |
 
