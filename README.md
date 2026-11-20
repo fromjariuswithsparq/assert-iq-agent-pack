@@ -365,7 +365,7 @@ The agent pulls context from your connected tools and reasons through all four s
 
 ### Update to a newer version
 
-Two steps: refresh your copy of the pack, then run the same install command again. Re-installing is safe — it replaces the pack's own files and leaves your edits to `config.yaml`, `governance.md`, and `maturity-profile.md` alone.
+Two steps: refresh your copy of the pack, then re-run the installer with the upgrade flag. Upgrading is safe — it keeps the install mode you chose, merges pack updates into the pack's files, and leaves your edits to `config.yaml`, `governance.md`, and `maturity-profile.md` alone.
 
 Worth a look first: the [Releases page](https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases) says what changed.
 
@@ -376,9 +376,9 @@ Worth a look first: the [Releases page](https://github.com/fromjariuswithsparq/a
 cd ~/assert-iq-agent-pack
 git pull
 
-# 2. Go back to your project and re-run the install.
+# 2. Go back to your project and upgrade the install.
 cd ~/code/my-app
-bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
+bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --upgrade
 ```
 
 #### On Windows
@@ -388,9 +388,9 @@ bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial
 cd $HOME\assert-iq-agent-pack
 git pull
 
-# 2. Go back to your project and re-run the install.
+# 2. Go back to your project and upgrade the install.
 cd $HOME\code\my-app
-pwsh -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial
+pwsh -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Upgrade
 ```
 
 Reload your editor afterwards, the same way you did after installing.

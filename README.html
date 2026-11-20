@@ -649,7 +649,7 @@ pwsh -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></
 
     <div class="step">
       <h3 id="update-to-a-newer-version">Update to a newer version</h3>
-      <p>Two steps: refresh your copy of the pack, then run the same install command again. Re-installing is safe — it replaces the pack's own files and leaves your edits to <code>config.yaml</code>, <code>governance.md</code>, and <code>maturity-profile.md</code> alone.</p>
+      <p>Two steps: refresh your copy of the pack, then re-run the installer with the upgrade flag. Upgrading is safe — it keeps the install mode you chose, merges pack updates into the pack's files, and leaves your edits to <code>config.yaml</code>, <code>governance.md</code>, and <code>maturity-profile.md</code> alone.</p>
       <p style="font-size:0.92em;">Worth a look first: the <a href="https://github.com/fromjariuswithsparq/assert-iq-agent-pack/releases">Releases page</a> says what changed.</p>
 
       <div class="paths">
@@ -659,9 +659,9 @@ pwsh -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></
 cd ~/assert-iq-agent-pack
 git pull
 
-<span class="comment"># 2. Go back to your project and re-run the install.</span>
+<span class="comment"># 2. Go back to your project and upgrade the install.</span>
 cd ~/code/my-app
-bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial</code></pre>
+bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --upgrade</code></pre>
         </div>
 
         <div class="path-card">
@@ -670,9 +670,9 @@ bash ~/assert-iq-agent-pack/scripts/bootstrap.sh --mode=trial</code></pre>
 cd $HOME\assert-iq-agent-pack
 git pull
 
-<span class="comment"># 2. Go back to your project and re-run the install.</span>
+<span class="comment"># 2. Go back to your project and upgrade the install.</span>
 cd $HOME\code\my-app
-pwsh -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Mode trial</code></pre>
+pwsh -File $HOME\assert-iq-agent-pack\scripts\bootstrap.ps1 -Upgrade</code></pre>
         </div>
       </div>
       <p style="font-size:0.92em;margin-top:16px;">Reload your editor afterwards, the same way you did after installing.</p>
